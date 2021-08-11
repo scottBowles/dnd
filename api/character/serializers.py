@@ -5,3 +5,4 @@ from .models import Character
 class CharacterSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = Character
+        exclude = ("user",)
