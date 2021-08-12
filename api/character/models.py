@@ -61,8 +61,7 @@ class MoneyHolderMixin(models.Model):
         abstract = True
 
 
-class Character(AbilityScoreArrayMixin, MoneyHolderMixin):
-    # Should I have characteristics that get recalculated and adjusted on save, or on save from related models, or on creation and on demand only? Worried about calculating too much on the fly.
+class AlignmentMixin(models.Model):
     class Alignment(models.TextChoices):
         LAWFUL_GOOD = "LG", "Lawful Good"
         NEUTRAL_GOOD = "NG", "Neutral Good"
@@ -74,10 +73,30 @@ class Character(AbilityScoreArrayMixin, MoneyHolderMixin):
         NEUTRAL_EVIL = "NE", "Neutral Evil"
         CHAOTIC_EVIL = "CE", "Chaotic Evil"
 
-    name = models.CharField(max_length=200, null=True, blank=True)
     alignment = models.CharField(
         max_length=2, choices=Alignment.choices, null=True, blank=True
     )
+
+    class Meta:
+        abstract = True
+
+
+class HitPointsMixin(models.Model):
+    max_hit_points = models.PositiveIntegerField(default=1)
+    temporary_hit_points = models.IntegerField(default=0)
+    damage_taken = models.PositiveIntegerField(default=0)
+
+    @property
+    def hit_points_current(self):
+        return self.max_hit_points + self.temporary_hit_points - self.damage_taken
+
+
+class Character(
+    AbilityScoreArrayMixin, AlignmentMixin, HitPointsMixin, MoneyHolderMixin
+):
+    # Should I have characteristics that get recalculated and adjusted on save, or on save from related models, or on creation and on demand only? Worried about calculating too much on the fly.
+
+    name = models.CharField(max_length=200, null=True, blank=True)
     character_class = models.CharField(
         max_length=200, null=True, blank=True
     )  # many to many? include levels? default to some kind of commoner?
@@ -85,11 +104,7 @@ class Character(AbilityScoreArrayMixin, MoneyHolderMixin):
     background = models.CharField(max_length=200, null=True, blank=True)  # fk
     race = models.CharField(max_length=200, null=True, blank=True)  # fk
     experience_points = models.PositiveIntegerField(default=0)
-    hit_points = models.PositiveIntegerField(default=0)  # calculated?
-    # hit_points_maximum
-    # hit_points_current -- calculated? methods for taking damage, healing, effects from rests, etc.
-    # hit_points_temporary
-    # hit_points_damage_taken
+
     inspiration = models.BooleanField(default=False)
     # equipment = many to many. distinguish by type almost certainly. should have access to custom modifiers.
     # features and traits = many to many. should have access to custom modifiers. many will come from class, race, but will want own model to add custom.
