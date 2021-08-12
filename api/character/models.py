@@ -90,6 +90,9 @@ class HitPointsMixin(models.Model):
     def hit_points_current(self):
         return self.max_hit_points + self.temporary_hit_points - self.damage_taken
 
+    class Meta:
+        abstract = True
+
 
 class Character(
     AbilityScoreArrayMixin, AlignmentMixin, HitPointsMixin, MoneyHolderMixin
@@ -108,7 +111,7 @@ class Character(
     inspiration = models.BooleanField(default=False)
     # equipment = many to many. distinguish by type almost certainly. should have access to custom modifiers.
     # features and traits = many to many. should have access to custom modifiers. many will come from class, race, but will want own model to add custom.
-    # attacks and spellcasting -- should come from spellcasting abilities, equipment. all should have unarmed.
+    # attacks and spellcasting -- should come from spellcasting abilities, equipment. all should have unarmed. spellcaster mixin?
     death_save_successes = models.PositiveIntegerField(default=0)  # reset as needed
     death_save_failures = models.PositiveIntegerField(default=0)  # reset as needed
 
@@ -155,3 +158,4 @@ class Character(
 
     def gain_experience(self, amount):
         self.experience_points += amount
+        # self.save() ?
