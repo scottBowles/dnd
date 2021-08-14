@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from character.models import Bond, Flaw, Ideal, PersonalityTrait
+from character.models import Bond, Flaw, Ideal, PersonalityTrait, ClassAndLevel
 
 
 class PersonalityTraitInline(admin.TabularInline):
@@ -26,6 +26,13 @@ class BondInline(admin.TabularInline):
 
 class FlawInline(admin.TabularInline):
     model = Flaw
+    classes = [
+        "collapse",
+    ]
+
+
+class ClassAndLevelInline(admin.TabularInline):
+    model = ClassAndLevel
     classes = [
         "collapse",
     ]

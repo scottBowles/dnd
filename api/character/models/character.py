@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from .character_class import CharacterClass
 
 
 class AbilityScoreArrayMixin(models.Model):
@@ -11,29 +12,33 @@ class AbilityScoreArrayMixin(models.Model):
     wisdom = models.PositiveIntegerField(default=10)
     charisma = models.PositiveIntegerField(default=10)
 
+    @staticmethod
+    def _get_modifier(score):
+        return score // 2 - 5 if type(score) is int else score
+
     @property
     def strength_modifier(self):
-        return self.strength // 2 - 5
+        return Character._get_modifier(self.strength)
 
     @property
     def dexterity_modifier(self):
-        return self.dexterity // 2 - 5
+        return Character._get_modifier(self.dexterity)
 
     @property
     def constitution_modifier(self):
-        return self.constitution // 2 - 5
+        return Character._get_modifier(self.constitution)
 
     @property
     def intelligence_modifier(self):
-        return self.intelligence // 2 - 5
+        return Character._get_modifier(self.intelligence)
 
     @property
     def wisdom_modifier(self):
-        return self.wisdom // 2 - 5
+        return Character._get_modifier(self.wisdom)
 
     @property
     def charisma_modifier(self):
-        return self.charisma // 2 - 5
+        return Character._get_modifier(self.charisma)
 
     class Meta:
         # abstract for now, but if I want to be able to query all ability score arrays, should instead use multi-table inheritance (https://docs.djangoproject.com/en/dev/topics/db/models/#id6)
@@ -188,3 +193,12 @@ class Flaw(models.Model):
     )
     name = models.CharField(max_length=500, default="")
     text = models.TextField(default="")
+
+
+class ClassAndLevel(models.Model):
+    """Mapping table for tracking a character's class and level in that class."""
+
+    character_class = models.ForeignKey(to=CharacterClass, on_delete=models.PROTECT)
+    level = models.PositiveIntegerField()
+    character = models.ForeignKey(to=Character, on_delete=models.CASCADE)
+    # TODO: I'll probably want to add class selections here

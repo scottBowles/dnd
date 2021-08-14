@@ -1,7 +1,13 @@
 from django.contrib import admin
 
-from character.models import Character
-from .inlines import BondInline, FlawInline, IdealInline, PersonalityTraitInline
+from character.models import Character, CharacterClass
+from .inlines import (
+    BondInline,
+    FlawInline,
+    IdealInline,
+    PersonalityTraitInline,
+    ClassAndLevelInline,
+)
 
 
 @admin.register(Character)
@@ -11,4 +17,8 @@ class CharacterAdmin(admin.ModelAdmin):
         IdealInline,
         BondInline,
         FlawInline,
+        ClassAndLevelInline,
     ]
+
+
+admin.site.register(CharacterClass)
