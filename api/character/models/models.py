@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 
 
 class AbilityScoreArrayMixin(models.Model):
+    # TODO: Remove default, so null value can serve for unknown for creatures we come across?
     strength = models.PositiveIntegerField(default=10)
     dexterity = models.PositiveIntegerField(default=10)
     constitution = models.PositiveIntegerField(default=10)
@@ -97,6 +98,7 @@ class HitPointsMixin(models.Model):
 class Character(
     AbilityScoreArrayMixin, AlignmentMixin, HitPointsMixin, MoneyHolderMixin
 ):
+    # Should I have PC and NPC classes that inherit from Character? What is common and not?
     # Should I have characteristics that get recalculated and adjusted on save, or on save from related models, or on creation and on demand only? Worried about calculating too much on the fly.
 
     name = models.CharField(max_length=200, null=True, blank=True)
@@ -118,11 +120,6 @@ class Character(
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, null=True, blank=True
     )  # Create a Player model for this instead, accessing users through that? Seems like a one-to-one facade over user, unless users can have multiple players. Should we let users customize their player information per character (in which case one-to-many)?
-    # Should the below be variants on one type of thing? `Character Flavor` or something?
-    # personality_traits - many to many? one to many with each custom?
-    # ideals - many to many? one to many with each custom?
-    # bonds - many to many? one to many with each custom?
-    # flaws - many to many? one to many with each custom?
 
     # `Other proficiencies and languages`
     # passive_wisdom
@@ -159,3 +156,35 @@ class Character(
     def gain_experience(self, amount):
         self.experience_points += amount
         # self.save() ?
+
+
+class Bond(models.Model):
+    character = models.ForeignKey(
+        Character, on_delete=models.PROTECT, null=True, blank=True
+    )
+    name = models.CharField(max_length=500, default="")
+    text = models.TextField(default="")
+
+
+class PersonalityTrait(models.Model):
+    character = models.ForeignKey(
+        Character, on_delete=models.PROTECT, null=True, blank=True
+    )
+    name = models.CharField(max_length=500, default="")
+    text = models.TextField(default="")
+
+
+class Ideal(models.Model):
+    character = models.ForeignKey(
+        Character, on_delete=models.PROTECT, null=True, blank=True
+    )
+    name = models.CharField(max_length=500, default="")
+    text = models.TextField(default="")
+
+
+class Flaw(models.Model):
+    character = models.ForeignKey(
+        Character, on_delete=models.PROTECT, null=True, blank=True
+    )
+    name = models.CharField(max_length=500, default="")
+    text = models.TextField(default="")
