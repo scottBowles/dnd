@@ -198,6 +198,9 @@ class Flaw(models.Model):
 class ClassAndLevel(models.Model):
     """Mapping table for tracking a character's class and level in that class."""
 
+    class Meta:
+        verbose_name_plural = "classes and levels"
+
     character_class = models.ForeignKey(to=CharacterClass, on_delete=models.PROTECT)
     level = models.PositiveIntegerField()
     character = models.ForeignKey(to=Character, on_delete=models.CASCADE)
