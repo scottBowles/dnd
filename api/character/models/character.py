@@ -1,7 +1,10 @@
+import math
+
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.aggregates import Sum
 from .character_class import CharacterClass
+from .mixins import HitDieMixin
 
 
 class AbilityScoreArrayMixin(models.Model):
@@ -102,6 +105,7 @@ class HitPointsMixin(models.Model):
 
 
 class EquipmentFromInitialClass(models.Model):
+    # need different for weapon, armor, etc.?
     class Meta:
         verbose_name_plural = "equipment from initial class"
 
@@ -111,7 +115,11 @@ class EquipmentFromInitialClass(models.Model):
 
 
 class Character(
-    AbilityScoreArrayMixin, AlignmentMixin, HitPointsMixin, MoneyHolderMixin
+    AbilityScoreArrayMixin,
+    AlignmentMixin,
+    HitDieMixin,
+    HitPointsMixin,
+    MoneyHolderMixin,
 ):
     # Should I have PC and NPC classes that inherit from Character? What is common and not?
     # Should I have characteristics that get recalculated and adjusted on save, or on save from related models, or on creation and on demand only? Worried about calculating too much on the fly.
@@ -120,20 +128,40 @@ class Character(
     character_class = models.CharField(
         max_length=200, null=True, blank=True
     )  # many to many? include levels? default to some kind of commoner?
-    level = models.PositiveIntegerField(default=1)  # sum character class?
     background = models.CharField(max_length=200, null=True, blank=True)  # fk
     race = models.CharField(max_length=200, null=True, blank=True)  # fk
     experience_points = models.PositiveIntegerField(default=0)
+    speed = models.PositiveIntegerField(default=0)  # choices?
+    speed.help_text = "Usually comes from your race"
+    initiative = models.PositiveIntegerField(default=0)
+    initiative.help_text = "Equal to dex mod unless you have a feat or similar. If you're not sure, it's your dex mod."
 
     inspiration = models.BooleanField(default=False)
     equipment_from_initial_class = models.ForeignKey(
         EquipmentFromInitialClass, null=True, blank=True, on_delete=models.PROTECT
-    )
+    )  # do we care about this? do we really need to know where it comes from? over-complicating?
+
     # equipment = many to many. distinguish by type almost certainly. should have access to custom modifiers.
     # features and traits = many to many. should have access to custom modifiers. many will come from class, race, but will want own model to add custom.
     # attacks and spellcasting -- should come from spellcasting abilities, equipment. all should have unarmed. spellcaster mixin?
     death_save_successes = models.PositiveIntegerField(default=0)  # reset as needed
     death_save_failures = models.PositiveIntegerField(default=0)  # reset as needed
+
+    # Armor Proficiencies
+    proficient_light_armor = models.BooleanField(default=False)
+    proficient_medium_armor = models.BooleanField(default=False)
+    proficient_heavy_armor = models.BooleanField(default=False)
+    proficient_shields = models.BooleanField(default=False)
+
+    # Weapon Proficiencies
+    proficient_simple = models.BooleanField(default=False)
+    proficient_martial = models.BooleanField(default=False)
+
+    # Tool Proficiencies
+    proficient_tools = models.TextField(blank=True, null=True)
+
+    # Language Proficiencies
+    proficient_languages = models.TextField(blank=True, null=True)
 
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, null=True, blank=True
@@ -151,28 +179,25 @@ class Character(
         # TODO: flesh this out -- additional modifiers
         return 10 + self.dexterity_modifier
 
+    @property
     def total_level(self):
         return self.classandlevel_set.aggregate(Sum("level"))["level__sum"]
 
+    @property
     def proficiency_bonus(self):
-        # from total level
-        pass
+        return math.ceil((self.total_level / 4) + 1)
 
     def hit_dice(self):
         # from class. anything else? just use class for default and allow modification (in which case will need a property like `hit_dice_if_different_from_class`)?
         pass
 
     def num_hit_die(self):
-        # from total level. anything else?
+        # from total level. anything else? need to know whether pc or npc?
         pass
 
-    def initiative(self):
-        # dex plus from feats plus custom modifiers
-        pass
-
-    def speed(self):
-        # from race + modifiers
-        pass
+    # def initiative(self):
+    #     # dex plus from feats plus custom modifiers
+    #     pass
 
     def gain_experience(self, amount):
         self.experience_points += amount
