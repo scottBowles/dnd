@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.db.models.aggregates import Sum
 from .character_class import CharacterClass
 
 
@@ -100,6 +101,15 @@ class HitPointsMixin(models.Model):
         abstract = True
 
 
+class EquipmentFromInitialClass(models.Model):
+    class Meta:
+        verbose_name_plural = "equipment from initial class"
+
+    initial_class = models.ForeignKey(CharacterClass, on_delete=models.CASCADE)
+    # equipment = many to many
+    # equipment_choices = text field -- can I use multiple for a multiple?
+
+
 class Character(
     AbilityScoreArrayMixin, AlignmentMixin, HitPointsMixin, MoneyHolderMixin
 ):
@@ -116,6 +126,9 @@ class Character(
     experience_points = models.PositiveIntegerField(default=0)
 
     inspiration = models.BooleanField(default=False)
+    equipment_from_initial_class = models.ForeignKey(
+        EquipmentFromInitialClass, null=True, blank=True, on_delete=models.PROTECT
+    )
     # equipment = many to many. distinguish by type almost certainly. should have access to custom modifiers.
     # features and traits = many to many. should have access to custom modifiers. many will come from class, race, but will want own model to add custom.
     # attacks and spellcasting -- should come from spellcasting abilities, equipment. all should have unarmed. spellcaster mixin?
@@ -137,6 +150,9 @@ class Character(
     def armor_class(self):
         # TODO: flesh this out -- additional modifiers
         return 10 + self.dexterity_modifier
+
+    def total_level(self):
+        return self.classandlevel_set.aggregate(Sum("level"))["level__sum"]
 
     def proficiency_bonus(self):
         # from total level
@@ -204,4 +220,3 @@ class ClassAndLevel(models.Model):
     character_class = models.ForeignKey(to=CharacterClass, on_delete=models.PROTECT)
     level = models.PositiveIntegerField()
     character = models.ForeignKey(to=Character, on_delete=models.CASCADE)
-    # TODO: I'll probably want to add class selections here

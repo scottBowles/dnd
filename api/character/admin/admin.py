@@ -12,6 +12,43 @@ from .inlines import (
 
 @admin.register(Character)
 class CharacterAdmin(admin.ModelAdmin):
+    # fieldsets = (
+    #     (
+    #         "Ability Scores",
+    #         {
+    #             "fields": (
+    #                 (
+    #                     "strength",
+    #                     "dexterity",
+    #                     "constitution",
+    #                     "intelligence",
+    #                     "wisdom",
+    #                     "charisma",
+    #                 ),
+    #             )
+    #         },
+    #     ),
+    #     (
+    #         "Currency",
+    #         {
+    #             "fields": (
+    #                 "total_cash_display",
+    #                 (
+    #                     "platinum_pieces",
+    #                     "gold_pieces",
+    #                     "electrum_pieces",
+    #                     "silver_pieces",
+    #                     "copper_pieces",
+    #                 ),
+    #             ),
+    #         },
+    #     ),
+    # )
+
+    # readonly_fields = ("total_cash_display",)
+
+    readonly_fields = ("total_level",)
+
     inlines = [
         PersonalityTraitInline,
         IdealInline,
@@ -19,6 +56,10 @@ class CharacterAdmin(admin.ModelAdmin):
         FlawInline,
         ClassAndLevelInline,
     ]
+
+    # @admin.display(description="Total Cash on Hand (cp)")
+    # def total_cash_display(self, obj):
+    #     return obj.total_cash_on_hand
 
 
 admin.site.register(CharacterClass)
