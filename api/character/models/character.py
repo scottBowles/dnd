@@ -8,7 +8,6 @@ from .mixins import HitDieMixin
 
 
 class AbilityScoreArrayMixin(models.Model):
-    # TODO: Remove default, so null value can serve for unknown for creatures we come across?
     strength = models.PositiveIntegerField(default=10)
     dexterity = models.PositiveIntegerField(default=10)
     constitution = models.PositiveIntegerField(default=10)
@@ -124,19 +123,62 @@ class Character(
     # Should I have PC and NPC classes that inherit from Character? What is common and not?
     # Should I have characteristics that get recalculated and adjusted on save, or on save from related models, or on creation and on demand only? Worried about calculating too much on the fly.
 
+    # NAME BLOCK
     name = models.CharField(max_length=200, null=True, blank=True)
-    character_class = models.CharField(
-        max_length=200, null=True, blank=True
-    )  # many to many? include levels? default to some kind of commoner?
-    background = models.CharField(max_length=200, null=True, blank=True)  # fk
-    race = models.CharField(max_length=200, null=True, blank=True)  # fk
+
+    # CHARACTER INFO BLOCK
+    def class_and_level(self):
+        return (c for c in self.classandlevel_set.all())
+
+    # TODO: use fk
+    background = models.CharField(max_length=200, null=True, blank=True)
+    player_name = models.CharField(max_length=200, null=True, blank=True)
+    # TODO: use fk
+    race = models.CharField(max_length=200, null=True, blank=True)
+    # alignment through mixin
     experience_points = models.PositiveIntegerField(default=0)
-    speed = models.PositiveIntegerField(default=0)  # choices?
-    speed.help_text = "Usually comes from your race"
+
+    # CENTER TOP BLOCK
+    armor_class = models.PositiveIntegerField(default=10)
+    armor_class.help_text = "10 + dex mod + bonuses from armor, shields, spells, natural ac, class abilities, feats, magical items, etc."
     initiative = models.PositiveIntegerField(default=0)
     initiative.help_text = "Equal to dex mod unless you have a feat or similar. If you're not sure, it's your dex mod."
+    speed = models.PositiveIntegerField(default=0)  # choices?
+    speed.help_text = "Usually comes from your race"
+    # hp through mixin
+    # hit die through mixin
+    num_hit_dice = models.PositiveIntegerField(default=1)
+    num_hit_dice.help_text = "Almost certainly the same as your character level"
+    death_save_successes = models.PositiveIntegerField(default=0)  # reset as needed
+    death_save_failures = models.PositiveIntegerField(default=0)  # reset as needed
 
+    # TRAITS BLOCK
+    def personality_traits(self):
+        return self.personalitytrait_set.all()
+
+    def ideals(self):
+        return self.ideal_set.all()
+
+    def bonds(self):
+        return self.bond_set.all()
+
+    def flaws(self):
+        return self.flaw_set.all()
+
+    # FEATURES AND TRAITS BLOCK
+    def features_and_traits(self):
+        return self.featureandtrait_set.all()
+
+    # ABILITY SCORE BLOCK
+    # ability scores through mixin
+
+    # INSPIRATION & PROFICIENCY BONUS BLOCK
     inspiration = models.BooleanField(default=False)
+
+    @property
+    def proficiency_bonus(self):
+        return math.ceil((self.total_level / 4) + 1)
+
     equipment_from_initial_class = models.ForeignKey(
         EquipmentFromInitialClass, null=True, blank=True, on_delete=models.PROTECT
     )  # do we care about this? do we really need to know where it comes from? over-complicating?
@@ -144,8 +186,6 @@ class Character(
     # equipment = many to many. distinguish by type almost certainly. should have access to custom modifiers.
     # features and traits = many to many. should have access to custom modifiers. many will come from class, race, but will want own model to add custom.
     # attacks and spellcasting -- should come from spellcasting abilities, equipment. all should have unarmed. spellcaster mixin?
-    death_save_successes = models.PositiveIntegerField(default=0)  # reset as needed
-    death_save_failures = models.PositiveIntegerField(default=0)  # reset as needed
 
     # Armor Proficiencies
     proficient_light_armor = models.BooleanField(default=False)
@@ -175,17 +215,9 @@ class Character(
     def __str__(self):
         return self.name
 
-    def armor_class(self):
-        # TODO: flesh this out -- additional modifiers
-        return 10 + self.dexterity_modifier
-
     @property
     def total_level(self):
         return self.classandlevel_set.aggregate(Sum("level"))["level__sum"]
-
-    @property
-    def proficiency_bonus(self):
-        return math.ceil((self.total_level / 4) + 1)
 
     def hit_dice(self):
         # from class. anything else? just use class for default and allow modification (in which case will need a property like `hit_dice_if_different_from_class`)?
@@ -202,6 +234,14 @@ class Character(
     def gain_experience(self, amount):
         self.experience_points += amount
         # self.save() ?
+
+
+# class NameTextCharacterField(models.Model):
+#     character = models.ForeignKey(
+#         Character, on_delete=models.PROTECT, null=True, blank=True
+#     )
+#     name = models.CharField(max_length=500, default="")
+#     text = models.TextField(default="")
 
 
 class Bond(models.Model):
@@ -245,3 +285,9 @@ class ClassAndLevel(models.Model):
     character_class = models.ForeignKey(to=CharacterClass, on_delete=models.PROTECT)
     level = models.PositiveIntegerField()
     character = models.ForeignKey(to=Character, on_delete=models.CASCADE)
+
+
+class FeaturesAndTraits(models.Model):
+    character = models.ForeignKey(to=Character, on_delete=models.CASCADE)
+    name = models.CharField(max_length=500, default="")
+    text = models.TextField(default="")
