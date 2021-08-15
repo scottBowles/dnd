@@ -1,4 +1,5 @@
 from django.db import models
+from .mixins import HitDieMixin
 
 STRENGTH = "STR"
 DEXTERITY = "DEX"
@@ -17,31 +18,14 @@ SAVING_THROW_MINOR = [
     (CHARISMA, "charisma"),
 ]
 
-D4 = "4"
-D6 = "6"
-D8 = "8"
-D10 = "10"
-D12 = "12"
-D20 = "20"
 
-HIT_DIE_CHOICES = [
-    (D4, "d4"),
-    (D6, "d6"),
-    (D8, "d8"),
-    (D10, "d10"),
-    (D12, "d12"),
-    (D20, "d20"),
-]
-
-
-class CharacterClass(models.Model):
+class CharacterClass(HitDieMixin):
     # TODO: need some way of handling options
     class Meta:
         verbose_name_plural = "character classes"
 
     name = models.CharField(max_length=255, unique=True, db_index=True)
     description = models.TextField()
-    hit_die = models.CharField(max_length=2, choices=HIT_DIE_CHOICES)
 
     skill_number = models.PositiveIntegerField(default=0)
     multiclass_skill_number = models.PositiveIntegerField(default=0)
