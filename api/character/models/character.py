@@ -7,6 +7,29 @@ from .character_class import CharacterClass
 from .mixins import HitDieMixin
 
 
+STRENGTH = "strength"
+DEXTERITY = "dexterity"
+CONSTITUTION = "constitution"
+INTELLIGENCE = "intelligence"
+WISDOM = "wisdom"
+CHARISMA = "charisma"
+ABILITIES = (
+    (STRENGTH, "Strength"),
+    (DEXTERITY, "Dexterity"),
+    (CONSTITUTION, "Constitution"),
+    (INTELLIGENCE, "Intelligence"),
+    (WISDOM, "Wisdom"),
+    (CHARISMA, "Charisma"),
+)
+
+
+class Skill(models.Model):
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    related_ability = models.CharField(max_length=12, choices=ABILITIES)
+    custom = models.BooleanField(default=True)
+
+
 class AbilityScoreArrayMixin(models.Model):
     strength = models.PositiveIntegerField(default=10)
     dexterity = models.PositiveIntegerField(default=10)
@@ -130,6 +153,10 @@ class Character(
     def class_and_level(self):
         return (c for c in self.classandlevel_set.all())
 
+    @property
+    def total_level(self):
+        return self.classandlevel_set.aggregate(Sum("level"))["level__sum"]
+
     # TODO: use fk
     background = models.CharField(max_length=200, null=True, blank=True)
     player_name = models.CharField(max_length=200, null=True, blank=True)
@@ -179,14 +206,30 @@ class Character(
     def proficiency_bonus(self):
         return math.ceil((self.total_level / 4) + 1)
 
-    equipment_from_initial_class = models.ForeignKey(
-        EquipmentFromInitialClass, null=True, blank=True, on_delete=models.PROTECT
-    )  # do we care about this? do we really need to know where it comes from? over-complicating?
+    # SAVING THROW BLOCK
+    proficient_strength = models.BooleanField(default=False)
+    proficient_dexterity = models.BooleanField(default=False)
+    proficient_constitution = models.BooleanField(default=False)
+    proficient_intelligence = models.BooleanField(default=False)
+    proficient_wisdom = models.BooleanField(default=False)
+    procicient_charisma = models.BooleanField(default=False)
 
-    # equipment = many to many. distinguish by type almost certainly. should have access to custom modifiers.
-    # features and traits = many to many. should have access to custom modifiers. many will come from class, race, but will want own model to add custom.
-    # attacks and spellcasting -- should come from spellcasting abilities, equipment. all should have unarmed. spellcaster mixin?
+    @property
+    def save_modifier(self, ability):
+        is_proficient = getattr(self, "proficient_" + ability)
+        prof_bonus = self.proficiency_bonus if is_proficient else 0
+        ability_score = self[ability]
+        ability_mod = self._get_modifier(ability_score)
+        return prof_bonus + ability_mod
 
+    # SKILLS BLOCK
+    skills = models.ManyToManyField(Skill, through="CharacterSkill")
+
+    # PASSIVE WISDOM & PASSIVE INTELLIGENCE BLOCK
+    # TODO
+
+    # OTHER PROFICIENCIES AND LANGUAGES BLOCK
+    # TODO: decide whether to use NameTextCharacterFields in place of the below TextFields
     # Armor Proficiencies
     proficient_light_armor = models.BooleanField(default=False)
     proficient_medium_armor = models.BooleanField(default=False)
@@ -203,6 +246,38 @@ class Character(
     # Language Proficiencies
     proficient_languages = models.TextField(blank=True, null=True)
 
+    # Other Proficiencies
+    proficient_other = models.TextField(blank=True, null=True)
+
+    # MONEY BLOCK
+    # through mixin
+
+    # EQUIPMENT BLOCK
+    # TODO
+
+    # SPELLCASTING BLOCK
+    # TODO
+
+    # FEAT BLOCK
+    # TODO
+
+    # WEAPONS BLOCK
+    # TODO
+
+    # ARMOR BLOCK
+    # TODO
+
+    # ATTACKS BLOCK
+    # TODO
+
+    equipment_from_initial_class = models.ForeignKey(
+        EquipmentFromInitialClass, null=True, blank=True, on_delete=models.PROTECT
+    )  # do we care about this? do we really need to know where it comes from? over-complicating?
+
+    # equipment = many to many. distinguish by type almost certainly. should have access to custom modifiers.
+    # features and traits = many to many. should have access to custom modifiers. many will come from class, race, but will want own model to add custom.
+    # attacks and spellcasting -- should come from spellcasting abilities, equipment. all should have unarmed. spellcaster mixin?
+
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, null=True, blank=True
     )  # Create a Player model for this instead, accessing users through that? Seems like a one-to-one facade over user, unless users can have multiple players. Should we let users customize their player information per character (in which case one-to-many)?
@@ -215,36 +290,8 @@ class Character(
     def __str__(self):
         return self.name
 
-    @property
-    def total_level(self):
-        return self.classandlevel_set.aggregate(Sum("level"))["level__sum"]
 
-    def hit_dice(self):
-        # from class. anything else? just use class for default and allow modification (in which case will need a property like `hit_dice_if_different_from_class`)?
-        pass
-
-    def num_hit_die(self):
-        # from total level. anything else? need to know whether pc or npc?
-        pass
-
-    # def initiative(self):
-    #     # dex plus from feats plus custom modifiers
-    #     pass
-
-    def gain_experience(self, amount):
-        self.experience_points += amount
-        # self.save() ?
-
-
-# class NameTextCharacterField(models.Model):
-#     character = models.ForeignKey(
-#         Character, on_delete=models.PROTECT, null=True, blank=True
-#     )
-#     name = models.CharField(max_length=500, default="")
-#     text = models.TextField(default="")
-
-
-class Bond(models.Model):
+class NameTextCharacterField(models.Model):
     character = models.ForeignKey(
         Character, on_delete=models.PROTECT, null=True, blank=True
     )
@@ -252,28 +299,20 @@ class Bond(models.Model):
     text = models.TextField(default="")
 
 
-class PersonalityTrait(models.Model):
-    character = models.ForeignKey(
-        Character, on_delete=models.PROTECT, null=True, blank=True
-    )
-    name = models.CharField(max_length=500, default="")
-    text = models.TextField(default="")
+class Bond(NameTextCharacterField):
+    type = "bond"
 
 
-class Ideal(models.Model):
-    character = models.ForeignKey(
-        Character, on_delete=models.PROTECT, null=True, blank=True
-    )
-    name = models.CharField(max_length=500, default="")
-    text = models.TextField(default="")
+class PersonalityTrait(NameTextCharacterField):
+    type = "personalitytrait"
 
 
-class Flaw(models.Model):
-    character = models.ForeignKey(
-        Character, on_delete=models.PROTECT, null=True, blank=True
-    )
-    name = models.CharField(max_length=500, default="")
-    text = models.TextField(default="")
+class Ideal(NameTextCharacterField):
+    type = "ideal"
+
+
+class Flaw(NameTextCharacterField):
+    type = "flaw"
 
 
 class ClassAndLevel(models.Model):
@@ -287,7 +326,21 @@ class ClassAndLevel(models.Model):
     character = models.ForeignKey(to=Character, on_delete=models.CASCADE)
 
 
-class FeaturesAndTraits(models.Model):
-    character = models.ForeignKey(to=Character, on_delete=models.CASCADE)
-    name = models.CharField(max_length=500, default="")
-    text = models.TextField(default="")
+class CharacterSkill(models.Model):
+    character = models.ForeignKey(to=Character, on_delete=models.PROTECT)
+    skill = models.ForeignKey(to=Skill, on_delete=models.PROTECT)
+    proficient = models.BooleanField(default=False)
+
+    @property
+    def modifier(self):
+        prof_bonus = self.character.proficient_bonus if self.proficient else 0
+        ability = self.skill.related_ability
+        ability_modifier = getattr(self.character, "{}_modifier".format(ability))
+        return prof_bonus + ability_modifier
+
+
+class FeaturesAndTraits(NameTextCharacterField):
+    class Meta:
+        verbose_name_plural = "features and traits"
+
+    type = "featuresandtraits"
