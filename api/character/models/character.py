@@ -42,6 +42,20 @@ ALIGNMENTS = (
     (NEUTRAL_EVIL, "Neutral Evil"),
     (CHAOTIC_EVIL, "Chaotic Evil"),
 )
+TINY = "tiny"
+SMALL = "small"
+MEDIUM = "medium"
+LARGE = "large"
+HUGE = "huge"
+GARGANTUAN = "gargantuan"
+SIZES = (
+    (TINY, "Tiny"),
+    (SMALL, "Small"),
+    (MEDIUM, "Medium"),
+    (LARGE, "Large"),
+    (HUGE, "Huge"),
+    (GARGANTUAN, "Gargantuan"),
+)
 
 
 class Skill(models.Model):
@@ -303,6 +317,8 @@ class Character(
     # ATTACKS BLOCK
     # TODO
 
+    # OTHER
+    size = models.CharField(max_length=10, choices=SIZES, null=True, blank=True)
     equipment_from_initial_class = models.ForeignKey(
         EquipmentFromInitialClass, null=True, blank=True, on_delete=models.SET_NULL
     )  # do we care about this? do we really need to know where it comes from? over-complicating?
