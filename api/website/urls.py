@@ -18,6 +18,7 @@ from django.contrib import admin
 from django.urls import include, path
 from rest_framework import routers
 from character.views import CharacterViewSet
+from equipment.views import ArmorViewSet, EquipmentViewSet, WeaponViewSet
 
 admin.site.site_header = "D&D Admin"
 admin.site.index_title = "Admin"
@@ -26,6 +27,9 @@ admin.site.index_title = "Admin"
 # Routers provide an easy way of automatically determining the URL conf.
 router = routers.DefaultRouter()
 router.register(r"characters", CharacterViewSet)
+router.register(r"equipment", EquipmentViewSet)
+router.register(r"armor", ArmorViewSet)
+router.register(r"weapons", WeaponViewSet)
 
 
 # Wire up our API using automatic URL routing.

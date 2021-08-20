@@ -8,6 +8,9 @@ from .inlines import (
     PersonalityTraitInline,
     ClassAndLevelInline,
     FeaturesAndTraitsInline,
+    InventoryArmorInline,
+    InventoryWeaponInline,
+    InventoryEquipmentInline,
 )
 
 
@@ -51,6 +54,9 @@ class CharacterAdmin(admin.ModelAdmin):
     readonly_fields = ("total_level",)
 
     inlines = [
+        InventoryArmorInline,
+        InventoryWeaponInline,
+        InventoryEquipmentInline,
         PersonalityTraitInline,
         IdealInline,
         BondInline,

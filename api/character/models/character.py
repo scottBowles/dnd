@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.db.models.aggregates import Sum
 from .character_class import CharacterClass
 from .mixins import HitDieMixin
-
+from equipment.models import Equipment, Weapon, Armor
 
 STRENGTH = "strength"
 DEXTERITY = "dexterity"
@@ -27,6 +27,12 @@ class Skill(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     related_ability = models.CharField(max_length=12, choices=ABILITIES)
+    custom = models.BooleanField(default=True)
+
+
+class Feat(models.Model):
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
     custom = models.BooleanField(default=True)
 
 
@@ -253,19 +259,21 @@ class Character(
     # through mixin
 
     # EQUIPMENT BLOCK
-    # TODO
+    equipment = models.ManyToManyField(
+        Equipment, through="InventoryEquipment", blank=True
+    )
 
     # SPELLCASTING BLOCK
     # TODO
 
     # FEAT BLOCK
-    # TODO
+    feats = models.ManyToManyField(Feat, blank=True)
 
     # WEAPONS BLOCK
-    # TODO
+    weapons = models.ManyToManyField(Weapon, through="InventoryWeapon", blank=True)
 
     # ARMOR BLOCK
-    # TODO
+    armor = models.ManyToManyField(Armor, through="InventoryArmor", blank=True)
 
     # ATTACKS BLOCK
     # TODO
@@ -274,18 +282,9 @@ class Character(
         EquipmentFromInitialClass, null=True, blank=True, on_delete=models.PROTECT
     )  # do we care about this? do we really need to know where it comes from? over-complicating?
 
-    # equipment = many to many. distinguish by type almost certainly. should have access to custom modifiers.
-    # features and traits = many to many. should have access to custom modifiers. many will come from class, race, but will want own model to add custom.
-    # attacks and spellcasting -- should come from spellcasting abilities, equipment. all should have unarmed. spellcaster mixin?
-
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, null=True, blank=True
     )  # Create a Player model for this instead, accessing users through that? Seems like a one-to-one facade over user, unless users can have multiple players. Should we let users customize their player information per character (in which case one-to-many)?
-
-    # `Other proficiencies and languages`
-    # passive_wisdom
-
-    # Custom modifiers - should there be a custom modifier for each thing or a separate custom modifier model that holds each custom modification along with the thing it's modifying? should custom modifiers be available directly to the character, or only via features, traits, etc.? Maybe instead of `custom modifiers` it's just `modifiers`.
 
     def __str__(self):
         return self.name
@@ -327,8 +326,8 @@ class ClassAndLevel(models.Model):
 
 
 class CharacterSkill(models.Model):
-    character = models.ForeignKey(to=Character, on_delete=models.PROTECT)
-    skill = models.ForeignKey(to=Skill, on_delete=models.PROTECT)
+    character = models.ForeignKey(Character, on_delete=models.PROTECT)
+    skill = models.ForeignKey(Skill, on_delete=models.PROTECT)
     proficient = models.BooleanField(default=False)
 
     @property
@@ -344,3 +343,21 @@ class FeaturesAndTraits(NameTextCharacterField):
         verbose_name_plural = "features and traits"
 
     type = "featuresandtraits"
+
+
+class InventoryItem(models.Model):
+    # Not to be used directly
+    character = models.ForeignKey(Character, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField()
+
+
+class InventoryArmor(InventoryItem):
+    gear = models.ForeignKey(Armor, on_delete=models.PROTECT)
+
+
+class InventoryWeapon(InventoryItem):
+    gear = models.ForeignKey(Weapon, on_delete=models.PROTECT)
+
+
+class InventoryEquipment(InventoryItem):
+    gear = models.ForeignKey(Equipment, on_delete=models.PROTECT)
