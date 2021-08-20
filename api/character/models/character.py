@@ -6,6 +6,7 @@ from django.db.models.aggregates import Sum
 from .character_class import CharacterClass
 from .mixins import HitDieMixin
 from equipment.models import Equipment, Weapon, Armor
+from race.models import Race
 
 STRENGTH = "strength"
 DEXTERITY = "dexterity"
@@ -197,8 +198,7 @@ class Character(
     # TODO: use fk
     background = models.CharField(max_length=200, null=True, blank=True)
     player_name = models.CharField(max_length=200, null=True, blank=True)
-    # TODO: use fk
-    race = models.CharField(max_length=200, null=True, blank=True)
+    race = models.ForeignKey(Race, null=True, blank=True, on_delete=models.SET_NULL)
     alignment = models.CharField(
         max_length=2, choices=ALIGNMENTS, null=True, blank=True
     )
