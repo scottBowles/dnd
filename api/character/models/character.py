@@ -30,9 +30,15 @@ class Skill(models.Model):
     custom = models.BooleanField(default=True)
 
 
+class Script(models.Model):
+    name = models.CharField(max_length=255)
+
+
 class Language(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
+    # typical_speakers = models.ManyToManyField(Race, blank=True)
+    script = models.ForeignKey(Script, null=True, blank=True, on_delete=models.SET_NULL)
 
 
 class Tool(models.Model):
