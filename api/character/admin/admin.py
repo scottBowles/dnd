@@ -7,7 +7,7 @@ from .inlines import (
     IdealInline,
     PersonalityTraitInline,
     ClassAndLevelInline,
-    FeaturesAndTraitsInline,
+    # FeaturesAndTraitsInline,
     InventoryArmorInline,
     InventoryWeaponInline,
     InventoryEquipmentInline,
@@ -62,7 +62,7 @@ class CharacterAdmin(admin.ModelAdmin):
         BondInline,
         FlawInline,
         ClassAndLevelInline,
-        FeaturesAndTraitsInline,
+        # FeaturesAndTraitsInline,
     ]
 
     # @admin.display(description="Total Cash on Hand (cp)")

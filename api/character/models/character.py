@@ -7,85 +7,16 @@ from .character_class import CharacterClass
 from .mixins import HitDieMixin
 from equipment.models import Equipment, Weapon, Armor
 from race.models import Race
-
-STRENGTH = "strength"
-DEXTERITY = "dexterity"
-CONSTITUTION = "constitution"
-INTELLIGENCE = "intelligence"
-WISDOM = "wisdom"
-CHARISMA = "charisma"
-ABILITIES = (
-    (STRENGTH, "Strength"),
-    (DEXTERITY, "Dexterity"),
-    (CONSTITUTION, "Constitution"),
-    (INTELLIGENCE, "Intelligence"),
-    (WISDOM, "Wisdom"),
-    (CHARISMA, "Charisma"),
+from .models import (
+    ALIGNMENTS,
+    SIZES,
+    Background,
+    Feat,
+    Feature,
+    Language,
+    Skill,
+    Tool,
 )
-
-LAWFUL_GOOD = "LG"
-NEUTRAL_GOOD = "NG"
-CHAOTIC_GOOD = "CG"
-LAWFUL_NEUTRAL = "LN"
-TRUE_NEUTRAL = "N"
-CHAOTIC_NEUTRAL = "CN"
-LAWFUL_EVIL = "LE"
-NEUTRAL_EVIL = "NE"
-CHAOTIC_EVIL = "CE"
-ALIGNMENTS = (
-    (LAWFUL_GOOD, "Lawful Good"),
-    (NEUTRAL_GOOD, "Neutral Good"),
-    (CHAOTIC_GOOD, "Chaotic Good"),
-    (LAWFUL_NEUTRAL, "Lawful Neutral"),
-    (TRUE_NEUTRAL, "True Neutral"),
-    (CHAOTIC_NEUTRAL, "Chaotic Neutral"),
-    (LAWFUL_EVIL, "Lawful Evil"),
-    (NEUTRAL_EVIL, "Neutral Evil"),
-    (CHAOTIC_EVIL, "Chaotic Evil"),
-)
-TINY = "tiny"
-SMALL = "small"
-MEDIUM = "medium"
-LARGE = "large"
-HUGE = "huge"
-GARGANTUAN = "gargantuan"
-SIZES = (
-    (TINY, "Tiny"),
-    (SMALL, "Small"),
-    (MEDIUM, "Medium"),
-    (LARGE, "Large"),
-    (HUGE, "Huge"),
-    (GARGANTUAN, "Gargantuan"),
-)
-
-
-class Skill(models.Model):
-    name = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
-    related_ability = models.CharField(max_length=12, choices=ABILITIES)
-    custom = models.BooleanField(default=True)
-
-
-class Script(models.Model):
-    name = models.CharField(max_length=255)
-
-
-class Language(models.Model):
-    name = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
-    # typical_speakers = models.ManyToManyField(Race, blank=True)
-    script = models.ForeignKey(Script, null=True, blank=True, on_delete=models.SET_NULL)
-
-
-class Tool(models.Model):
-    name = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
-
-
-class Feat(models.Model):
-    name = models.CharField(max_length=255)
-    description = models.TextField(default="", blank=True)
-    custom = models.BooleanField(default=True)
 
 
 class AbilityScoreArrayMixin(models.Model):
@@ -195,8 +126,9 @@ class Character(
     def total_level(self):
         return self.classandlevel_set.aggregate(Sum("level"))["level__sum"]
 
-    # TODO: use fk
-    background = models.CharField(max_length=200, null=True, blank=True)
+    background = models.ForeignKey(
+        Background, null=True, blank=True, on_delete=models.SET_NULL
+    )
     player_name = models.CharField(max_length=200, null=True, blank=True)
     race = models.ForeignKey(Race, null=True, blank=True, on_delete=models.SET_NULL)
     alignment = models.CharField(
@@ -232,8 +164,7 @@ class Character(
         return self.flaw_set.all()
 
     # FEATURES AND TRAITS BLOCK
-    def features_and_traits(self):
-        return self.featureandtrait_set.all()
+    features_and_traits = models.ManyToManyField(Feature, related_name="characters")
 
     # ABILITY SCORE BLOCK
     # ability scores through mixin
@@ -375,13 +306,6 @@ class CharacterSkill(models.Model):
         ability = self.skill.related_ability
         ability_modifier = getattr(self.character, "{}_modifier".format(ability))
         return prof_bonus + ability_modifier
-
-
-class FeaturesAndTraits(NameTextCharacterField):
-    class Meta:
-        verbose_name_plural = "features and traits"
-
-    type = "featuresandtraits"
 
 
 class InventoryItem(models.Model):

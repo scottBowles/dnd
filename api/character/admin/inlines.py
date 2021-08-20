@@ -6,7 +6,7 @@ from character.models import (
     Ideal,
     PersonalityTrait,
     ClassAndLevel,
-    FeaturesAndTraits,
+    # Feature,
     InventoryArmor,
     InventoryWeapon,
     InventoryEquipment,
@@ -53,12 +53,12 @@ class ClassAndLevelInline(admin.TabularInline):
     ]
 
 
-class FeaturesAndTraitsInline(admin.TabularInline):
-    model = FeaturesAndTraits
-    extra = 1
-    classes = [
-        "collapse",
-    ]
+# class FeaturesAndTraitsInline(admin.TabularInline):
+#     model = Feature
+#     extra = 1
+#     classes = [
+#         "collapse",
+#     ]
 
 
 class InventoryArmorInline(admin.TabularInline):
