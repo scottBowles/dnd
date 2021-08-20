@@ -30,6 +30,16 @@ class Skill(models.Model):
     custom = models.BooleanField(default=True)
 
 
+class Language(models.Model):
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+
+
+class Tool(models.Model):
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+
+
 class Feat(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
@@ -133,6 +143,7 @@ class HitPointsMixin(models.Model):
 
 
 class EquipmentFromInitialClass(models.Model):
+    # probably not using this
     # need different for weapon, armor, etc.?
     class Meta:
         verbose_name_plural = "equipment from initial class"
@@ -182,8 +193,8 @@ class Character(
     # hit die through mixin
     num_hit_dice = models.PositiveIntegerField(default=1)
     num_hit_dice.help_text = "Almost certainly the same as your character level"
-    death_save_successes = models.PositiveIntegerField(default=0)  # reset as needed
-    death_save_failures = models.PositiveIntegerField(default=0)  # reset as needed
+    death_save_successes = models.PositiveIntegerField(default=0)
+    death_save_failures = models.PositiveIntegerField(default=0)
 
     # TRAITS BLOCK
     def personality_traits(self):
@@ -218,7 +229,7 @@ class Character(
     proficient_constitution = models.BooleanField(default=False)
     proficient_intelligence = models.BooleanField(default=False)
     proficient_wisdom = models.BooleanField(default=False)
-    procicient_charisma = models.BooleanField(default=False)
+    proficient_charisma = models.BooleanField(default=False)
 
     @property
     def save_modifier(self, ability):
@@ -232,10 +243,16 @@ class Character(
     skills = models.ManyToManyField(Skill, through="CharacterSkill")
 
     # PASSIVE WISDOM & PASSIVE INTELLIGENCE BLOCK
-    # TODO
+    passive_wisdom = models.PositiveIntegerField(default=10)
+    passive_wisdom.help_text = (
+        "10 + wisdom mod + bonuses (including perception proficiency bonus)"
+    )
+    passive_intelligence = models.PositiveIntegerField(default=10)
+    passive_intelligence.help_text = (
+        "10 + intelligence mod + bonuses (including investigation proficiency bonus)"
+    )
 
     # OTHER PROFICIENCIES AND LANGUAGES BLOCK
-    # TODO: decide whether to use NameTextCharacterFields in place of the below TextFields
     # Armor Proficiencies
     proficient_light_armor = models.BooleanField(default=False)
     proficient_medium_armor = models.BooleanField(default=False)
@@ -247,10 +264,10 @@ class Character(
     proficient_martial = models.BooleanField(default=False)
 
     # Tool Proficiencies
-    proficient_tools = models.TextField(blank=True, null=True)
+    proficient_tools = models.ManyToManyField(Tool, blank=True)
 
     # Language Proficiencies
-    proficient_languages = models.TextField(blank=True, null=True)
+    proficient_languages = models.ManyToManyField(Language, blank=True)
 
     # Other Proficiencies
     proficient_other = models.TextField(blank=True, null=True)
@@ -282,9 +299,7 @@ class Character(
         EquipmentFromInitialClass, null=True, blank=True, on_delete=models.PROTECT
     )  # do we care about this? do we really need to know where it comes from? over-complicating?
 
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, null=True, blank=True
-    )  # Create a Player model for this instead, accessing users through that? Seems like a one-to-one facade over user, unless users can have multiple players. Should we let users customize their player information per character (in which case one-to-many)?
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
 
     def __str__(self):
         return self.name
