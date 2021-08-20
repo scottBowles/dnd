@@ -22,6 +22,27 @@ ABILITIES = (
     (CHARISMA, "Charisma"),
 )
 
+LAWFUL_GOOD = "LG"
+NEUTRAL_GOOD = "NG"
+CHAOTIC_GOOD = "CG"
+LAWFUL_NEUTRAL = "LN"
+TRUE_NEUTRAL = "N"
+CHAOTIC_NEUTRAL = "CN"
+LAWFUL_EVIL = "LE"
+NEUTRAL_EVIL = "NE"
+CHAOTIC_EVIL = "CE"
+ALIGNMENTS = (
+    (LAWFUL_GOOD, "Lawful Good"),
+    (NEUTRAL_GOOD, "Neutral Good"),
+    (CHAOTIC_GOOD, "Chaotic Good"),
+    (LAWFUL_NEUTRAL, "Lawful Neutral"),
+    (TRUE_NEUTRAL, "True Neutral"),
+    (CHAOTIC_NEUTRAL, "Chaotic Neutral"),
+    (LAWFUL_EVIL, "Lawful Evil"),
+    (NEUTRAL_EVIL, "Neutral Evil"),
+    (CHAOTIC_EVIL, "Chaotic Evil"),
+)
+
 
 class Skill(models.Model):
     name = models.CharField(max_length=255)
@@ -115,26 +136,6 @@ class MoneyHolderMixin(models.Model):
         abstract = True
 
 
-class AlignmentMixin(models.Model):
-    class Alignment(models.TextChoices):
-        LAWFUL_GOOD = "LG", "Lawful Good"
-        NEUTRAL_GOOD = "NG", "Neutral Good"
-        CHAOTIC_GOOD = "CG", "Chaotic Good"
-        LAWFUL_NEUTRAL = "LN", "Lawful Neutral"
-        TRUE_NEUTRAL = "N", "True Neutral"
-        CHAOTIC_NEUTRAL = "CN", "Chaotic Neutral"
-        LAWFUL_EVIL = "LE", "Lawful Evil"
-        NEUTRAL_EVIL = "NE", "Neutral Evil"
-        CHAOTIC_EVIL = "CE", "Chaotic Evil"
-
-    alignment = models.CharField(
-        max_length=2, choices=Alignment.choices, null=True, blank=True
-    )
-
-    class Meta:
-        abstract = True
-
-
 class HitPointsMixin(models.Model):
     max_hit_points = models.PositiveIntegerField(default=1)
     temporary_hit_points = models.IntegerField(default=0)
@@ -163,7 +164,6 @@ class EquipmentFromInitialClass(models.Model):
 
 class Character(
     AbilityScoreArrayMixin,
-    AlignmentMixin,
     HitDieMixin,
     HitPointsMixin,
     MoneyHolderMixin,
@@ -185,7 +185,9 @@ class Character(
     player_name = models.CharField(max_length=200, null=True, blank=True)
     # TODO: use fk
     race = models.CharField(max_length=200, null=True, blank=True)
-    # alignment through mixin
+    alignment = models.CharField(
+        max_length=2, choices=ALIGNMENTS, null=True, blank=True
+    )
     experience_points = models.PositiveIntegerField(default=0)
 
     # CENTER TOP BLOCK
