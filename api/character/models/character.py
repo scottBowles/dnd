@@ -42,7 +42,7 @@ class Tool(models.Model):
 
 class Feat(models.Model):
     name = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
+    description = models.TextField(default="", blank=True)
     custom = models.BooleanField(default=True)
 
 
@@ -148,7 +148,9 @@ class EquipmentFromInitialClass(models.Model):
     class Meta:
         verbose_name_plural = "equipment from initial class"
 
-    initial_class = models.ForeignKey(CharacterClass, on_delete=models.CASCADE)
+    initial_class = models.ForeignKey(
+        CharacterClass, null=True, on_delete=models.SET_NULL
+    )
     # equipment = many to many
     # equipment_choices = text field -- can I use multiple for a multiple?
 
@@ -160,8 +162,6 @@ class Character(
     HitPointsMixin,
     MoneyHolderMixin,
 ):
-    # Should I have PC and NPC classes that inherit from Character? What is common and not?
-    # Should I have characteristics that get recalculated and adjusted on save, or on save from related models, or on creation and on demand only? Worried about calculating too much on the fly.
 
     # NAME BLOCK
     name = models.CharField(max_length=200, null=True, blank=True)
@@ -296,10 +296,10 @@ class Character(
     # TODO
 
     equipment_from_initial_class = models.ForeignKey(
-        EquipmentFromInitialClass, null=True, blank=True, on_delete=models.PROTECT
+        EquipmentFromInitialClass, null=True, blank=True, on_delete=models.SET_NULL
     )  # do we care about this? do we really need to know where it comes from? over-complicating?
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
         return self.name
@@ -307,7 +307,7 @@ class Character(
 
 class NameTextCharacterField(models.Model):
     character = models.ForeignKey(
-        Character, on_delete=models.PROTECT, null=True, blank=True
+        Character, on_delete=models.CASCADE, null=True, blank=True
     )
     name = models.CharField(max_length=500, default="")
     text = models.TextField(default="")
@@ -335,14 +335,14 @@ class ClassAndLevel(models.Model):
     class Meta:
         verbose_name_plural = "classes and levels"
 
-    character_class = models.ForeignKey(to=CharacterClass, on_delete=models.PROTECT)
+    character_class = models.ForeignKey(to=CharacterClass, on_delete=models.CASCADE)
     level = models.PositiveIntegerField()
     character = models.ForeignKey(to=Character, on_delete=models.CASCADE)
 
 
 class CharacterSkill(models.Model):
-    character = models.ForeignKey(Character, on_delete=models.PROTECT)
-    skill = models.ForeignKey(Skill, on_delete=models.PROTECT)
+    character = models.ForeignKey(Character, on_delete=models.CASCADE)
+    skill = models.ForeignKey(Skill, on_delete=models.CASCADE)
     proficient = models.BooleanField(default=False)
 
     @property
@@ -367,12 +367,12 @@ class InventoryItem(models.Model):
 
 
 class InventoryArmor(InventoryItem):
-    gear = models.ForeignKey(Armor, on_delete=models.PROTECT)
+    gear = models.ForeignKey(Armor, on_delete=models.CASCADE)
 
 
 class InventoryWeapon(InventoryItem):
-    gear = models.ForeignKey(Weapon, on_delete=models.PROTECT)
+    gear = models.ForeignKey(Weapon, on_delete=models.CASCADE)
 
 
 class InventoryEquipment(InventoryItem):
-    gear = models.ForeignKey(Equipment, on_delete=models.PROTECT)
+    gear = models.ForeignKey(Equipment, on_delete=models.CASCADE)
