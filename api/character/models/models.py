@@ -53,30 +53,30 @@ SIZES = (
 
 
 class Feature(models.Model):
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, unique=True)
     description = models.TextField()
 
 
 class Skill(models.Model):
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, unique=True)
     description = models.TextField(blank=True)
     related_ability = models.CharField(max_length=12, choices=ABILITIES)
     custom = models.BooleanField(default=True)
 
 
 class Script(models.Model):
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, unique=True)
 
 
 class Language(models.Model):
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, unique=True)
     description = models.TextField(blank=True)
     # typical_speakers = models.ManyToManyField(Race, blank=True)
     script = models.ForeignKey(Script, null=True, blank=True, on_delete=models.SET_NULL)
 
 
 class Background(models.Model):
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, unique=True)
     description = models.TextField()
     skill_proficiencies = models.ManyToManyField(Skill, related_name="backgrounds")
     languages = models.ManyToManyField(Language, related_name="backgrounds")
@@ -86,11 +86,35 @@ class Background(models.Model):
 
 
 class Tool(models.Model):
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, unique=True)
     description = models.TextField(blank=True)
 
 
 class Feat(models.Model):
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, unique=True)
     description = models.TextField(default="", blank=True)
     custom = models.BooleanField(default=True)
+
+
+class ProficiencyWithoutRelatedModel(models.Model):
+    ARMOR = "armor"
+    WEAPON = "weapon"
+    TOOL = "tool"
+    ABILITY = "ability"
+    OTHER = "other"
+    PROFICIENCY_TYPES = (
+        (ARMOR, "Armor"),
+        (WEAPON, "Weapon"),
+        (TOOL, "Tool"),
+        (ABILITY, "Ability"),
+        (OTHER, "Other"),
+    )
+
+    name = models.CharField(max_length=255, unique=True)
+    proficiency_type = models.CharField(
+        max_length=7, choices=PROFICIENCY_TYPES, default=OTHER
+    )
+    description = models.TextField(default="", blank=True)
+
+    def __str__(self):
+        return self.name

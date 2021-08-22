@@ -14,6 +14,7 @@ from .models import (
     Feat,
     Feature,
     Language,
+    ProficiencyWithoutRelatedModel,
     Skill,
     Tool,
 )
@@ -28,32 +29,8 @@ class AbilityScoreArrayMixin(models.Model):
     charisma = models.PositiveIntegerField(default=10)
 
     @staticmethod
-    def _get_modifier(score):
+    def get_modifier(score):
         return score // 2 - 5 if type(score) is int else score
-
-    @property
-    def strength_modifier(self):
-        return Character._get_modifier(self.strength)
-
-    @property
-    def dexterity_modifier(self):
-        return Character._get_modifier(self.dexterity)
-
-    @property
-    def constitution_modifier(self):
-        return Character._get_modifier(self.constitution)
-
-    @property
-    def intelligence_modifier(self):
-        return Character._get_modifier(self.intelligence)
-
-    @property
-    def wisdom_modifier(self):
-        return Character._get_modifier(self.wisdom)
-
-    @property
-    def charisma_modifier(self):
-        return Character._get_modifier(self.charisma)
 
     class Meta:
         # abstract for now, but if I want to be able to query all ability score arrays, should instead use multi-table inheritance (https://docs.djangoproject.com/en/dev/topics/db/models/#id6)
@@ -95,19 +72,6 @@ class HitPointsMixin(models.Model):
         abstract = True
 
 
-class EquipmentFromInitialClass(models.Model):
-    # probably not using this
-    # need different for weapon, armor, etc.?
-    class Meta:
-        verbose_name_plural = "equipment from initial class"
-
-    initial_class = models.ForeignKey(
-        CharacterClass, null=True, on_delete=models.SET_NULL
-    )
-    # equipment = many to many
-    # equipment_choices = text field -- can I use multiple for a multiple?
-
-
 class Character(
     AbilityScoreArrayMixin,
     HitDieMixin,
@@ -119,8 +83,9 @@ class Character(
     name = models.CharField(max_length=200, null=True, blank=True)
 
     # CHARACTER INFO BLOCK
+    @property
     def class_and_level(self):
-        return (c for c in self.classandlevel_set.all())
+        return self.classandlevel_set.all()
 
     @property
     def total_level(self):
@@ -176,24 +141,45 @@ class Character(
     def proficiency_bonus(self):
         return math.ceil((self.total_level / 4) + 1)
 
-    # SAVING THROW BLOCK
-    proficient_strength = models.BooleanField(default=False)
-    proficient_dexterity = models.BooleanField(default=False)
-    proficient_constitution = models.BooleanField(default=False)
-    proficient_intelligence = models.BooleanField(default=False)
-    proficient_wisdom = models.BooleanField(default=False)
-    proficient_charisma = models.BooleanField(default=False)
+    proficiencies_without_related_model = models.ManyToManyField(
+        ProficiencyWithoutRelatedModel, related_name="characters"
+    )
+    proficiencies_without_related_model.help_text = (
+        "Doesn't include skills or languages"
+    )
 
     @property
+    def proficiencies(self):
+        # TODO: I'm not at all sure this works. I think the pipe combining should only work if they're all the same model
+        return (
+            self.proficiencies_without_related_model.all()
+            | self.skills_proficient.all()
+        )
+
+    def is_proficient(self, name):
+        return self.proficiencies.filter(name=name).exists()
+
     def save_modifier(self, ability):
-        is_proficient = getattr(self, "proficient_" + ability)
-        prof_bonus = self.proficiency_bonus if is_proficient else 0
+        prof_bonus = self.proficiency_bonus if self.is_proficient(ability) else 0
         ability_score = self[ability]
-        ability_mod = self._get_modifier(ability_score)
-        return prof_bonus + ability_mod
+        ability_modifier = self.get_modifier(ability_score)
+        return prof_bonus + ability_modifier
 
     # SKILLS BLOCK
-    skills = models.ManyToManyField(Skill, through="CharacterSkill")
+    skills_proficient = models.ManyToManyField(Skill)
+
+    def skill_modifier(self, skill_name):
+        skill = self.skills.filter(name=skill_name).first()
+        if skill is None:
+            return 0
+        ability = skill.related_ability
+        ability_modifier = self.get_modifier(self[ability])
+        prof_bonus = (
+            self.proficiency_bonus
+            if self.skills_proficient.filter(pk=skill.pk).exists()
+            else 0
+        )
+        return ability_modifier + prof_bonus
 
     # PASSIVE WISDOM & PASSIVE INTELLIGENCE BLOCK
     passive_wisdom = models.PositiveIntegerField(default=10)
@@ -204,26 +190,6 @@ class Character(
     passive_intelligence.help_text = (
         "10 + intelligence mod + bonuses (including investigation proficiency bonus)"
     )
-
-    # OTHER PROFICIENCIES AND LANGUAGES BLOCK
-    # Armor Proficiencies
-    proficient_light_armor = models.BooleanField(default=False)
-    proficient_medium_armor = models.BooleanField(default=False)
-    proficient_heavy_armor = models.BooleanField(default=False)
-    proficient_shields = models.BooleanField(default=False)
-
-    # Weapon Proficiencies
-    proficient_simple = models.BooleanField(default=False)
-    proficient_martial = models.BooleanField(default=False)
-
-    # Tool Proficiencies
-    proficient_tools = models.ManyToManyField(Tool, blank=True)
-
-    # Language Proficiencies
-    proficient_languages = models.ManyToManyField(Language, blank=True)
-
-    # Other Proficiencies
-    proficient_other = models.TextField(blank=True, null=True)
 
     # MONEY BLOCK
     # through mixin
@@ -250,9 +216,6 @@ class Character(
 
     # OTHER
     size = models.CharField(max_length=10, choices=SIZES, null=True, blank=True)
-    equipment_from_initial_class = models.ForeignKey(
-        EquipmentFromInitialClass, null=True, blank=True, on_delete=models.SET_NULL
-    )  # do we care about this? do we really need to know where it comes from? over-complicating?
 
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
 
@@ -266,6 +229,9 @@ class NameTextCharacterField(models.Model):
     )
     name = models.CharField(max_length=500, default="")
     text = models.TextField(default="")
+
+    class Meta:
+        abstract = True
 
 
 class Bond(NameTextCharacterField):
@@ -293,19 +259,6 @@ class ClassAndLevel(models.Model):
     character_class = models.ForeignKey(to=CharacterClass, on_delete=models.CASCADE)
     level = models.PositiveIntegerField()
     character = models.ForeignKey(to=Character, on_delete=models.CASCADE)
-
-
-class CharacterSkill(models.Model):
-    character = models.ForeignKey(Character, on_delete=models.CASCADE)
-    skill = models.ForeignKey(Skill, on_delete=models.CASCADE)
-    proficient = models.BooleanField(default=False)
-
-    @property
-    def modifier(self):
-        prof_bonus = self.character.proficient_bonus if self.proficient else 0
-        ability = self.skill.related_ability
-        ability_modifier = getattr(self.character, "{}_modifier".format(ability))
-        return prof_bonus + ability_modifier
 
 
 class InventoryItem(models.Model):

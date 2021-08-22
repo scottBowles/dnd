@@ -1,5 +1,6 @@
 from django.db import models
 from .mixins import HitDieMixin
+from .models import ProficiencyWithoutRelatedModel
 
 STRENGTH = "STR"
 DEXTERITY = "DEX"
@@ -29,15 +30,21 @@ class CharacterClass(HitDieMixin):
 
     skill_number = models.PositiveIntegerField(default=0)
     multiclass_skill_number = models.PositiveIntegerField(default=0)
+    # TODO: use equipment models
+    # skill_options = models.ManyToManyField(Skill, related_name="classes_with_skill_as_option") ?
     equipment_choices = models.TextField()
     major_saving_throw = models.CharField(choices=SAVING_THROW_MAJOR, max_length=3)
     minor_saving_throw = models.CharField(choices=SAVING_THROW_MINOR, max_length=3)
-    proficient_light_armor = models.BooleanField(default=False)
-    proficient_heavy_armor = models.BooleanField(default=False)
-    proficient_shields = models.BooleanField(default=False)
-    proficient_martial_weapons = models.BooleanField(default=False)
-    proficient_simple_weapons = models.BooleanField(default=False)
-    proficient_other = models.TextField(blank=True, null=True)
+    proficiencies_without_related_model = models.ManyToManyField(
+        ProficiencyWithoutRelatedModel, related_name="classes"
+    )
+    # TODO: add language proficiencies if they ever exist, or anything else that would have a model
+    # proficient_light_armor = models.BooleanField(default=False)
+    # proficient_heavy_armor = models.BooleanField(default=False)
+    # proficient_shields = models.BooleanField(default=False)
+    # proficient_martial_weapons = models.BooleanField(default=False)
+    # proficient_simple_weapons = models.BooleanField(default=False)
+    # proficient_other = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return self.name
