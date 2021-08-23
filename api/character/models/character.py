@@ -28,9 +28,8 @@ class AbilityScoreArrayMixin(models.Model):
     wisdom = models.PositiveIntegerField(default=10)
     charisma = models.PositiveIntegerField(default=10)
 
-    @staticmethod
-    def get_modifier(score):
-        return score // 2 - 5 if type(score) is int else score
+    def get_ability_modifier(self, ability):
+        return self[ability] // 2 - 5
 
     class Meta:
         # abstract for now, but if I want to be able to query all ability score arrays, should instead use multi-table inheritance (https://docs.djangoproject.com/en/dev/topics/db/models/#id6)
@@ -151,21 +150,20 @@ class Character(
         else:
             return self.proficiencies.filter(name=name).exists()
 
-    def save_modifier(self, ability):
+    def get_save_modifier(self, ability):
         prof_bonus = (
             self.proficiency_bonus
             if self.is_proficient(ability, Proficiency.ABILITY)
             else 0
         )
-        ability_score = self[ability]
-        ability_modifier = self.get_modifier(ability_score)
+        ability_modifier = self.get_ability_modifier(ability)
         return prof_bonus + ability_modifier
 
     # SKILLS BLOCK
-    def skill_modifier(self, skill_name):
+    def get_skill_modifier(self, skill_name):
         skill = Skill.objects.get(name=skill_name)
-        ability = skill.related_ability
-        ability_modifier = self.get_modifier(self[ability])
+        related_ability = skill.related_ability
+        ability_modifier = self.get_ability_modifier(related_ability)
         prof_bonus = (
             self.proficiency_bonus
             if self.is_proficient(skill_name, Proficiency.SKILL)
