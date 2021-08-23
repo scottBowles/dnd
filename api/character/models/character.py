@@ -159,6 +159,14 @@ class Character(
         ability_modifier = self.get_ability_modifier(ability)
         return prof_bonus + ability_modifier
 
+    @property
+    def languages_proficient(self):
+        language_proficiencies = self.proficiencies.filter(
+            proficiency_type=Proficiency.LANGUAGE
+        )
+        names = language_proficiencies.values_list("name", flat=True)
+        return Language.objects.filter(name__in=names)
+
     # SKILLS BLOCK
     def get_skill_modifier(self, skill_name):
         skill = Skill.objects.get(name=skill_name)
