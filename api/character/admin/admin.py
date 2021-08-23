@@ -11,6 +11,7 @@ from .inlines import (
     InventoryArmorInline,
     InventoryWeaponInline,
     InventoryEquipmentInline,
+    InventoryToolInline,
 )
 
 
@@ -57,6 +58,7 @@ class CharacterAdmin(admin.ModelAdmin):
         InventoryArmorInline,
         InventoryWeaponInline,
         InventoryEquipmentInline,
+        InventoryToolInline,
         PersonalityTraitInline,
         IdealInline,
         BondInline,

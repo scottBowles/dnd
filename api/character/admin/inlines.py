@@ -10,6 +10,7 @@ from character.models import (
     InventoryArmor,
     InventoryWeapon,
     InventoryEquipment,
+    InventoryTool,
 )
 
 
@@ -73,4 +74,9 @@ class InventoryWeaponInline(admin.TabularInline):
 
 class InventoryEquipmentInline(admin.TabularInline):
     model = InventoryEquipment
+    extra = 1
+
+
+class InventoryToolInline(admin.TabularInline):
+    model = InventoryTool
     extra = 1

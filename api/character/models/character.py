@@ -197,6 +197,8 @@ class Character(
         Equipment, through="InventoryEquipment", blank=True
     )
 
+    tool = models.ManyToManyField(Tool, through="InventoryTool", blank=True)
+
     # SPELLCASTING BLOCK
     # TODO
 
@@ -275,3 +277,7 @@ class InventoryWeapon(InventoryItem):
 
 class InventoryEquipment(InventoryItem):
     gear = models.ForeignKey(Equipment, on_delete=models.CASCADE)
+
+
+class InventoryTool(InventoryItem):
+    gear = models.ForeignKey(Tool, on_delete=models.CASCADE)
