@@ -1,6 +1,6 @@
 from django.db import models
 from .mixins import HitDieMixin
-from .models import ProficiencyWithoutRelatedModel
+from .models import Proficiency
 
 STRENGTH = "STR"
 DEXTERITY = "DEX"
@@ -35,9 +35,7 @@ class CharacterClass(HitDieMixin):
     equipment_choices = models.TextField()
     major_saving_throw = models.CharField(choices=SAVING_THROW_MAJOR, max_length=3)
     minor_saving_throw = models.CharField(choices=SAVING_THROW_MINOR, max_length=3)
-    proficiencies_without_related_model = models.ManyToManyField(
-        ProficiencyWithoutRelatedModel, related_name="classes"
-    )
+    proficiencies = models.ManyToManyField(Proficiency, related_name="classes")
     # TODO: add language proficiencies if they ever exist, or anything else that would have a model
     # proficient_light_armor = models.BooleanField(default=False)
     # proficient_heavy_armor = models.BooleanField(default=False)

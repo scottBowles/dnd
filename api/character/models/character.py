@@ -14,7 +14,7 @@ from .models import (
     Feat,
     Feature,
     Language,
-    ProficiencyWithoutRelatedModel,
+    Proficiency,
     Skill,
     Tool,
 )
@@ -141,42 +141,34 @@ class Character(
     def proficiency_bonus(self):
         return math.ceil((self.total_level / 4) + 1)
 
-    proficiencies_without_related_model = models.ManyToManyField(
-        ProficiencyWithoutRelatedModel, related_name="characters"
-    )
-    proficiencies_without_related_model.help_text = (
-        "Doesn't include skills or languages"
-    )
+    proficiencies = models.ManyToManyField(Proficiency, related_name="characters")
 
-    @property
-    def proficiencies(self):
-        # TODO: I'm not at all sure this works. I think the pipe combining should only work if they're all the same model
-        return (
-            self.proficiencies_without_related_model.all()
-            | self.skills_proficient.all()
-        )
-
-    def is_proficient(self, name):
-        return self.proficiencies.filter(name=name).exists()
+    def is_proficient(self, name, proficiency_type=None):
+        if proficiency_type:
+            return self.proficiencies.filter(
+                name=name, proficiency_type=proficiency_type
+            ).exists()
+        else:
+            return self.proficiencies.filter(name=name).exists()
 
     def save_modifier(self, ability):
-        prof_bonus = self.proficiency_bonus if self.is_proficient(ability) else 0
+        prof_bonus = (
+            self.proficiency_bonus
+            if self.is_proficient(ability, Proficiency.ABILITY)
+            else 0
+        )
         ability_score = self[ability]
         ability_modifier = self.get_modifier(ability_score)
         return prof_bonus + ability_modifier
 
     # SKILLS BLOCK
-    skills_proficient = models.ManyToManyField(Skill)
-
     def skill_modifier(self, skill_name):
-        skill = self.skills.filter(name=skill_name).first()
-        if skill is None:
-            return 0
+        skill = Skill.objects.get(name=skill_name)
         ability = skill.related_ability
         ability_modifier = self.get_modifier(self[ability])
         prof_bonus = (
             self.proficiency_bonus
-            if self.skills_proficient.filter(pk=skill.pk).exists()
+            if self.is_proficient(skill_name, Proficiency.SKILL)
             else 0
         )
         return ability_modifier + prof_bonus

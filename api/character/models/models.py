@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import constraints
 
 STRENGTH = "strength"
 DEXTERITY = "dexterity"
@@ -96,25 +97,37 @@ class Feat(models.Model):
     custom = models.BooleanField(default=True)
 
 
-class ProficiencyWithoutRelatedModel(models.Model):
+class Proficiency(models.Model):
     ARMOR = "armor"
     WEAPON = "weapon"
+    SKILL = "skill"
     TOOL = "tool"
+    LANGUAGE = "language"
     ABILITY = "ability"
     OTHER = "other"
     PROFICIENCY_TYPES = (
         (ARMOR, "Armor"),
         (WEAPON, "Weapon"),
+        (SKILL, "Skill"),
         (TOOL, "Tool"),
+        (LANGUAGE, "Language"),
         (ABILITY, "Ability"),
         (OTHER, "Other"),
     )
 
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     proficiency_type = models.CharField(
-        max_length=7, choices=PROFICIENCY_TYPES, default=OTHER
+        max_length=8, choices=PROFICIENCY_TYPES, default=OTHER
     )
     description = models.TextField(default="", blank=True)
 
     def __str__(self):
         return self.name
+
+    class Meta:
+        verbose_name_plural = "Proficiencies"
+        constraints = [
+            constraints.UniqueConstraint(
+                fields=["name", "proficiency_type"], name="unique_proficiency"
+            )
+        ]
