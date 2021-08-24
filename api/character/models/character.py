@@ -1,6 +1,7 @@
 import math
 
 from django.db import models
+from django.contrib.postgres.fields import ArrayField
 from django.contrib.auth.models import User
 from django.db.models.aggregates import Sum
 from .character_class import CharacterClass
@@ -8,6 +9,7 @@ from .mixins import HitDieMixin
 from equipment.models import Equipment, Weapon, Armor
 from race.models import Race
 from .models import (
+    ABILITIES,
     ALIGNMENTS,
     SIZES,
     Background,
@@ -281,3 +283,39 @@ class InventoryEquipment(InventoryItem):
 
 class InventoryTool(InventoryItem):
     gear = models.ForeignKey(Tool, on_delete=models.CASCADE)
+
+
+class Attack(models.Model):
+    character = models.ForeignKey(Character, on_delete=models.CASCADE)
+    weapon = models.ForeignKey(Weapon, on_delete=models.CASCADE)
+    attack_bonus = models.IntegerField()
+    damage = models.CharField(max_length=100)
+    damage_type = models.CharField(max_length=100, default="")
+    range = models.CharField(max_length=100, default="")
+    properties = models.CharField(max_length=100, default="")
+    attack_ability_options = ArrayField(
+        models.CharField(max_length=12, choices=ABILITIES, default=list)
+    )
+    damage_ability_options = ArrayField(
+        models.CharField(max_length=12, choices=ABILITIES, default=list)
+    )
+
+    @property
+    def attack_ability_modifiers(self):
+        return [
+            (
+                ability,
+                self.character.get_ability_modifier(ability),
+            )
+            for ability in self.attack_ability_options
+        ]
+
+    @property
+    def damage_ability_modifiers(self):
+        return [
+            (
+                ability,
+                self.character.get_ability_modifier(ability),
+            )
+            for ability in self.damage_ability_options
+        ]
