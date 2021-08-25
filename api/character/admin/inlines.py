@@ -1,45 +1,46 @@
 from django.contrib import admin
 
 from character.models import (
+    Attack,
     Bond,
+    ClassAndLevel,
     Flaw,
     Ideal,
-    PersonalityTrait,
-    ClassAndLevel,
-    # Feature,
     InventoryArmor,
-    InventoryWeapon,
     InventoryEquipment,
     InventoryTool,
+    InventoryWeapon,
+    PersonalityTrait,
 )
 
 
-class PersonalityTraitInline(admin.TabularInline):
-    model = PersonalityTrait
+class AttackInline(admin.StackedInline):
+    model = Attack
     extra = 1
-    classes = [
-        "collapse",
-    ]
-
-
-class IdealInline(admin.TabularInline):
-    model = Ideal
-    extra = 1
-    classes = [
-        "collapse",
-    ]
+    fieldsets = (
+        (
+            None,
+            {
+                "fields": (
+                    ("weapon", "range"),
+                    "attack_bonus",
+                    "ability_options",
+                    "ability_modifiers",
+                    (
+                        "damage",
+                        "damage_type",
+                    ),
+                    "properties",
+                    "proficiency_needed",
+                )
+            },
+        ),
+    )
+    readonly_fields = ("ability_modifiers",)
 
 
 class BondInline(admin.TabularInline):
     model = Bond
-    extra = 1
-    classes = [
-        "collapse",
-    ]
-
-
-class FlawInline(admin.TabularInline):
-    model = Flaw
     extra = 1
     classes = [
         "collapse",
@@ -54,21 +55,24 @@ class ClassAndLevelInline(admin.TabularInline):
     ]
 
 
-# class FeaturesAndTraitsInline(admin.TabularInline):
-#     model = Feature
-#     extra = 1
-#     classes = [
-#         "collapse",
-#     ]
+class FlawInline(admin.TabularInline):
+    model = Flaw
+    extra = 1
+    classes = [
+        "collapse",
+    ]
+
+
+class IdealInline(admin.TabularInline):
+    model = Ideal
+    extra = 1
+    classes = [
+        "collapse",
+    ]
 
 
 class InventoryArmorInline(admin.TabularInline):
     model = InventoryArmor
-    extra = 1
-
-
-class InventoryWeaponInline(admin.TabularInline):
-    model = InventoryWeapon
     extra = 1
 
 
@@ -80,3 +84,16 @@ class InventoryEquipmentInline(admin.TabularInline):
 class InventoryToolInline(admin.TabularInline):
     model = InventoryTool
     extra = 1
+
+
+class InventoryWeaponInline(admin.TabularInline):
+    model = InventoryWeapon
+    extra = 1
+
+
+class PersonalityTraitInline(admin.TabularInline):
+    model = PersonalityTrait
+    extra = 1
+    classes = [
+        "collapse",
+    ]

@@ -1,5 +1,6 @@
 import math
 
+from django.contrib import admin
 from django.db import models
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.auth.models import User
@@ -31,7 +32,31 @@ class AbilityScoreArrayMixin(models.Model):
     charisma = models.PositiveIntegerField(default=10)
 
     def get_ability_modifier(self, ability):
-        return self[ability] // 2 - 5
+        return getattr(self, ability.lower()) // 2 - 5
+
+    @property
+    def strength_save(self):
+        return self.get_ability_modifier("strength") + self.proficiency_bonus
+
+    @property
+    def dexterity_save(self):
+        return self.get_ability_modifier("dexterity") + self.proficiency_bonus
+
+    @property
+    def constitution_save(self):
+        return self.get_ability_modifier("constitution") + self.proficiency_bonus
+
+    @property
+    def intelligence_save(self):
+        return self.get_ability_modifier("intelligence") + self.proficiency_bonus
+
+    @property
+    def wisdom_save(self):
+        return self.get_ability_modifier("wisdom") + self.proficiency_bonus
+
+    @property
+    def charisma_save(self):
+        return self.get_ability_modifier("charisma") + self.proficiency_bonus
 
     class Meta:
         # abstract for now, but if I want to be able to query all ability score arrays, should instead use multi-table inheritance (https://docs.djangoproject.com/en/dev/topics/db/models/#id6)
@@ -46,6 +71,7 @@ class MoneyHolderMixin(models.Model):
     platinum_pieces = models.PositiveIntegerField(default=0)
 
     @property
+    @admin.display(description="Total Cash on Hand (cp)")
     def total_cash_on_hand(self):
         return (
             self.copper_pieces
@@ -66,6 +92,7 @@ class HitPointsMixin(models.Model):
     damage_taken = models.PositiveIntegerField(default=0)
 
     @property
+    @admin.display(description="Current Hit Points")
     def hit_points_current(self):
         return self.max_hit_points + self.temporary_hit_points - self.damage_taken
 
@@ -84,13 +111,10 @@ class Character(
     name = models.CharField(max_length=200, null=True, blank=True)
 
     # CHARACTER INFO BLOCK
-    @property
-    def class_and_level(self):
-        return self.classandlevel_set.all()
-
+    # classes and levels through fk
     @property
     def total_level(self):
-        return self.classandlevel_set.aggregate(Sum("level"))["level__sum"]
+        return self.classandlevel_set.aggregate(Sum("level"))["level__sum"] or 0
 
     background = models.ForeignKey(
         Background, null=True, blank=True, on_delete=models.SET_NULL
@@ -140,7 +164,7 @@ class Character(
 
     @property
     def proficiency_bonus(self):
-        return math.ceil((self.total_level / 4) + 1)
+        return math.ceil((self.total_level / 4) + 1) if self.total_level else 0
 
     proficiencies = models.ManyToManyField(Proficiency, related_name="characters")
 
@@ -162,12 +186,13 @@ class Character(
         return prof_bonus + ability_modifier
 
     @property
+    @admin.display(description="Languages (select as proficiencies)")
     def languages_proficient(self):
         language_proficiencies = self.proficiencies.filter(
             proficiency_type=Proficiency.LANGUAGE
         )
         names = language_proficiencies.values_list("name", flat=True)
-        return Language.objects.filter(name__in=names)
+        return list(Language.objects.filter(name__in=names))
 
     # SKILLS BLOCK
     def get_skill_modifier(self, skill_name):
@@ -222,7 +247,7 @@ class Character(
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
 
     def __str__(self):
-        return self.name
+        return self.name or ""
 
 
 class NameTextCharacterField(models.Model):
@@ -291,31 +316,30 @@ class Attack(models.Model):
     attack_bonus = models.IntegerField()
     damage = models.CharField(max_length=100)
     damage_type = models.CharField(max_length=100, default="")
-    range = models.CharField(max_length=100, default="")
-    properties = models.CharField(max_length=100, default="")
-    attack_ability_options = ArrayField(
-        models.CharField(max_length=12, choices=ABILITIES, default=list)
+    range = models.PositiveIntegerField(default=0)
+    properties = models.TextField(default="")
+    ability_options = ArrayField(
+        models.CharField(max_length=12, choices=ABILITIES), default=list
     )
-    damage_ability_options = ArrayField(
-        models.CharField(max_length=12, choices=ABILITIES, default=list)
+    ability_options.help_text = "Comma separated ability scores. Usually 'strength' or 'dexterity'. With finesse: 'strength, dexterity'."
+    proficiency_needed = models.ForeignKey(
+        Proficiency,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        limit_choices_to={"proficiency_type": Proficiency.WEAPON},
+    )
+    proficiency_needed.help_text = (
+        "E.g., 'martial weapons'. May have to create the needed proficiency."
     )
 
     @property
-    def attack_ability_modifiers(self):
+    @admin.display(description="Ability Modifiers")
+    def ability_modifiers(self):
         return [
             (
                 ability,
                 self.character.get_ability_modifier(ability),
             )
-            for ability in self.attack_ability_options
-        ]
-
-    @property
-    def damage_ability_modifiers(self):
-        return [
-            (
-                ability,
-                self.character.get_ability_modifier(ability),
-            )
-            for ability in self.damage_ability_options
+            for ability in self.ability_options
         ]
