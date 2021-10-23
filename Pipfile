@@ -9,6 +9,7 @@ psycopg2-binary = "*"
 djangorestframework = "*"
 python-dotenv = "*"
 djoser = "*"
+django-cors-headers = "*"
 
 [dev-packages]
 black = "*"
