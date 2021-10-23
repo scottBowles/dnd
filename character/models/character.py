@@ -154,7 +154,9 @@ class Character(
         return self.flaw_set.all()
 
     # FEATURES AND TRAITS BLOCK
-    features_and_traits = models.ManyToManyField(Feature, related_name="characters")
+    features_and_traits = models.ManyToManyField(
+        Feature, related_name="characters", blank=True
+    )
 
     # ABILITY SCORE BLOCK
     # ability scores through mixin
@@ -166,7 +168,9 @@ class Character(
     def proficiency_bonus(self):
         return math.ceil((self.total_level / 4) + 1) if self.total_level else 0
 
-    proficiencies = models.ManyToManyField(Proficiency, related_name="characters")
+    proficiencies = models.ManyToManyField(
+        Proficiency, related_name="characters", blank=True
+    )
 
     def is_proficient(self, name, proficiency_type=None):
         if proficiency_type:
