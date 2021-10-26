@@ -158,7 +158,8 @@ CORS_ALLOWED_ORIGINS = [
 
 SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("JWT",),
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=15),
+    "ROTATE_REFRESH_TOKENS": True,
 }
 
 AUTH_USER_MODEL = "nucleus.User"
