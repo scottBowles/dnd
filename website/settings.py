@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "corsheaders",
     "rest_framework",
+    "rest_framework.authtoken",
     "djoser",
     "character",
     "equipment",
@@ -148,7 +149,7 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly"
     ],
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "rest_framework.authentication.TokenAuthentication",
     ),
 }
 
@@ -156,18 +157,13 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]
 
-SIMPLE_JWT = {
-    "AUTH_HEADER_TYPES": ("JWT",),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=15),
-    "ROTATE_REFRESH_TOKENS": True,
-}
-
 AUTH_USER_MODEL = "nucleus.User"
 
 DJOSER = {
+    "USER_CREATE_PASSWORD_RETYPE": True,
     "SERIALIZERS": {
         "user_create": "nucleus.serializers.UserCreateSerializer",
         "current_user": "nucleus.serializers.UserSerializer",
         "user": "nucleus.serializers.UserSerializer",
-    }
+    },
 }
