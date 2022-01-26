@@ -10,6 +10,7 @@ djangorestframework = "*"
 python-dotenv = "*"
 djoser = "*"
 django-cors-headers = "*"
+django-extensions = "*"
 
 [dev-packages]
 black = "*"

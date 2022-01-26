@@ -7,7 +7,7 @@ from django.contrib.postgres.fields import ArrayField
 from django.db.models.aggregates import Sum
 from .character_class import CharacterClass
 from .mixins import HitDieMixin
-from equipment.models import Equipment, Weapon, Armor
+from item.models import Equipment, Weapon, Armor
 from race.models import Race
 from .models import (
     ABILITIES,

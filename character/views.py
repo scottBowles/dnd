@@ -1,6 +1,6 @@
 from rest_framework import viewsets
 from rest_framework.permissions import AllowAny, DjangoModelPermissions, IsAuthenticated
-from nucleus.permissions import IsAdminOrReadOnly
+from nucleus.permissions import AdminOrReadOnly
 from .models import Character
 from .serializers import CharacterSerializer
 
@@ -8,7 +8,8 @@ from .serializers import CharacterSerializer
 class CharacterViewSet(viewsets.ModelViewSet):
     queryset = Character.objects.all()
     serializer_class = CharacterSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAuthenticated]
+    # permission_classes = [AdminOrReadOnly]
 
 
 class FullDjangoModelPermissions(DjangoModelPermissions):

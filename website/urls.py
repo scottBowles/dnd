@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import include, path
 from rest_framework import routers
 from character.views import CharacterViewSet
-from equipment.views import ArmorViewSet, EquipmentViewSet, WeaponViewSet
+from item.views import ArmorViewSet, EquipmentViewSet, WeaponViewSet
 
 admin.site.site_header = "D&D Admin"
 admin.site.index_title = "Admin"
