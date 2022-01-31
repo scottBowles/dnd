@@ -225,10 +225,13 @@ class Character(
 
     # EQUIPMENT BLOCK
     equipment = models.ManyToManyField(
-        Equipment, through="InventoryEquipment", blank=True
+        Equipment,
+        through="InventoryEquipment",
+        blank=True,
+        related_name="equipment_inventories",
     )
 
-    tool = models.ManyToManyField(Tool, through="InventoryTool", blank=True)
+    tool = models.ManyToManyField(Tool, through="InventoryTool", blank=True, related_name="tool_inventories")
 
     # SPELLCASTING BLOCK
     # TODO
@@ -237,10 +240,14 @@ class Character(
     feats = models.ManyToManyField(Feat, blank=True)
 
     # WEAPONS BLOCK
-    weapons = models.ManyToManyField(Weapon, through="InventoryWeapon", blank=True)
+    weapons = models.ManyToManyField(
+        Weapon, through="InventoryWeapon", blank=True, related_name="weapon_inventories"
+    )
 
     # ARMOR BLOCK
-    armor = models.ManyToManyField(Armor, through="InventoryArmor", blank=True)
+    armor = models.ManyToManyField(
+        Armor, through="InventoryArmor", blank=True, related_name="armor_inventories"
+    )
 
     # ATTACKS BLOCK
     # TODO

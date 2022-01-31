@@ -11,6 +11,7 @@ python-dotenv = "*"
 djoser = "*"
 django-cors-headers = "*"
 django-extensions = "*"
+rest-framework-generic-relations = "*"
 
 [dev-packages]
 black = "*"

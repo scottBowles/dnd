@@ -1,9 +1,12 @@
 from rest_framework import viewsets
 from .models import Armor, Equipment, Weapon
-from .serializers import ArmorSerializer, EquipmentSerializer, WeaponSerializer
+from .serializers import (
+    ArmorSerializer,
+    EquipmentSerializer,
+    WeaponSerializer,
+)
 
 
-# Create your views here.
 class EquipmentViewSet(viewsets.ModelViewSet):
     queryset = Equipment.objects.all()
     serializer_class = EquipmentSerializer

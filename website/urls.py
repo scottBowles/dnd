@@ -19,6 +19,14 @@ from django.urls import include, path
 from rest_framework import routers
 from character.views import CharacterViewSet
 from item.views import ArmorViewSet, EquipmentViewSet, WeaponViewSet
+from artifact.views import ArtifactViewSet
+from place.views import (
+    PlanetViewSet,
+    RegionViewSet,
+    TownViewSet,
+    DistrictViewSet,
+    LocationViewSet,
+)
 
 admin.site.site_header = "D&D Admin"
 admin.site.index_title = "Admin"
@@ -30,7 +38,12 @@ router.register(r"characters", CharacterViewSet)
 router.register(r"equipment", EquipmentViewSet)
 router.register(r"armor", ArmorViewSet)
 router.register(r"weapons", WeaponViewSet)
-
+router.register(r"artifacts", ArtifactViewSet)
+router.register(r"planets", PlanetViewSet)
+router.register(r"regions", RegionViewSet)
+router.register(r"towns", TownViewSet)
+router.register(r"districts", DistrictViewSet)
+router.register(r"locations", LocationViewSet)
 
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browsable API.
