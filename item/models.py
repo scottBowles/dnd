@@ -8,7 +8,8 @@ Each trait set has its own proxy model and manager for relevant methods.
 
 
 class Item(Entity):
-    pass
+    def __str__(self):
+        return self.name
 
 
 class ArtifactTraits(models.Model):
