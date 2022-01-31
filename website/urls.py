@@ -19,7 +19,6 @@ from django.urls import include, path
 from rest_framework import routers
 from character.views import CharacterViewSet
 from item.views import ArmorViewSet, EquipmentViewSet, WeaponViewSet
-from artifact.views import ArtifactViewSet
 from place.views import (
     PlanetViewSet,
     RegionViewSet,
@@ -38,7 +37,6 @@ router.register(r"characters", CharacterViewSet)
 router.register(r"equipment", EquipmentViewSet)
 router.register(r"armor", ArmorViewSet)
 router.register(r"weapons", WeaponViewSet)
-router.register(r"artifacts", ArtifactViewSet)
 router.register(r"planets", PlanetViewSet)
 router.register(r"regions", RegionViewSet)
 router.register(r"towns", TownViewSet)

@@ -35,8 +35,8 @@ class Artifact(Item):
 
 
 class ArmorTraits(models.Model):
-    ac_bonus = models.IntegerField()
     item = models.OneToOneField(Item, on_delete=models.CASCADE, related_name="armor")
+    ac_bonus = models.IntegerField()
 
 
 class ArmorManager(models.Manager):
@@ -58,8 +58,8 @@ class Armor(Item):
 
 
 class WeaponTraits(models.Model):
-    attack_bonus = models.IntegerField()
     item = models.OneToOneField(Item, on_delete=models.CASCADE, related_name="weapon")
+    attack_bonus = models.IntegerField()
 
 
 class WeaponManager(models.Manager):
@@ -80,10 +80,10 @@ class Weapon(Item):
 
 
 class EquipmentTraits(models.Model):
-    brief_description = models.TextField()
     item = models.OneToOneField(
         Item, on_delete=models.CASCADE, related_name="equipment"
     )
+    brief_description = models.TextField()
 
 
 class EquipmentManager(models.Manager):

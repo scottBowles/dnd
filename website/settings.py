@@ -50,7 +50,6 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "djoser",
     "generic_relations",
-    "artifact",
     "association",
     "character",
     "item",
