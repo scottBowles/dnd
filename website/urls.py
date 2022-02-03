@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import include, path
 from rest_framework import routers
 from character.views import CharacterViewSet
-from item.views import ArmorViewSet, EquipmentViewSet, WeaponViewSet
+from item.views import ItemViewSet, ArmorViewSet, EquipmentViewSet, WeaponViewSet
 from place.views import (
     PlanetViewSet,
     RegionViewSet,
@@ -34,6 +34,7 @@ admin.site.index_title = "Admin"
 # Routers provide an easy way of automatically determining the URL conf.
 router = routers.DefaultRouter()
 router.register(r"characters", CharacterViewSet)
+router.register(r"items", ItemViewSet)
 router.register(r"equipment", EquipmentViewSet)
 router.register(r"armor", ArmorViewSet)
 router.register(r"weapons", WeaponViewSet)

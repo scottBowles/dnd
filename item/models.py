@@ -14,7 +14,7 @@ class Item(Entity):
 
 class ArtifactTraits(models.Model):
     item = models.OneToOneField(Item, on_delete=models.CASCADE, related_name="artifact")
-    notes = models.TextField(default="")
+    notes = models.TextField(default="", blank=True)
 
 
 class ArtifactManager(models.Manager):
@@ -37,7 +37,7 @@ class Artifact(Item):
 
 class ArmorTraits(models.Model):
     item = models.OneToOneField(Item, on_delete=models.CASCADE, related_name="armor")
-    ac_bonus = models.IntegerField()
+    ac_bonus = models.IntegerField(default=0, blank=True)
 
 
 class ArmorManager(models.Manager):
@@ -60,7 +60,7 @@ class Armor(Item):
 
 class WeaponTraits(models.Model):
     item = models.OneToOneField(Item, on_delete=models.CASCADE, related_name="weapon")
-    attack_bonus = models.IntegerField()
+    attack_bonus = models.IntegerField(default=0, blank=True)
 
 
 class WeaponManager(models.Manager):
@@ -84,7 +84,7 @@ class EquipmentTraits(models.Model):
     item = models.OneToOneField(
         Item, on_delete=models.CASCADE, related_name="equipment"
     )
-    brief_description = models.TextField()
+    brief_description = models.TextField(default="", blank=True)
 
 
 class EquipmentManager(models.Manager):
