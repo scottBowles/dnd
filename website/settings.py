@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "corsheaders",
     "django_extensions",
+    "graphene_django",
     "rest_framework",
     "rest_framework.authtoken",
     "djoser",
@@ -171,4 +172,8 @@ DJOSER = {
         "current_user": "nucleus.serializers.UserSerializer",
         "user": "nucleus.serializers.UserSerializer",
     },
+}
+
+GRAPHENE = {
+    "SCHEMA": "website.schema.schema",
 }

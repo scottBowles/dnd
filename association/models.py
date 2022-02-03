@@ -4,4 +4,5 @@ from nucleus.models import Entity
 
 
 class Association(Entity):
-    pass
+    def __str__(self):
+        return self.name

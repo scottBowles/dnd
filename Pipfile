@@ -12,6 +12,7 @@ djoser = "*"
 django-cors-headers = "*"
 django-extensions = "*"
 rest-framework-generic-relations = "*"
+graphene-django = "*"
 
 [dev-packages]
 black = "*"

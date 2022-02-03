@@ -16,7 +16,11 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import include, path
+from django.views.decorators.csrf import csrf_exempt
+
+from graphene_django.views import GraphQLView
 from rest_framework import routers
+
 from character.views import CharacterViewSet
 from item.views import ItemViewSet, ArmorViewSet, EquipmentViewSet, WeaponViewSet
 from place.views import (
@@ -52,4 +56,5 @@ urlpatterns = [
     path("api-auth/", include("rest_framework.urls", namespace="rest_framework")),
     path("auth/", include("djoser.urls")),
     path("auth/", include("djoser.urls.authtoken")),
+    path("graphql/", csrf_exempt(GraphQLView.as_view(graphiql=True))),
 ]
