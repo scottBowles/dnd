@@ -13,6 +13,7 @@ django-cors-headers = "*"
 django-extensions = "*"
 rest-framework-generic-relations = "*"
 graphene-django = "*"
+django-filter = "*"
 
 [dev-packages]
 black = "*"
