@@ -1,10 +1,12 @@
 import graphene
+from graphene import relay
 from graphene_django import DjangoObjectType
+from graphene_django.filter import DjangoFilterConnectionField
 
 from .models import Item, ArtifactTraits, ArmorTraits, WeaponTraits, EquipmentTraits
 
 
-class ItemType(DjangoObjectType):
+class ItemNode(DjangoObjectType):
     class Meta:
         model = Item
         fields = (
@@ -18,44 +20,46 @@ class ItemType(DjangoObjectType):
             "weapon",
             "equipment",
         )
+        filter_fields = [
+            "name",
+            "description",
+            "created",
+            "updated",
+        ]
+        interfaces = (relay.Node,)
 
 
-class ArtifactTraitsType(DjangoObjectType):
+class ArtifactTraitsNode(DjangoObjectType):
     class Meta:
         model = ArtifactTraits
         fields = ("notes",)
+        interfaces = (relay.Node,)
 
 
-class ArmorType(DjangoObjectType):
+class ArmorTraitsNode(DjangoObjectType):
     class Meta:
         model = ArmorTraits
         fields = ("ac_bonus",)
+        interfaces = (relay.Node,)
 
 
-class WeaponTraitsType(DjangoObjectType):
+class WeaponTraitsNode(DjangoObjectType):
     class Meta:
         model = WeaponTraits
         fields = ("attack_bonus",)
+        interfaces = (relay.Node,)
 
 
-class EquipmentTraitsType(DjangoObjectType):
+class EquipmentTraitsNode(DjangoObjectType):
     class Meta:
         model = EquipmentTraits
         fields = ("brief_description",)
+        interfaces = (relay.Node,)
 
 
 class Query(graphene.ObjectType):
-    items = graphene.List(ItemType)
-    item_by_id = graphene.Field(ItemType, id=graphene.Int())
-
-    def resolve_items(self, info):
-        return Item.objects.all()
-
-    def resolve_item_by_id(self, info, **kwargs):
-        id = kwargs.get("id")
-        if id is not None:
-            return Item.objects.get(pk=id)
-        return None
+    item = relay.Node.Field(ItemNode)
+    items = DjangoFilterConnectionField(ItemNode)
 
 
 schema = graphene.Schema(query=Query)
