@@ -31,22 +31,20 @@ class AssociationSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class AssociationMutations(RelayCUD):
-    class Input:
-        name = graphene.String()
-        description = graphene.String()
-
-    class Meta:
-        model = Association
-        serializer = AssociationSerializer
+class Input:
+    name = graphene.String()
+    description = graphene.String()
 
 
-mutations = AssociationMutations("association", AssociationNode)
+mutations = RelayCUD(
+    "association", AssociationNode, Input, Association, AssociationSerializer
+)
 
 
 class Mutation(graphene.ObjectType):
     association_create = mutations.create_mutation().Field()
     association_update = mutations.update_mutation().Field()
+    association_patch = mutations.partial_update_mutation().Field()
     association_delete = mutations.delete_mutation().Field()
 
 

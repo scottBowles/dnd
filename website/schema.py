@@ -7,7 +7,7 @@ class Query(association.schema.Query, item.schema.Query, graphene.ObjectType):
     pass
 
 
-class Mutation(association.schema.Mutation, graphene.ObjectType):
+class Mutation(association.schema.Mutation, item.schema.Mutation, graphene.ObjectType):
     pass
 
 

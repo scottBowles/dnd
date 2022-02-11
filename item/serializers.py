@@ -59,11 +59,86 @@ class EquipmentMixin(serializers.Serializer):
         fields = ["equipment"]
 
 
-class ItemSerializer(serializers.ModelSerializer):
-    artifact = serializers.SerializerMethodField(required=False)
-    armor = serializers.SerializerMethodField(required=False)
-    weapon = serializers.SerializerMethodField(required=False)
-    equipment = serializers.SerializerMethodField(required=False)
+class ItemSerializer:
+    pass
+
+
+# class ItemSerializer(serializers.ModelSerializer):
+#     artifact = serializers.SerializerMethodField(required=False)
+#     armor = serializers.SerializerMethodField(required=False)
+#     weapon = serializers.SerializerMethodField(required=False)
+#     equipment = serializers.SerializerMethodField(required=False)
+
+#     class Meta:
+#         model = Item
+#         fields = [
+#             "id",
+#             "name",
+#             "description",
+#             "artifact",
+#             "armor",
+#             "weapon",
+#             "equipment",
+#         ]
+
+#     def get_artifact(self, obj):
+#         return obj.artifact.pk if hasattr(obj, "artifact") else None
+
+#     def get_armor(self, obj):
+#         return obj.armor.pk if hasattr(obj, "armor") else None
+
+#     def get_weapon(self, obj):
+#         return obj.weapon.pk if hasattr(obj, "weapon") else None
+
+#     def get_equipment(self, obj):
+#         return obj.equipment.pk if hasattr(obj, "equipment") else None
+
+#     def create(self, validated_data):
+#         artifact_data = validated_data.pop("artifact", None)
+#         armor_data = validated_data.pop("armor", None)
+#         weapon_data = validated_data.pop("weapon", None)
+#         equipment_data = validated_data.pop("equipment", None)
+
+#         item = super().create(validated_data)
+
+#         if artifact_data:
+#             ArtifactTraits.objects.create(item=item, **artifact_data)
+#         if armor_data:
+#             ArmorTraits.objects.create(item=item, **armor_data)
+#         if weapon_data:
+#             WeaponTraits.objects.create(item=item, **weapon_data)
+#         if equipment_data:
+#             EquipmentTraits.objects.create(item=item, **equipment_data)
+
+#         return item
+
+#     def update(self, instance, validated_data):
+#         artifact_data = validated_data.pop("artifact", None)
+#         armor_data = validated_data.pop("armor", None)
+#         weapon_data = validated_data.pop("weapon", None)
+#         equipment_data = validated_data.pop("equipment", None)
+
+#         if artifact_data:
+#             ArtifactTraits.objects.update_or_create(
+#                 item=instance, defaults=artifact_data
+#             )
+#         if armor_data:
+#             ArmorTraits.objects.update_or_create(item=instance, defaults=armor_data)
+#         if weapon_data:
+#             WeaponTraits.objects.update_or_create(item=instance, defaults=weapon_data)
+#         if equipment_data:
+#             EquipmentTraits.objects.update_or_create(
+#                 item=instance, defaults=equipment_data
+#             )
+
+#         super().update(instance, validated_data)
+
+#         return instance
+class ItemSerializerGQL(serializers.ModelSerializer):
+    artifact = ArtifactSerializer(required=False)
+    armor = ArmorSerializer(required=False)
+    weapon = WeaponSerializer(required=False)
+    equipment = EquipmentSerializer(required=False)
 
     class Meta:
         model = Item
@@ -77,17 +152,11 @@ class ItemSerializer(serializers.ModelSerializer):
             "equipment",
         ]
 
-    def get_artifact(self, obj):
-        return obj.artifact.pk if hasattr(obj, "artifact") else None
-
-    def get_armor(self, obj):
-        return obj.armor.pk if hasattr(obj, "armor") else None
-
-    def get_weapon(self, obj):
-        return obj.weapon.pk if hasattr(obj, "weapon") else None
-
-    def get_equipment(self, obj):
-        return obj.equipment.pk if hasattr(obj, "equipment") else None
+    def update_or_remove(self, instance, Model, data):
+        if data:
+            Model.objects.update_or_create(item=instance, defaults=data)
+        else:
+            Model.objects.filter(item=instance).delete()
 
     def create(self, validated_data):
         artifact_data = validated_data.pop("artifact", None)
@@ -114,22 +183,30 @@ class ItemSerializer(serializers.ModelSerializer):
         weapon_data = validated_data.pop("weapon", None)
         equipment_data = validated_data.pop("equipment", None)
 
-        if artifact_data:
-            ArtifactTraits.objects.update_or_create(
-                item=instance, defaults=artifact_data
-            )
-        if armor_data:
-            ArmorTraits.objects.update_or_create(item=instance, defaults=armor_data)
-        if weapon_data:
-            WeaponTraits.objects.update_or_create(item=instance, defaults=weapon_data)
-        if equipment_data:
-            EquipmentTraits.objects.update_or_create(
-                item=instance, defaults=equipment_data
-            )
+        partial = self.context.get("partial", False)
 
-        super().update(instance, validated_data)
+        if partial:
+            if artifact_data:
+                ArtifactTraits.objects.update_or_create(
+                    item=instance, defaults=artifact_data
+                )
+            if armor_data:
+                ArmorTraits.objects.update_or_create(item=instance, defaults=armor_data)
+            if weapon_data:
+                WeaponTraits.objects.update_or_create(
+                    item=instance, defaults=weapon_data
+                )
+            if equipment_data:
+                EquipmentTraits.objects.update_or_create(
+                    item=instance, defaults=equipment_data
+                )
+        else:
+            self.update_or_remove(instance, ArtifactTraits, artifact_data)
+            self.update_or_remove(instance, ArmorTraits, armor_data)
+            self.update_or_remove(instance, WeaponTraits, weapon_data)
+            self.update_or_remove(instance, EquipmentTraits, equipment_data)
 
-        return instance
+        return super().update(instance, validated_data)
 
 
 EXPAND_MIXINS = {

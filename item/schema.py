@@ -4,6 +4,8 @@ from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
 
 from .models import Item, ArtifactTraits, ArmorTraits, WeaponTraits, EquipmentTraits
+from .serializers import ItemSerializerGQL
+from nucleus.utils import RelayCUD
 
 
 class ItemNode(DjangoObjectType):
@@ -62,4 +64,39 @@ class Query(graphene.ObjectType):
     items = DjangoFilterConnectionField(ItemNode)
 
 
-schema = graphene.Schema(query=Query)
+class ArtifactInput(graphene.InputObjectType):
+    notes = graphene.String()
+
+
+class ArmorInput(graphene.InputObjectType):
+    ac_bonus = graphene.Int()
+
+
+class EquipmentInput(graphene.InputObjectType):
+    brief_description = graphene.String()
+
+
+class WeaponInput(graphene.InputObjectType):
+    attack_bonus = graphene.Int()
+
+
+class Input:
+    name = graphene.String()
+    description = graphene.String()
+    artifact = ArtifactInput(required=False)
+    armor = ArmorInput(required=False)
+    equipment = EquipmentInput(required=False)
+    weapon = WeaponInput(required=False)
+
+
+mutations = RelayCUD("item", ItemNode, Input, Item, ItemSerializerGQL)
+
+
+class Mutation(graphene.ObjectType):
+    item_create = mutations.create_mutation().Field()
+    item_update = mutations.update_mutation().Field()
+    item_patch = mutations.partial_update_mutation().Field()
+    item_delete = mutations.delete_mutation().Field()
+
+
+schema = graphene.Schema(query=Query, mutation=Mutation)
