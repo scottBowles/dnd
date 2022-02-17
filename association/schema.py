@@ -44,7 +44,7 @@ mutations = RelayCUD(
 class Mutation(graphene.ObjectType):
     association_create = mutations.create_mutation().Field()
     association_update = mutations.update_mutation().Field()
-    association_patch = mutations.partial_update_mutation().Field()
+    association_patch = mutations.patch_mutation().Field()
     association_delete = mutations.delete_mutation().Field()
 
 

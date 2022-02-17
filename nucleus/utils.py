@@ -95,7 +95,7 @@ class RelayCUD(object):
         mixin_name = self.field.title() + "UpdateMutation"
         return type(mixin_name, (Mixin, relay.ClientIDMutation), {})
 
-    def partial_update_mutation(self):
+    def patch_mutation(self):
         class Input(self.Input):
             id = graphene.ID()
 
@@ -110,3 +110,14 @@ class RelayCUD(object):
         Mixin = self.get_mixin(self.delete, Input, include_field=False)
         mixin_name = self.field.title() + "DeleteMutation"
         return type(mixin_name, (Mixin, relay.ClientIDMutation), {})
+
+    def get_mutation_class(self):
+        class Mutation(graphene.ObjectType):
+            pass
+
+        setattr(Mutation, self.field + "_create", self.create_mutation().Field())
+        setattr(Mutation, self.field + "_update", self.update_mutation().Field())
+        setattr(Mutation, self.field + "_patch", self.patch_mutation().Field())
+        setattr(Mutation, self.field + "_delete", self.delete_mutation().Field())
+
+        return Mutation

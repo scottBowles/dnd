@@ -183,9 +183,7 @@ class ItemSerializerGQL(serializers.ModelSerializer):
         weapon_data = validated_data.pop("weapon", None)
         equipment_data = validated_data.pop("equipment", None)
 
-        partial = self.context.get("partial", False)
-
-        if partial:
+        if self.partial:
             if artifact_data:
                 ArtifactTraits.objects.update_or_create(
                     item=instance, defaults=artifact_data
