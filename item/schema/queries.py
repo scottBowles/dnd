@@ -1,31 +1,13 @@
 import graphene
 from graphene import relay
-from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
 
-from ..models import (
-    Item,
-    ArtifactTraits,
-    ArmorTraits,
-    WeaponTraits,
-    EquipmentTraits,
-    Artifact,
-    Armor,
-    Weapon,
-    Equipment,
-)
-from ..serializers import ItemSerializerGQL
-from nucleus.utils import RelayCUD
 from .nodes import (
     ItemNode,
     ArtifactNode,
-    ArtifactTraitsNode,
     ArmorNode,
-    ArmorTraitsNode,
     WeaponNode,
-    WeaponTraitsNode,
     EquipmentNode,
-    EquipmentTraitsNode,
 )
 
 
