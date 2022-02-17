@@ -31,6 +31,15 @@ class AssociationSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class AssociationInput(graphene.InputObjectType):
+    """
+    For use where Association is nested in another object
+    """
+
+    name = graphene.String()
+    description = graphene.String()
+
+
 class Input:
     name = graphene.String()
     description = graphene.String()
