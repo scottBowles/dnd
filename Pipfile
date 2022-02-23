@@ -14,6 +14,7 @@ django-extensions = "*"
 rest-framework-generic-relations = "*"
 graphene-django = "*"
 django-filter = "*"
+factory-boy = "*"
 
 [dev-packages]
 black = "*"
