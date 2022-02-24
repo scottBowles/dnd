@@ -32,6 +32,9 @@ class PlaceExport(models.Model):
     export = models.ForeignKey(Export, on_delete=models.CASCADE)
     significance = models.IntegerField(choices=SIGNIFICANCE, default=MAJOR)
 
+    def __str__(self):
+        return f"{self.place} - {self.export}"
+
 
 class PlaceRace(models.Model):
     race = models.ForeignKey(Race, on_delete=models.CASCADE)
@@ -39,11 +42,17 @@ class PlaceRace(models.Model):
     percent = models.FloatField()
     notes = models.TextField()
 
+    def __str__(self):
+        return f"{self.place} - {self.race}"
+
 
 class PlaceAssociation(models.Model):
     place = models.ForeignKey("Place", on_delete=models.CASCADE)
     association = models.ForeignKey(Association, on_delete=models.CASCADE)
     notes = models.TextField()
+
+    def __str__(self):
+        return f"{self.place} - {self.association}"
 
 
 class Place(Entity):
@@ -72,6 +81,9 @@ class Place(Entity):
     exports = models.ManyToManyField(Export, through="PlaceExport")
     common_races = models.ManyToManyField(Race, through="PlaceRace")
     associations = models.ManyToManyField(Association, through="PlaceAssociation")
+
+    def __str__(self):
+        return self.name
 
 
 class StarManager(models.Manager):
