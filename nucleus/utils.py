@@ -65,17 +65,11 @@ class RelayCUD(object):
 
             @classmethod
             def mutate_and_get_payload(cls, root, info, **input):
-                try:
-                    instance = action(info, **input)
-                    args = {"ok": True, "errors": None}
-                    if include_field:
-                        args[field] = instance
-                    return cls(**args)
-                except Exception as e:
-                    args = {"ok": False, "errors": str(e)}
-                    if include_field:
-                        args[field] = None
-                    return cls(**args)
+                instance = action(info, **input)
+                args = {"ok": True}
+                if include_field:
+                    args[field] = instance
+                return cls(**args)
 
         if include_field:
             setattr(MutationMixin, field, graphene.Field(Node))
