@@ -1,3 +1,4 @@
+import graphene
 from graphene import relay
 from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
@@ -5,6 +6,15 @@ from graphene_django.filter import DjangoFilterConnectionField
 from ..models import Place, PlaceExport, Export, PlaceRace, PlaceAssociation
 from race.models import Race
 from association.schema import AssociationNode
+from django.db.models import Prefetch
+
+
+class ExportNode(DjangoObjectType):
+    class Meta:
+        model = Export
+        fields = ("id", "name", "description", "created", "updated")
+        filter_fields = []
+        interfaces = (relay.Node,)
 
 
 class RaceNode(DjangoObjectType):
@@ -22,50 +32,91 @@ class RaceNode(DjangoObjectType):
         interfaces = (relay.Node,)
 
 
-class ExportNode(DjangoObjectType):
+class AssociationConnection(relay.Connection):
     class Meta:
-        model = Export
-        fields = ("id", "name", "description", "created", "updated")
-        filter_fields = []
-        interfaces = (relay.Node,)
+        node = AssociationNode
+
+    class Edge:
+        notes = graphene.String()
+
+        def resolve_notes(self, info):
+            try:
+                return next(
+                    place_association.notes
+                    for place_association in self.node.place_associations
+                    if place_association.association == self.node
+                )
+            except StopIteration:
+                return None
 
 
-class PlaceExportNode(DjangoObjectType):
+class ExportConnection(relay.Connection):
     class Meta:
-        model = PlaceExport
-        fields = ("export", "significance")
-        filter_fields = ("export", "significance")
-        interfaces = (relay.Node,)
+        node = ExportNode
+
+    class Edge:
+        significance = graphene.String()
+
+        def resolve_significance(self, info):
+            try:
+                return next(
+                    place_export.get_significance_display()
+                    for place_export in self.node.place_exports
+                    if place_export.export == self.node
+                )
+            except StopIteration:
+                return None
 
 
-class PlaceRaceNode(DjangoObjectType):
+class RaceConnection(relay.Connection):
     class Meta:
-        model = PlaceRace
-        fields = (
-            "race",
-            "percent",
-            "notes",
-        )
-        filter_fields = ("percent",)
-        interfaces = (relay.Node,)
+        node = RaceNode
 
+    class Edge:
+        percent = graphene.Float()
+        notes = graphene.String()
 
-class PlaceAssociation(DjangoObjectType):
-    class Meta:
-        model = PlaceAssociation
-        fields = (
-            "association",
-            "notes",
-        )
-        filter_fields = []
-        interfaces = (relay.Node,)
+        @property
+        def place_race(self):
+            try:
+                return next(
+                    place_race
+                    for place_race in self.node.place_races
+                    if place_race.race == self.node
+                )
+            except StopIteration:
+                return None
+
+        def resolve_percent(self, info):
+            return self.place_race.percent if self.place_race is not None else None
+
+        def resolve_notes(self, info):
+            return self.place_race.notes if self.place_race is not None else None
 
 
 class PlaceNode(DjangoObjectType):
-    parent = relay.Node.Field(lambda: PlaceNode)
-    exports = DjangoFilterConnectionField(PlaceExportNode)
-    common_races = DjangoFilterConnectionField(PlaceRaceNode)
-    associations = DjangoFilterConnectionField(PlaceAssociation)
+    parent = graphene.Field(lambda: PlaceNode)
+    exports = relay.ConnectionField(ExportConnection)
+    common_races = relay.ConnectionField(RaceConnection)
+    associations = relay.ConnectionField(AssociationConnection)
+
+    def resolve_associations(self, info, **kwargs):
+        qs = PlaceAssociation.objects.filter(place=self)
+        return self.associations.prefetch_related(
+            Prefetch("placeassociation_set", queryset=qs, to_attr="place_associations")
+        )
+
+    def resolve_exports(self, info, **kwargs):
+        qs = PlaceExport.objects.filter(place=self)
+        return self.exports.prefetch_related(
+            Prefetch("placeexport_set", queryset=qs, to_attr="place_exports")
+        )
+
+    def resolve_common_races(self, info, **kwargs):
+        qs = PlaceRace.objects.filter(place=self)
+        return self.common_races.prefetch_related(
+            Prefetch("placerace_set", queryset=qs, to_attr="place_races")
+        )
 
     class Meta:
         model = Place
@@ -83,6 +134,7 @@ class PlaceNode(DjangoObjectType):
             "associations",
         )
         filter_fields = [
+            "place_type",
             "name",
             "description",
             "created",
