@@ -56,13 +56,13 @@ class PlaceAssociation(models.Model):
 
 
 class Place(Entity):
-    STAR = "star"
-    PLANET = "planet"
-    MOON = "moon"
-    REGION = "region"
-    TOWN = "town"
-    DISTRICT = "district"
-    LOCATION = "location"
+    STAR = "STAR"
+    PLANET = "PLANET"
+    MOON = "MOON"
+    REGION = "REGION"
+    TOWN = "TOWN"
+    DISTRICT = "DISTRICT"
+    LOCATION = "LOCATION"
 
     PLACE_TYPES = [
         (STAR, "Star"),
