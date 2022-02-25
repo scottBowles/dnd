@@ -137,12 +137,11 @@ class CompareMixin(GraphQLTestCase):
 
         if compare_races:
             place_races = model_place.placerace_set.all()
-            print("node_place", node_place)
             races_edges = node_place["commonRaces"]["edges"]
             self.compare_place_race_edges(place_races, races_edges)
 
 
-class PlaceTests(CompareMixin, GraphQLTestCase):
+class PlaceQueryTests(CompareMixin, GraphQLTestCase):
     def test_basic_place_list_query(self):
         places = PlaceFactory.create_batch(2)
 
@@ -345,6 +344,7 @@ class PlaceTests(CompareMixin, GraphQLTestCase):
         res_json = json.loads(response.content)
         res_place = res_json["data"]["place"]
 
+        self.assertEqual(len(res_place["associations"]["edges"]), 2)
         self.compare_places(place1, res_place, compare_associations=True)
 
     def test_place_detail_query_with_m2m_exports(self):
@@ -388,6 +388,7 @@ class PlaceTests(CompareMixin, GraphQLTestCase):
         res_json = json.loads(response.content)
         res_place = res_json["data"]["place"]
 
+        self.assertEqual(len(res_place["exports"]["edges"]), 2)
         self.compare_places(place1, res_place, compare_exports=True)
 
     def test_place_detail_query_with_m2m_races(self):
@@ -431,4 +432,175 @@ class PlaceTests(CompareMixin, GraphQLTestCase):
         res_json = json.loads(response.content)
         res_place = res_json["data"]["place"]
 
+        self.assertEqual(len(res_place["commonRaces"]["edges"]), 2)
         self.compare_places(place1, res_place, compare_races=True)
+
+
+class PlaceMutationTests(CompareMixin, GraphQLTestCase):
+    def test_basic_place_create_mutation(self):
+        query = """
+            mutation {
+                placeCreate(input: {
+                    name: "Test Place Name"
+                    description: "Test Place Description"
+                    placeType: "TOWN"
+                    population: 100
+                }) {
+                    ok
+                    errors
+                    place {
+                        id
+                        name
+                        description
+                        created
+                        updated
+                        placeType
+                        population
+                    }
+                }
+            }
+        """
+        response = self.query(query)
+        self.assertResponseNoErrors(response)
+
+        result = json.loads(response.content)
+        res_place = result["data"]["placeCreate"]["place"]
+
+        self.assertEqual(res_place["name"], "Test Place Name")
+        self.assertEqual(res_place["description"], "Test Place Description")
+
+        created_place = Place.objects.get(pk=from_global_id(res_place["id"])[1])
+        self.assertEqual(created_place.name, "Test Place Name")
+        self.assertEqual(created_place.description, "Test Place Description")
+
+        self.compare_places(created_place, res_place)
+
+    def test_place_create_bad_input(self):  # (no `name` value provided)
+        query = """
+            mutation {
+                placeCreate(input: {
+                    description: "Test Place Description"
+                }) {
+                    ok
+                    errors
+                    place {
+                        id
+                        name
+                        description
+                        created
+                        updated
+                        placeType
+                        population
+                    }
+                }
+            }
+        """
+        response = self.query(query)
+        self.assertResponseHasErrors(response)
+
+    def test_place_create_with_parent(self):
+        parent = PlaceFactory()
+        query = """
+            mutation {
+                placeCreate(input: {
+                    name: "Test Place Name"
+                    description: "Test Place Description"
+                    placeType: "TOWN"
+                    population: 100
+                    parent: {
+                        id: "%s"
+                    }
+                }) {
+                    ok
+                    errors
+                    place {
+                        id
+                        name
+                        description
+                        created
+                        updated
+                        placeType
+                        population
+                        parent {
+                            id
+                            name
+                            description
+                            created
+                            updated
+                            placeType
+                            population
+                        }
+                    }
+                }
+            }
+        """ % to_global_id(
+            "PlaceNode", parent.id
+        )
+
+        response = self.query(query)
+        self.assertResponseNoErrors(response)
+
+        result = json.loads(response.content)
+        res_place = result["data"]["placeCreate"]["place"]
+
+        created_place = Place.objects.get(pk=from_global_id(res_place["id"])[1])
+
+        self.compare_places(created_place, res_place, compare_parents_to_depth=1)
+
+    def test_place_create_with_adding_existing_exports(self):
+        export1 = ExportFactory()
+        export2 = ExportFactory()
+
+        query = """
+            mutation {
+                placeCreate(input: {
+                    name: "Test Place Name"
+                    description: "Test Place Description"
+                    placeType: "TOWN"
+                    population: 100
+                    exports: [{
+                        significance: 0
+                        export: "%s"
+                    }, {
+                        significance: 1
+                        export: "%s"
+                    }]
+                }) {
+                    ok
+                    errors
+                    place {
+                        id
+                        name
+                        description
+                        created
+                        updated
+                        placeType
+                        population
+                        exports {
+                            edges {
+                                significance
+                                node {
+                                    id
+                                    name
+                                    description
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        """ % (
+            to_global_id("ExportNode", export1.id),
+            to_global_id("ExportNode", export2.id),
+        )
+
+        response = self.query(query)
+        self.assertResponseNoErrors(response)
+
+        result = json.loads(response.content)
+        res_place = result["data"]["placeCreate"]["place"]
+
+        created_place = Place.objects.get(pk=from_global_id(res_place["id"])[1])
+
+        self.assertEqual(len(created_place.exports.all()), 2)
+        self.compare_places(created_place, res_place, compare_exports=True)

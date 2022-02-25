@@ -28,12 +28,13 @@ class RaceInput(graphene.InputObjectType):
 
 
 class ExportInput(graphene.InputObjectType):
+    id = graphene.ID()
     name = graphene.String()
     description = graphene.String()
 
 
 class PlaceExportInput(graphene.InputObjectType):
-    export = ExportInput()
+    export = graphene.String()
     significance = graphene.Int()
 
 
@@ -46,12 +47,18 @@ class PlaceRaceInput(graphene.InputObjectType):
 class PlaceAssociationInput(graphene.InputObjectType):
     association = AssociationInput()
     notes = graphene.String()
-    things = graphene.ConnectionField
+    # things = graphene.ConnectionField
 
 
 class Input:
     name = graphene.String()
     description = graphene.String()
+    place_type = graphene.String()
+    population = graphene.Int()
+    associations = graphene.List(PlaceAssociationInput)
+    races = graphene.List(PlaceRaceInput)
+    exports = graphene.List(PlaceExportInput)
+    parent = graphene.UUID()
 
 
 PlaceMutations = RelayCUD(

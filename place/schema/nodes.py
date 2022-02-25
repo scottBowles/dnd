@@ -1,7 +1,6 @@
 import graphene
 from graphene import relay
 from graphene_django import DjangoObjectType
-from graphene_django.filter import DjangoFilterConnectionField
 
 from ..models import Place, PlaceExport, Export, PlaceRace, PlaceAssociation
 from race.models import Race
@@ -141,28 +140,3 @@ class PlaceNode(DjangoObjectType):
             "updated",
         ]
         interfaces = (relay.Node,)
-
-
-# class ItemNode(ItemNodeBase, DjangoObjectType):
-#     class Meta(ItemNodeBase.Meta):
-#         model = Item
-
-
-# class ArtifactNode(ItemNodeBase, DjangoObjectType):
-#     class Meta(ItemNodeBase.Meta):
-#         model = Artifact
-
-
-# class ArmorNode(ItemNodeBase, DjangoObjectType):
-#     class Meta(ItemNodeBase.Meta):
-#         model = Armor
-
-
-# class EquipmentNode(ItemNodeBase, DjangoObjectType):
-#     class Meta(ItemNodeBase.Meta):
-#         model = Equipment
-
-
-# class WeaponNode(ItemNodeBase, DjangoObjectType):
-#     class Meta(ItemNodeBase.Meta):
-#         model = Weapon
