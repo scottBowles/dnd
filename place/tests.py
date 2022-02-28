@@ -604,3 +604,54 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
 
         self.assertEqual(len(created_place.exports.all()), 2)
         self.compare_places(created_place, res_place, compare_exports=True)
+
+    def test_place_create_fails_with_nonexisting_export_ids(self):
+        query = """
+            mutation {
+                placeCreate(input: {
+                    name: "Test Place Name"
+                    description: "Test Place Description"
+                    placeType: "TOWN"
+                    population: 100
+                    exports: [{
+                        significance: 0
+                        export: "%s"
+                    }, {
+                        significance: 1
+                        export: "%s"
+                    }]
+                }) {
+                    ok
+                    errors
+                    place {
+                        id
+                        name
+                        description
+                        created
+                        updated
+                        placeType
+                        population
+                        exports {
+                            edges {
+                                significance
+                                node {
+                                    id
+                                    name
+                                    description
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        """ % (
+            to_global_id("ExportNode", 23456),
+            to_global_id("ExportNode", 12345),
+        )
+
+        response = self.query(query)
+        self.assertResponseHasErrors(response)
+
+        with self.assertRaises(Place.DoesNotExist):
+            Place.objects.get(name="Test Place Name")
+
