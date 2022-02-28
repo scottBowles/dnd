@@ -1,6 +1,12 @@
 import graphene
 from graphene import relay
 from graphql_relay import from_global_id
+from rest_framework import serializers
+
+
+class RelayPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
+    def to_internal_value(self, data):
+        return super().to_internal_value(from_global_id(data)[1])
 
 
 class RelayCUD(object):
