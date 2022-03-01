@@ -35,6 +35,9 @@ class PlaceExport(models.Model):
     def __str__(self):
         return f"{self.place} - {self.export}"
 
+    class Meta:
+        unique_together = ("place", "export")
+
 
 class PlaceRace(models.Model):
     race = models.ForeignKey(Race, on_delete=models.CASCADE)
