@@ -10,12 +10,14 @@ class RelayPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
 
 
 class RelayCUD(object):
-    def __init__(self, field, Node, Input, model, serializer_class, **kwargs):
-        self.field = field
-        self.Node = Node
-        self.Input = Input
-        self.model = model
-        self.serializer_class = serializer_class
+    def __init__(self, *args, **kwargs):
+        for el in ["field", "Node", "model", "serializer_class"]:
+            if not hasattr(self, el):
+                raise ValueError("Missing required attribute: {}".format(el))
+        super().__init__(*args, **kwargs)
+
+    class IdentifyingInput:
+        id = graphene.ID()
 
     def get_django_id(self, id):
         return from_global_id(id)[1]
@@ -26,8 +28,8 @@ class RelayCUD(object):
     def get_model(self):
         return self.model
 
-    def get_instance(self, info, global_id):
-        id = self.get_django_id(global_id)
+    def get_instance(self, info, input):
+        id = self.get_django_id(input["id"])
         return self.model.objects.get(id=id)
 
     def create(self, info, **input):
@@ -37,32 +39,30 @@ class RelayCUD(object):
         return instance
 
     def update(self, info, **input):
-        instance = self.get_instance(info, input["id"])
-        input["id"] = self.get_django_id(input["id"])
+        instance = self.get_instance(info, input)
         serializer = self.serializer_class(instance, data=input)
         serializer.is_valid(raise_exception=True)
         instance = serializer.save()
         return instance
 
     def partial_update(self, info, **input):
-        instance = self.get_instance(info, input["id"])
-        input["id"] = self.get_django_id(input["id"])
+        instance = self.get_instance(info, input)
         serializer = self.serializer_class(instance, data=input, partial=True)
         serializer.is_valid(raise_exception=True)
         instance = serializer.save()
         return instance
 
     def delete(self, info, **input):
-        instance = self.get_instance(info, input["id"])
+        instance = self.get_instance(info, input)
         instance.delete()
         return instance
 
-    def get_mixin(self, action, Input, include_field=True):
+    def get_mutation_base(self, action, Input, include_field=True):
         field = self.field
         Node = self.Node
         _Input = Input
 
-        class MutationMixin:
+        class MutationBase:
             ok = graphene.Boolean()
             errors = graphene.String()
 
@@ -78,38 +78,37 @@ class RelayCUD(object):
                 return cls(**args)
 
         if include_field:
-            setattr(MutationMixin, field, graphene.Field(Node))
+            setattr(MutationBase, field, graphene.Field(Node))
 
-        return MutationMixin
+        return MutationBase
 
     def create_mutation(self):
-        Mixin = self.get_mixin(self.create, self.Input)
-        mixin_name = self.field.title() + "CreateMutation"
-        return type(mixin_name, (Mixin, relay.ClientIDMutation), {})
+        MutationBase = self.get_mutation_base(self.create, self.Input)
+        mutation_class_name = self.field.title() + "CreateMutation"
+        return type(mutation_class_name, (MutationBase, relay.ClientIDMutation), {})
 
     def update_mutation(self):
-        class Input(self.Input):
-            id = graphene.ID()
+        class Input(self.IdentifyingInput, self.Input):
+            pass
 
-        Mixin = self.get_mixin(self.update, Input)
-        mixin_name = self.field.title() + "UpdateMutation"
-        return type(mixin_name, (Mixin, relay.ClientIDMutation), {})
+        Mixin = self.get_mutation_base(self.update, Input)
+        mutation_class_name = self.field.title() + "UpdateMutation"
+        return type(mutation_class_name, (Mixin, relay.ClientIDMutation), {})
 
     def patch_mutation(self):
-        class Input(self.Input):
-            id = graphene.ID()
+        class Input(self.IdentifyingInput, self.Input):
+            pass
 
-        Mixin = self.get_mixin(self.partial_update, Input)
-        mixin_name = self.field.title() + "PatchMutation"
-        return type(mixin_name, (Mixin, relay.ClientIDMutation), {})
+        Mixin = self.get_mutation_base(self.partial_update, Input)
+        mutation_class_name = self.field.title() + "PatchMutation"
+        return type(mutation_class_name, (Mixin, relay.ClientIDMutation), {})
 
     def delete_mutation(self):
-        class Input:
-            id = graphene.ID()
-
-        Mixin = self.get_mixin(self.delete, Input, include_field=False)
-        mixin_name = self.field.title() + "DeleteMutation"
-        return type(mixin_name, (Mixin, relay.ClientIDMutation), {})
+        Mixin = self.get_mutation_base(
+            self.delete, self.IdentifyingInput, include_field=False
+        )
+        mutation_class_name = self.field.title() + "DeleteMutation"
+        return type(mutation_class_name, (Mixin, relay.ClientIDMutation), {})
 
     def get_mutation_class(self):
         class Mutation(graphene.ObjectType):
@@ -121,3 +120,6 @@ class RelayCUD(object):
         setattr(Mutation, self.field + "_delete", self.delete_mutation().Field())
 
         return Mutation
+
+    class Meta:
+        abstract = True

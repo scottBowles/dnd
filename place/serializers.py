@@ -20,12 +20,31 @@ each type.
 """
 
 
+class ExportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Export
+        fields = (
+            "id",
+            "name",
+            "description",
+        )
+
+
 class PlaceExportSerializer(serializers.ModelSerializer):
     export = RelayPrimaryKeyRelatedField(queryset=Export.objects.all())
+    place = RelayPrimaryKeyRelatedField(
+        queryset=Place.objects.all(),
+        default=None,
+        # default set for use in place mutations, where place is added in PlaceSerializer's methods
+        # see:
+        # https://github.com/encode/django-rest-framework/issues/4456
+        # and
+        # https://www.django-rest-framework.org/api-guide/validators/#uniquetogethervalidator
+    )
 
     class Meta:
         model = PlaceExport
-        fields = ("significance", "export")
+        fields = ("significance", "export", "place")
 
 
 class PlaceSerializer(serializers.ModelSerializer):
@@ -51,7 +70,8 @@ class PlaceSerializer(serializers.ModelSerializer):
         exports_data = validated_data.pop("exports", [])
         place = super().create(validated_data)
         for export_data in exports_data:
-            PlaceExport.objects.create(place=place, **export_data)
+            export_data["place"] = place
+            PlaceExport.objects.create(**export_data)
         return place
 
 

@@ -1,72 +1,16 @@
 import json
-import factory
-from factory import fuzzy
 from graphene_django.utils.testing import GraphQLTestCase
-from .models import Place, PlaceAssociation, Export, PlaceExport, PlaceRace
+from ..models import Place, PlaceExport
 from graphql_relay import from_global_id, to_global_id
-from association.models import Association
-from race.models import Race
-
-
-class PlaceFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Place
-
-    place_type = factory.Iterator(Place.PLACE_TYPES, getter=lambda c: c[0])
-    name = factory.Faker("name")
-    description = factory.Faker("text")
-    population = factory.Faker("pyint")
-
-
-class AssociationFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Association
-
-    name = factory.Faker("name")
-    description = factory.Faker("text")
-
-
-class PlaceAssociationFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = PlaceAssociation
-
-    place = factory.SubFactory(PlaceFactory)
-    association = factory.SubFactory(AssociationFactory)
-    notes = factory.Faker("text")
-
-
-class ExportFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Export
-
-    name = factory.Faker("name")
-    description = factory.Faker("text")
-
-
-class PlaceExportFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = PlaceExport
-
-    place = factory.SubFactory(PlaceFactory)
-    export = factory.SubFactory(ExportFactory)
-    significance = fuzzy.FuzzyChoice(PlaceExport.SIGNIFICANCE, getter=lambda c: c[0])
-
-
-class RaceFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Race
-
-    name = factory.Faker("name")
-
-
-class PlaceRaceFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = PlaceRace
-
-    place = factory.SubFactory(PlaceFactory)
-    race = factory.SubFactory(RaceFactory)
-    percent = factory.Faker("pyfloat", left_digits=2, right_digits=2, positive=True)
-    notes = factory.Faker("text")
+from .factories import (
+    PlaceFactory,
+    AssociationFactory,
+    PlaceAssociationFactory,
+    ExportFactory,
+    PlaceExportFactory,
+    RaceFactory,
+    PlaceRaceFactory,
+)
 
 
 class CompareMixin(GraphQLTestCase):
@@ -655,3 +599,219 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
         with self.assertRaises(Place.DoesNotExist):
             Place.objects.get(name="Test Place Name")
 
+    # def test_association_create_with_common_races(self):
+    #     query = """
+    #         mutation {
+    #             placeCreate(input: {
+    #                 name: "Test Place Name"
+    #                 description: "Test Place Description"
+    #                 placeType: "TOWN"
+    #                 population: 100
+    #                 commonRaces: [{
+    #                     significance: 0
+    #                     export: {
+    #                         name: "Nitre"
+    #                         description: "Salt from the desert"
+    #                     }
+    #                 }, {
+    #                     significance: 1
+    #                     export: {
+    #                         name: "Wheat"
+    #                         description: "Good for making bread"
+    #                     }
+    #                 }]
+    #             }) {
+    #                 ok
+    #                 errors
+    #                 place {
+    #                     id
+    #                     name
+    #                     description
+    #                     created
+    #                     updated
+    #                     placeType
+    #                     population
+    #                     exports {
+    #                         edges {
+    #                             significance
+    #                             node {
+    #                                 id
+    #                                 name
+    #                                 description
+    #                             }
+    #                         }
+    #                     }
+    #                 }
+    #             }
+    #         }
+    #     """
+
+    #     response = self.query(query)
+    #     self.assertResponseNoErrors(response)
+
+    #     result = json.loads(response.content)
+    #     res_place = result["data"]["placeCreate"]["place"]
+
+    #     created_place = Place.objects.get(pk=from_global_id(res_place["id"])[1])
+
+    #     self.assertEqual(len(created_place.exports.all()), 2)
+    #     self.compare_places(created_place, res_place, compare_exports=True)
+
+    # def test_association_update_mutation(self):
+    #     association = AssociationFactory(
+    #         name="Not Test Assoc Name", description="Not Test Assoc Description"
+    #     )
+    #     association_global_id = to_global_id("AssociationNode", association.id)
+    #     query = (
+    #         """
+    #         mutation {
+    #             associationUpdate(input: {
+    #                 id: "%s"
+    #                 name: "Test Assoc Name"
+    #                 description: "Test Assoc Description"
+    #             }) {
+    #                 association {
+    #                     id
+    #                     name
+    #                     description
+    #                 }
+    #             }
+    #         }
+    #     """
+    #         % association_global_id
+    #     )
+    #     response = self.query(query)
+    #     self.assertResponseNoErrors(response)
+
+    #     result = json.loads(response.content)
+    #     res_association = result["data"]["associationUpdate"]["association"]
+
+    #     self.assertEqual(res_association["name"], "Test Assoc Name")
+    #     self.assertEqual(res_association["description"], "Test Assoc Description")
+
+    #     updated_association = Association.objects.get(
+    #         pk=from_global_id(res_association["id"])[1]
+    #     )
+    #     self.assertEqual(updated_association.name, "Test Assoc Name")
+    #     self.assertEqual(updated_association.description, "Test Assoc Description")
+
+    # def test_association_update_bad_input_no_id(self):
+    #     AssociationFactory()
+    #     query = """
+    #         mutation {
+    #             associationUpdate(input: {
+    #                 name: "Test Assoc Name"
+    #                 description: "Test Assoc Description"
+    #             }) {
+    #                 association {
+    #                     id
+    #                     name
+    #                     description
+    #                 }
+    #             }
+    #         }
+    #     """
+    #     response = self.query(query)
+    #     self.assertResponseHasErrors(response)
+
+    # def test_association_update_bad_input_no_name(self):
+    #     association = AssociationFactory()
+    #     association_global_id = to_global_id("AssociationNode", association.id)
+    #     query = (
+    #         """
+    #         mutation {
+    #             associationUpdate(input: {
+    #                 id: "%s"
+    #                 description: "Test Assoc Description"
+    #             }) {
+    #                 association {
+    #                     id
+    #                     name
+    #                     description
+    #                 }
+    #             }
+    #         }
+    #     """
+    #         % association_global_id
+    #     )
+    #     response = self.query(query)
+    #     self.assertResponseHasErrors(response)
+
+    # def test_association_patch(self):
+    #     association = AssociationFactory(
+    #         name="Not Test Assoc Name", description="Test Assoc Description"
+    #     )
+    #     association_global_id = to_global_id("AssociationNode", association.id)
+    #     query = (
+    #         """
+    #         mutation {
+    #             associationPatch(input: {
+    #                 id: "%s"
+    #                 name: "Test Assoc Name"
+    #             }) {
+    #                 association {
+    #                     id
+    #                     name
+    #                     description
+    #                 }
+    #             }
+    #         }
+    #     """
+    #         % association_global_id
+    #     )
+    #     response = self.query(query)
+    #     self.assertResponseNoErrors(response)
+
+    #     result = json.loads(response.content)
+    #     res_association = result["data"]["associationPatch"]["association"]
+    #     self.assertEqual(res_association["name"], "Test Assoc Name")
+    #     self.assertEqual(res_association["description"], "Test Assoc Description")
+
+    # def test_association_patch_null_name(self):
+    #     association = AssociationFactory(
+    #         name="Not Test Assoc Name", description="Test Assoc Description"
+    #     )
+    #     association_global_id = to_global_id("AssociationNode", association.id)
+    #     query = (
+    #         """
+    #         mutation {
+    #             associationPatch(input: {
+    #                 id: "%s"
+    #                 name: null
+    #             }) {
+    #                 association {
+    #                     id
+    #                     name
+    #                     description
+    #                 }
+    #             }
+    #         }
+    #     """
+    #         % association_global_id
+    #     )
+    #     response = self.query(query)
+    #     self.assertResponseHasErrors(response)
+
+    # def test_association_delete(self):
+    #     association = AssociationFactory()
+    #     association_global_id = to_global_id("AssociationNode", association.id)
+    #     query = (
+    #         """
+    #         mutation {
+    #             associationDelete(input: {
+    #                 id: "%s"
+    #             }) {
+    #                 ok
+    #             }
+    #         }
+    #     """
+    #         % association_global_id
+    #     )
+    #     response = self.query(query)
+    #     self.assertResponseNoErrors(response)
+
+    #     result = json.loads(response.content)
+    #     self.assertTrue(result["data"]["associationDelete"]["ok"])
+
+    #     with self.assertRaises(Association.DoesNotExist):
+    #         Association.objects.get(pk=association.id)

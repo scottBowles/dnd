@@ -1,10 +1,11 @@
 import graphene
 
 from nucleus.utils import RelayCUD
-from ..models import Place
-from ..serializers import PlaceSerializer
-from .nodes import PlaceNode
+from ..models import Export, Place, PlaceExport
+from ..serializers import ExportSerializer, PlaceSerializer, PlaceExportSerializer
+from .nodes import ExportNode, PlaceNode, PlaceExportNode
 from association.schema import AssociationInput
+from graphql_relay import from_global_id
 
 """
 CURRENTLY I HAVE THE CUD MUTATIONS FOR PLACE. NEXT WILL BE THE CUD
@@ -27,13 +28,7 @@ class RaceInput(graphene.InputObjectType):
     name = graphene.String()
 
 
-class ExportInput(graphene.InputObjectType):
-    id = graphene.ID()
-    name = graphene.String()
-    description = graphene.String()
-
-
-class PlaceExportInput(graphene.InputObjectType):
+class PlaceExportInputType(graphene.InputObjectType):
     export = graphene.String()
     significance = graphene.Int()
 
@@ -47,27 +42,86 @@ class PlaceRaceInput(graphene.InputObjectType):
 class PlaceAssociationInput(graphene.InputObjectType):
     association = AssociationInput()
     notes = graphene.String()
-    # things = graphene.ConnectionField
 
 
-class Input:
+class ExportInput:
+    id = graphene.ID()
+    name = graphene.String()
+    description = graphene.String()
+
+
+class PlaceInput:
     name = graphene.String()
     description = graphene.String()
     place_type = graphene.String()
     population = graphene.Int()
     associations = graphene.List(PlaceAssociationInput)
     races = graphene.List(PlaceRaceInput)
-    exports = graphene.List(PlaceExportInput)
+    exports = graphene.List(PlaceExportInputType)
     parent = graphene.UUID()
 
 
-PlaceMutations = RelayCUD(
-    "place", PlaceNode, Input, Place, PlaceSerializer
-).get_mutation_class()
+class PlaceExportInput:
+    place = graphene.String()
+    export = graphene.String()
+    significance = graphene.Int()
+
+
+class PlaceCUD(RelayCUD):
+    field = "place"
+    Node = PlaceNode
+    model = Place
+    serializer_class = PlaceSerializer
+
+    class Input:
+        name = graphene.String()
+        description = graphene.String()
+        place_type = graphene.String()
+        population = graphene.Int()
+        associations = graphene.List(PlaceAssociationInput)
+        races = graphene.List(PlaceRaceInput)
+        exports = graphene.List(PlaceExportInputType)
+        parent = graphene.UUID()
+
+
+class ExportCUD(RelayCUD):
+    field = "export"
+    Node = ExportNode
+    model = Export
+    serializer_class = ExportSerializer
+
+    class Input:
+        name = graphene.String()
+        description = graphene.String()
+
+
+class PlaceExportCUD(RelayCUD):
+    field = "place_export"
+    Node = PlaceExportNode
+    model = PlaceExport
+    serializer_class = PlaceExportSerializer
+
+    class Input:
+        place = graphene.String()
+        export = graphene.String()
+        significance = graphene.Int()
+
+    class IdentifyingInput:
+        place = graphene.String()
+        export = graphene.String()
+
+    def get_instance(self, info, input):
+        place_id = from_global_id(input["place"])[1]
+        export_id = from_global_id(input["export"])[1]
+        return self.model.objects.get(place__id=place_id, export__id=export_id)
+
+
+PlaceMutations = PlaceCUD().get_mutation_class()
+ExportMutations = ExportCUD().get_mutation_class()
+PlaceExportMutations = PlaceExportCUD().get_mutation_class()
 
 
 class Mutation(
-    PlaceMutations,
-    graphene.ObjectType,
+    ExportMutations, PlaceMutations, PlaceExportMutations, graphene.ObjectType
 ):
     pass

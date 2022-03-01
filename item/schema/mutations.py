@@ -22,18 +22,22 @@ class WeaponInput(graphene.InputObjectType):
     attack_bonus = graphene.Int()
 
 
-class Input:
-    name = graphene.String()
-    description = graphene.String()
-    artifact = ArtifactInput(required=False)
-    armor = ArmorInput(required=False)
-    equipment = EquipmentInput(required=False)
-    weapon = WeaponInput(required=False)
+class ItemCUD(RelayCUD):
+    field = "item"
+    Node = ItemNode
+    model = Item
+    serializer_class = ItemSerializerGQL
+
+    class Input:
+        name = graphene.String()
+        description = graphene.String()
+        artifact = ArtifactInput(required=False)
+        armor = ArmorInput(required=False)
+        equipment = EquipmentInput(required=False)
+        weapon = WeaponInput(required=False)
 
 
-ItemMutations = RelayCUD(
-    "item", ItemNode, Input, Item, ItemSerializerGQL
-).get_mutation_class()
+ItemMutations = ItemCUD().get_mutation_class()
 
 
 class Mutation(

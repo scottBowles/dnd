@@ -16,6 +16,19 @@ class ExportNode(DjangoObjectType):
         interfaces = (relay.Node,)
 
 
+class PlaceExportNode(DjangoObjectType):
+    significance = graphene.String()
+
+    def resolve_significance(self, info):
+        return self.SIGNIFICANCE[self.significance][1]
+
+    class Meta:
+        model = PlaceExport
+        fields = ("significance", "export", "place")
+        filter_fields = []
+        interfaces = (relay.Node,)
+
+
 class RaceNode(DjangoObjectType):
     """
     Eventually this should come from the Race app's RaceNode

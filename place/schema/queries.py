@@ -2,7 +2,7 @@ import graphene
 from graphene import relay
 from graphene_django.filter import DjangoFilterConnectionField
 
-from .nodes import PlaceNode
+from .nodes import ExportNode, PlaceNode
 
 
 class PlaceQuery(graphene.ObjectType):
@@ -10,7 +10,13 @@ class PlaceQuery(graphene.ObjectType):
     places = DjangoFilterConnectionField(PlaceNode)
 
 
+class ExportQuery(graphene.ObjectType):
+    export = relay.Node.Field(ExportNode)
+    exports = DjangoFilterConnectionField(ExportNode)
+
+
 class Query(
+    ExportQuery,
     PlaceQuery,
     graphene.ObjectType,
 ):

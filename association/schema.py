@@ -40,14 +40,18 @@ class AssociationInput(graphene.InputObjectType):
     description = graphene.String()
 
 
-class Input:
-    name = graphene.String()
-    description = graphene.String()
+class AssociationCUD(RelayCUD):
+    field = "association"
+    Node = AssociationNode
+    model = Association
+    serializer_class = AssociationSerializer
+
+    class Input:
+        name = graphene.String()
+        description = graphene.String()
 
 
-mutations = RelayCUD(
-    "association", AssociationNode, Input, Association, AssociationSerializer
-)
+mutations = AssociationCUD()
 
 
 class Mutation(graphene.ObjectType):
