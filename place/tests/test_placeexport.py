@@ -181,60 +181,93 @@ class PlaceExportTests(GraphQLTestCase):
         response = self.query(query)
         self.assertResponseHasErrors(response)
 
-    # def test_placeExport_patch(self):
-    #     placeExport = PlaceExportFactory(
-    #         name="Not Test Export Name", description="Test Export Description"
-    #     )
-    #     placeExport_global_id = to_global_id("PlaceExportNode", placeExport.id)
-    #     query = (
-    #         """
-    #         mutation {
-    #             placeExportPatch(input: {
-    #                 id: "%s"
-    #                 name: "Test Export Name"
-    #             }) {
-    #                 placeExport {
-    #                     id
-    #                     name
-    #                     description
-    #                 }
-    #             }
-    #         }
-    #     """
-    #         % placeExport_global_id
-    #     )
-    #     response = self.query(query)
-    #     self.assertResponseNoErrors(response)
+    def test_placeExport_patch_mutation(self):
+        PlaceExportFactory(
+            place=self.place, export=self.export, significance=self.significance[0]
+        )
+        query = """
+            mutation {
+                placeExportPatch(input: {
+                    place: "%s"
+                    export: "%s"
+                    significance: %s
+                }) {
+                    placeExport {
+                        id
+                        place {
+                            id
+                            name
+                            description
+                        }
+                        export {
+                            id
+                            name
+                            description
+                        }
+                        significance
+                    }
+                }
+            }
+        """ % (
+            to_global_id("PlaceNode", self.place.pk),
+            to_global_id("ExportNode", self.export.pk),
+            PlaceExport.SIGNIFICANCE[1][0],
+        )
+        response = self.query(query)
+        self.assertResponseNoErrors(response)
 
-    #     result = json.loads(response.content)
-    #     res_placeExport = result["data"]["placeExportPatch"]["placeExport"]
-    #     self.assertEqual(res_placeExport["name"], "Test Export Name")
-    #     self.assertEqual(res_placeExport["description"], "Test Export Description")
+        result = json.loads(response.content)
+        res_placeExport = result["data"]["placeExportPatch"]["placeExport"]
 
-    # def test_placeExport_patch_null_name(self):
-    #     placeExport = PlaceExportFactory(
-    #         name="Not Test Export Name", description="Test Export Description"
-    #     )
-    #     placeExport_global_id = to_global_id("PlaceExportNode", placeExport.id)
-    #     query = (
-    #         """
-    #         mutation {
-    #             placeExportPatch(input: {
-    #                 id: "%s"
-    #                 name: null
-    #             }) {
-    #                 placeExport {
-    #                     id
-    #                     name
-    #                     description
-    #                 }
-    #             }
-    #         }
-    #     """
-    #         % placeExport_global_id
-    #     )
-    #     response = self.query(query)
-    #     self.assertResponseHasErrors(response)
+        self.assertEqual(
+            res_placeExport["place"]["id"], to_global_id("PlaceNode", self.place.id)
+        )
+        self.assertEqual(res_placeExport["place"]["name"], self.place.name)
+        self.assertEqual(
+            res_placeExport["export"]["id"], to_global_id("ExportNode", self.export.id)
+        )
+        self.assertEqual(res_placeExport["export"]["name"], self.export.name)
+        self.assertEqual(
+            res_placeExport["significance"], PlaceExport.SIGNIFICANCE[1][1]
+        )
+
+        updated_placeExport = PlaceExport.objects.get(
+            pk=from_global_id(res_placeExport["id"])[1]
+        )
+        self.assertEqual(updated_placeExport.place.pk, self.place.pk)
+        self.assertEqual(updated_placeExport.export.pk, self.export.pk)
+        self.assertEqual(
+            updated_placeExport.significance, PlaceExport.SIGNIFICANCE[1][0]
+        )
+
+    """
+    NEXT UP:
+    WE PROBABLY DON'T WANT TO DEAL WITH PlaceExport IDS. SHOULD JUST NEED PLACE AND EXPORT. FIGURE OUT WHAT THAT WILL LOOK LIKE.
+    SEE WHAT OF THE BELOW IS NEEDED
+    SHOULD THE ABOVE BE PATCH? BOTH WORK THE SAME? PROBABLY NEED ONLY EITHER ID OR PLACE/EXPORT DEPENDING ON HOW WE HANDLE THAT
+    """
+
+    def test_placeExport_patch_bad_input_no_export(self):
+        PlaceExportFactory()
+        query = """
+            mutation {
+                placeExportPatch(input: {
+                    place: "%s"
+                    description: "%s"
+                }) {
+                    placeExport {
+                        place {
+                            id
+                        }
+                    }
+                }
+            }
+        """ % (
+            to_global_id("PlaceNode", self.place.pk),
+            self.significance[0],
+        )
+        response = self.query(query)
+        self.assertResponseHasErrors(response)
 
     def test_placeExport_delete(self):
         placeExport = PlaceExportFactory(place=self.place, export=self.export)
