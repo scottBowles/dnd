@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.db.models import Sum
 
 from character.models import Character, CharacterClass
 from .inlines import (
@@ -157,6 +158,10 @@ class CharacterAdmin(admin.ModelAdmin):
                 for cl in obj.classandlevel_set.all().order_by("character_class")
             ]
         )
+
+    @admin.display(description="Total Level")
+    def total_level(self, obj):
+        return obj.total_level()
 
 
 admin.site.register(CharacterClass)

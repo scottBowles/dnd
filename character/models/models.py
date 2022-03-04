@@ -1,12 +1,12 @@
 from django.db import models
 from django.db.models import constraints
 
-STRENGTH = "strength"
-DEXTERITY = "dexterity"
-CONSTITUTION = "constitution"
-INTELLIGENCE = "intelligence"
-WISDOM = "wisdom"
-CHARISMA = "charisma"
+STRENGTH = "STRENGTH"
+DEXTERITY = "DEXTERITY"
+CONSTITUTION = "CONSTITUTION"
+INTELLIGENCE = "INTELLIGENCE"
+WISDOM = "WISDOM"
+CHARISMA = "CHARISMA"
 ABILITIES = (
     (STRENGTH, "Strength"),
     (DEXTERITY, "Dexterity"),
@@ -37,12 +37,12 @@ ALIGNMENTS = (
     (CHAOTIC_EVIL, "Chaotic Evil"),
 )
 
-TINY = "tiny"
-SMALL = "small"
-MEDIUM = "medium"
-LARGE = "large"
-HUGE = "huge"
-GARGANTUAN = "gargantuan"
+TINY = "TINY"
+SMALL = "SMALL"
+MEDIUM = "MEDIUM"
+LARGE = "LARGE"
+HUGE = "HUGE"
+GARGANTUAN = "GARGANTUAN"
 SIZES = (
     (TINY, "Tiny"),
     (SMALL, "Small"),
@@ -98,13 +98,13 @@ class Feat(models.Model):
 
 
 class Proficiency(models.Model):
-    ARMOR = "armor"
-    WEAPON = "weapon"
-    SKILL = "skill"
-    TOOL = "tool"
-    LANGUAGE = "language"
-    ABILITY = "ability"
-    OTHER = "other"
+    ARMOR = "ARMOR"
+    WEAPON = "WEAPON"
+    SKILL = "SKILL"
+    TOOL = "TOOL"
+    LANGUAGE = "LANGUAGE"
+    ABILITY = "ABILITY"
+    OTHER = "OTHER"
     PROFICIENCY_TYPES = (
         (ARMOR, "Armor"),
         (WEAPON, "Weapon"),

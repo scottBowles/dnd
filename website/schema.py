@@ -2,10 +2,15 @@ import graphene
 import association.schema
 import item.schema
 import place.schema
+import character.schema
 
 
 class Query(
-    association.schema.Query, place.schema.Query, item.schema.Query, graphene.ObjectType
+    association.schema.Query,
+    place.schema.Query,
+    item.schema.Query,
+    character.schema.Query,
+    graphene.ObjectType,
 ):
     pass
 

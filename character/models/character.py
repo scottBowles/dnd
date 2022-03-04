@@ -100,21 +100,38 @@ class HitPointsMixin(models.Model):
         abstract = True
 
 
+class CharacterQuerySet(models.QuerySet):
+    def personality_traits(self):
+        return self.personalitytrait_set.all()
+
+    def ideals(self):
+        return self.ideal_set.all()
+
+    def bonds(self):
+        return self.bond_set.all()
+
+    def flaws(self):
+        return self.flaw_set.all()
+
+    def total_level(self):
+        return self.classandlevel_set.aggregate(Sum("level"))["level__sum"] or 0
+
+
 class Character(
     AbilityScoreArrayMixin,
     HitDieMixin,
     HitPointsMixin,
     MoneyHolderMixin,
+    models.Model,
 ):
+    objects = CharacterQuerySet.as_manager()
 
     # NAME BLOCK
     name = models.CharField(max_length=200, null=True, blank=True)
 
     # CHARACTER INFO BLOCK
     # classes and levels through fk
-    @property
-    def total_level(self):
-        return self.classandlevel_set.aggregate(Sum("level"))["level__sum"] or 0
+    # total_level on queryset
 
     background = models.ForeignKey(
         Background, null=True, blank=True, on_delete=models.SET_NULL
@@ -141,17 +158,7 @@ class Character(
     death_save_failures = models.PositiveIntegerField(default=0)
 
     # TRAITS BLOCK
-    def personality_traits(self):
-        return self.personalitytrait_set.all()
-
-    def ideals(self):
-        return self.ideal_set.all()
-
-    def bonds(self):
-        return self.bond_set.all()
-
-    def flaws(self):
-        return self.flaw_set.all()
+    # personality_traits, ideals, bonds, flaws through queryset
 
     # FEATURES AND TRAITS BLOCK
     features_and_traits = models.ManyToManyField(
@@ -198,6 +205,7 @@ class Character(
         names = language_proficiencies.values_list("name", flat=True)
         return list(Language.objects.filter(name__in=names))
 
+    # TODO: can we annotate queryset.skill_set with these?
     # SKILLS BLOCK
     def get_skill_modifier(self, skill_name):
         skill = Skill.objects.get(name=skill_name)
@@ -231,7 +239,9 @@ class Character(
         related_name="equipment_inventories",
     )
 
-    tool = models.ManyToManyField(Tool, through="InventoryTool", blank=True, related_name="tool_inventories")
+    tool = models.ManyToManyField(
+        Tool, through="InventoryTool", blank=True, related_name="tool_inventories"
+    )
 
     # SPELLCASTING BLOCK
     # TODO
