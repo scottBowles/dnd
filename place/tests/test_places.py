@@ -599,6 +599,116 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
         with self.assertRaises(Place.DoesNotExist):
             Place.objects.get(name="Test Place Name")
 
+    def test_place_create_with_adding_existing_associations(self):
+        association1 = AssociationFactory()
+        association2 = AssociationFactory()
+
+        query = """
+            mutation {
+                placeCreate(input: {
+                    name: "Test Place Name"
+                    description: "Test Place Description"
+                    placeType: "TOWN"
+                    population: 100
+                    associations: [{
+                        notes: "Test Notes 1"
+                        association: "%s"
+                    }, {
+                        notes: "Test Notes 2"
+                        association: "%s"
+                    }]
+                }) {
+                    ok
+                    errors
+                    place {
+                        id
+                        name
+                        description
+                        created
+                        updated
+                        placeType
+                        population
+                        associations {
+                            edges {
+                                notes
+                                node {
+                                    id
+                                    name
+                                    description
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        """ % (
+            to_global_id("AssociationNode", association1.id),
+            to_global_id("AssociationNode", association2.id),
+        )
+
+        response = self.query(query)
+        self.assertResponseNoErrors(response)
+
+        result = json.loads(response.content)
+        res_place = result["data"]["placeCreate"]["place"]
+
+        created_place = Place.objects.get(pk=from_global_id(res_place["id"])[1])
+
+        self.assertEqual(len(created_place.associations.all()), 2)
+        self.compare_places(created_place, res_place, compare_associations=True)
+
+    def test_place_create_fails_with_nonexisting_association_ids(self):
+        query = """
+            mutation {
+                placeCreate(input: {
+                    name: "Test Place Name"
+                    description: "Test Place Description"
+                    placeType: "TOWN"
+                    population: 100
+                    associations: [{
+                        significance: 0
+                        association: "%s"
+                    }, {
+                        significance: 1
+                        association: "%s"
+                    }]
+                }) {
+                    ok
+                    errors
+                    place {
+                        id
+                        name
+                        description
+                        created
+                        updated
+                        placeType
+                        population
+                        associations {
+                            edges {
+                                notes
+                                node {
+                                    id
+                                    name
+                                    description
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        """ % (
+            to_global_id("AssociationNode", 23456),
+            to_global_id("AssociationNode", 12345),
+        )
+
+        response = self.query(query)
+        self.assertResponseHasErrors(response)
+
+        with self.assertRaises(Place.DoesNotExist):
+            Place.objects.get(name="Test Place Name")
+
+    # ASSOCIATIONS AND RACES REMAIN
+
     # def test_association_create_with_common_races(self):
     #     query = """
     #         mutation {

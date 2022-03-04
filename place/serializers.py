@@ -1,4 +1,6 @@
 from rest_framework import serializers
+
+from place.models.place import PlaceAssociation
 from .models import (
     Place,
     Star,
@@ -12,6 +14,7 @@ from .models import (
     PlaceExport,
 )
 from nucleus.utils import RelayPrimaryKeyRelatedField
+from association.models import Association
 
 """
 Places are held on one table with proxy models for different place types.
@@ -47,8 +50,26 @@ class PlaceExportSerializer(serializers.ModelSerializer):
         fields = ("significance", "export", "place")
 
 
+class PlaceAssociationSerializer(serializers.ModelSerializer):
+    association = RelayPrimaryKeyRelatedField(queryset=Association.objects.all())
+    place = RelayPrimaryKeyRelatedField(
+        queryset=Place.objects.all(),
+        default=None,
+        # default set for use in place mutations, where place is added in PlaceSerializer's methods
+        # see:
+        # https://github.com/encode/django-rest-framework/issues/4456
+        # and
+        # https://www.django-rest-framework.org/api-guide/validators/#uniquetogethervalidator
+    )
+
+    class Meta:
+        model = PlaceAssociation
+        fields = ("notes", "association", "place")
+
+
 class PlaceSerializer(serializers.ModelSerializer):
     exports = PlaceExportSerializer(many=True, required=False)
+    associations = PlaceAssociationSerializer(many=True, required=False)
 
     class Meta:
         model = Place
@@ -68,10 +89,14 @@ class PlaceSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         exports_data = validated_data.pop("exports", [])
+        associations_data = validated_data.pop("associations", [])
         place = super().create(validated_data)
         for export_data in exports_data:
             export_data["place"] = place
             PlaceExport.objects.create(**export_data)
+        for association_data in associations_data:
+            association_data["place"] = place
+            PlaceAssociation.objects.create(**association_data)
         return place
 
 
