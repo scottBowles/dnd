@@ -22,7 +22,7 @@ class Race(models.Model):
     name = models.CharField(max_length=255)
     ability_score_increases = models.ManyToManyField(AbilityScoreIncrease, blank=True)
     age_of_adulthood = models.PositiveIntegerField(null=True, blank=True)
-    life_expectency = models.PositiveIntegerField(null=True, blank=True)
+    life_expectancy = models.PositiveIntegerField(null=True, blank=True)
     alignment = models.CharField(
         max_length=2, choices=ALIGNMENTS, null=True, blank=True
     )
@@ -33,9 +33,8 @@ class Race(models.Model):
     traits = models.ManyToManyField(Trait, blank=True)
     # proficiencies? maybe just traits here, b/c some are options, etc.
     base_race = models.ForeignKey(
-        "self", null=True, blank=True, on_delete=models.CASCADE
+        "self", null=True, blank=True, on_delete=models.CASCADE, related_name="subraces"
     )
 
-    @property
-    def subraces(self, obj):
-        return Race.objects.filter(base_race=obj.pk)
+    def __str__(self):
+        return self.name

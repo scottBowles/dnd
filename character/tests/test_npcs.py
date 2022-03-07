@@ -10,81 +10,11 @@ from .factories import (
     ScriptFactory,
     LanguageFactory,
 )
+from race.tests.factories import RaceFactory
+from race.tests import test_races
 
 
-# class CompareMixin(GraphQLTestCase):
-#     def compare_associations(self, model_association, node_association):
-#         self.assertEqual(
-#             str(model_association.id), from_global_id(node_association["id"])[1]
-#         )
-#         self.assertEqual(model_association.name, node_association["name"])
-#         self.assertEqual(model_association.description, node_association["description"])
-
-#     def compare_place_association_edges(self, place_associations, edges):
-#         for i, placeassociation in enumerate(place_associations):
-#             self.assertEqual(placeassociation.notes, edges[i]["notes"])
-#             self.compare_associations(placeassociation.association, edges[i]["node"])
-
-#     def compare_exports(self, model_export, node_export):
-#         self.assertEqual(str(model_export.id), from_global_id(node_export["id"])[1])
-#         self.assertEqual(model_export.name, node_export["name"])
-#         self.assertEqual(model_export.description, node_export["description"])
-
-#     def compare_place_export_edges(self, place_exports, edges):
-#         for i, placeexport in enumerate(place_exports):
-#             significance_display = PlaceExport.SIGNIFICANCE[placeexport.significance][1]
-#             self.assertEqual(significance_display, edges[i]["significance"])
-#             self.compare_exports(placeexport.export, edges[i]["node"])
-
-#     def compare_races(self, model_race, node_race):
-#         self.assertEqual(str(model_race.id), from_global_id(node_race["id"])[1])
-#         self.assertEqual(model_race.name, node_race["name"])
-
-#     def compare_place_race_edges(self, place_races, edges):
-#         for i, placerace in enumerate(place_races):
-#             self.assertEqual(placerace.percent, edges[i]["percent"])
-#             self.assertEqual(placerace.notes, edges[i]["notes"])
-#             self.compare_races(placerace.race, edges[i]["node"])
-
-#     def compare_places(
-#         self,
-#         model_place,
-#         node_place,
-#         compare_associations=False,
-#         compare_exports=False,
-#         compare_races=False,
-#         compare_parents_to_depth=0,
-#     ):
-#         self.assertEqual(str(model_place.id), from_global_id(node_place["id"])[1])
-#         self.assertEqual(model_place.name, node_place["name"])
-#         self.assertEqual(model_place.description, node_place["description"])
-#         self.assertEqual(model_place.place_type, node_place["placeType"])
-#         self.assertEqual(model_place.population, node_place["population"])
-
-#         if compare_parents_to_depth > 0 and model_place.parent:
-#             self.compare_places(
-#                 model_place.parent,
-#                 node_place["parent"],
-#                 compare_parents_to_depth=compare_parents_to_depth - 1,
-#             )
-
-#         if compare_associations:
-#             place_associations = model_place.placeassociation_set.all()
-#             associations_edges = node_place["associations"]["edges"]
-#             self.compare_place_association_edges(place_associations, associations_edges)
-
-#         if compare_exports:
-#             place_exports = model_place.placeexport_set.all()
-#             exports_edges = node_place["exports"]["edges"]
-#             self.compare_place_export_edges(place_exports, exports_edges)
-
-#         if compare_races:
-#             place_races = model_place.placerace_set.all()
-#             races_edges = node_place["commonRaces"]["edges"]
-#             self.compare_place_race_edges(place_races, races_edges)
-
-
-class NPCQueryTests(GraphQLTestCase):
+class CompareMixin(test_races.CompareMixin, GraphQLTestCase):
     def compare_npcs(
         self, model_npc, node_npc, compare_features=False, compare_proficiencies=False
     ):
@@ -92,15 +22,16 @@ class NPCQueryTests(GraphQLTestCase):
         self.assertEqual(model_npc.name, node_npc["name"])
         self.assertEqual(model_npc.description, node_npc["description"])
         self.assertEqual(model_npc.size, node_npc["size"])
+        self.compare_races(model_npc.race, node_npc["race"])
         if compare_features:
-            for feature in model_npc.features_and_traits.all():
+            for i, feature in enumerate(model_npc.features_and_traits.all()):
                 self.compare_features(
-                    feature, node_npc["featuresAndTraits"]["edges"][0]["node"]
+                    feature, node_npc["featuresAndTraits"]["edges"][i]["node"]
                 )
         if compare_proficiencies:
-            for proficiency in model_npc.proficiencies.all():
+            for i, proficiency in enumerate(model_npc.proficiencies.all()):
                 self.compare_proficiencies(
-                    proficiency, node_npc["proficiencies"]["edges"][0]["node"]
+                    proficiency, node_npc["proficiencies"]["edges"][i]["node"]
                 )
 
     def compare_features(self, model_feature, node_feature):
@@ -108,7 +39,7 @@ class NPCQueryTests(GraphQLTestCase):
         self.assertEqual(model_feature.name, node_feature["name"])
         self.assertEqual(model_feature.description, node_feature["description"])
 
-    def compare_proficienciess(self, model_proficiency, node_proficiency):
+    def compare_proficiencies(self, model_proficiency, node_proficiency):
         self.assertEqual(
             str(model_proficiency.id), from_global_id(node_proficiency["id"])[1]
         )
@@ -118,6 +49,21 @@ class NPCQueryTests(GraphQLTestCase):
             model_proficiency.proficiency_type, node_proficiency["proficiencyType"]
         )
 
+    def compare_skills(self, model_skill, node_skill):
+        self.assertEqual(str(model_skill.id), from_global_id(node_skill["id"])[1])
+        self.assertEqual(model_skill.name, node_skill["name"])
+        self.assertEqual(model_skill.description, node_skill["description"])
+        self.assertEqual(model_skill.related_ability, node_skill["relatedAbility"])
+        self.assertEqual(model_skill.custom, node_skill["custom"])
+
+    def compare_languages(self, model_language, node_language):
+        self.assertEqual(str(model_language.id), from_global_id(node_language["id"])[1])
+        self.assertEqual(model_language.name, node_language["name"])
+        self.assertEqual(model_language.description, node_language["description"])
+        self.assertEqual(model_language.script.name, node_language["script"]["name"])
+
+
+class NPCQueryTests(CompareMixin, GraphQLTestCase):
     def test_basic_npc_detail_query(self):
         npc = NPCFactory()
         response = self.query(
@@ -128,6 +74,15 @@ class NPCQueryTests(GraphQLTestCase):
                     name
                     description
                     size
+                    race {
+                        id
+                        name
+                        ageOfAdulthood
+                        lifeExpectancy
+                        alignment
+                        size
+                        speed
+                    }
                 }
             }
             """
@@ -137,21 +92,17 @@ class NPCQueryTests(GraphQLTestCase):
 
         res_json = json.loads(response.content)
         res_npc = res_json["data"]["npc"]
-        self.assertEqual(res_npc["name"], npc.name)
-        self.assertEqual(res_npc["description"], npc.description)
-        self.assertEqual(res_npc["size"], npc.size)
+        self.compare_npcs(npc, res_npc)
 
     def test_npc_detail_query_with_relations(self):
-        npc = NPCFactory()
+        race = RaceFactory()
         features = FeatureFactory.create_batch(random.randint(1, 4))
-        for feature in features:
-            npc.features_and_traits.add(feature)
         proficiencies = ProficiencyFactory.create_batch(random.randint(1, 4))
-        for proficiency in proficiencies:
-            npc.proficiencies.add(proficiency)
-        # features m2m `features_and_traits`
-        # proficiencies m2m
-        # race fk
+
+        npc = NPCFactory(
+            race=race, features_and_traits=features, proficiencies=proficiencies
+        )
+
         response = self.query(
             """
             query {
@@ -160,6 +111,15 @@ class NPCQueryTests(GraphQLTestCase):
                     name
                     description
                     size
+                    race {
+                        id
+                        name
+                        ageOfAdulthood
+                        lifeExpectancy
+                        alignment
+                        size
+                        speed
+                    }
                     featuresAndTraits {
                         edges {
                             node {
@@ -188,17 +148,14 @@ class NPCQueryTests(GraphQLTestCase):
 
         res_json = json.loads(response.content)
         res_npc = res_json["data"]["npc"]
-        self.assertEqual(res_npc["name"], npc.name)
-        self.assertEqual(res_npc["description"], npc.description)
-        self.assertEqual(res_npc["size"], npc.size)
+        self.assertGreater(len(res_npc["featuresAndTraits"]["edges"]), 0)
+        self.assertGreater(len(res_npc["proficiencies"]["edges"]), 0)
+        self.compare_npcs(
+            npc, res_npc, compare_features=True, compare_proficiencies=True
+        )
 
 
-class FeatureTests(GraphQLTestCase):
-    def compare_features(self, model_feature, node_feature):
-        self.assertEqual(str(model_feature.id), from_global_id(node_feature["id"])[1])
-        self.assertEqual(model_feature.name, node_feature["name"])
-        self.assertEqual(model_feature.description, node_feature["description"])
-
+class FeatureTests(CompareMixin, GraphQLTestCase):
     def test_feature_detail_query(self):
         feature = FeatureFactory()
         response = self.query(
@@ -246,14 +203,7 @@ class FeatureTests(GraphQLTestCase):
             self.compare_features(feature, res_feature)
 
 
-class SkillTests(GraphQLTestCase):
-    def compare_skills(self, model_skill, node_skill):
-        self.assertEqual(str(model_skill.id), from_global_id(node_skill["id"])[1])
-        self.assertEqual(model_skill.name, node_skill["name"])
-        self.assertEqual(model_skill.description, node_skill["description"])
-        self.assertEqual(model_skill.related_ability, node_skill["relatedAbility"])
-        self.assertEqual(model_skill.custom, node_skill["custom"])
-
+class SkillTests(CompareMixin, GraphQLTestCase):
     def test_skill_detail_query(self):
         skill = SkillFactory()
         response = self.query(
@@ -305,17 +255,7 @@ class SkillTests(GraphQLTestCase):
             self.compare_skills(skill, res_skill)
 
 
-class ProficiencyTests(GraphQLTestCase):
-    def compare_proficiencies(self, model_proficiency, node_proficiency):
-        self.assertEqual(
-            str(model_proficiency.id), from_global_id(node_proficiency["id"])[1]
-        )
-        self.assertEqual(model_proficiency.name, node_proficiency["name"])
-        self.assertEqual(model_proficiency.description, node_proficiency["description"])
-        self.assertEqual(
-            model_proficiency.proficiency_type, node_proficiency["proficiencyType"]
-        )
-
+class ProficiencyTests(CompareMixin, GraphQLTestCase):
     def test_proficiency_detail_query(self):
         proficiency = ProficiencyFactory()
         response = self.query(
@@ -365,13 +305,7 @@ class ProficiencyTests(GraphQLTestCase):
             self.compare_proficiencies(proficiency, res_proficiency)
 
 
-class LanguageTests(GraphQLTestCase):
-    def compare_languages(self, model_language, node_language):
-        self.assertEqual(str(model_language.id), from_global_id(node_language["id"])[1])
-        self.assertEqual(model_language.name, node_language["name"])
-        self.assertEqual(model_language.description, node_language["description"])
-        self.assertEqual(model_language.script.name, node_language["script"]["name"])
-
+class LanguageTests(CompareMixin, GraphQLTestCase):
     def test_language_detail_query(self):
         language = LanguageFactory()
         response = self.query(

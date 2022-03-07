@@ -11,10 +11,6 @@ from ..models import (
     Script,
 )
 
-# from ..models import Place, PlaceAssociation, Export, PlaceExport, PlaceRace
-# from association.models import Association
-# from race.models import Race
-
 
 class NPCFactory(factory.django.DjangoModelFactory):
     class Meta:
@@ -23,6 +19,24 @@ class NPCFactory(factory.django.DjangoModelFactory):
     name = factory.Faker("name")
     description = factory.Faker("text")
     size = fuzzy.FuzzyChoice(SIZES, getter=lambda c: c[0])
+
+    @factory.post_generation
+    def features_and_traits(self, create, extracted, **kwargs):
+        if not create:
+            return
+
+        if extracted:
+            for feature in extracted:
+                self.features_and_traits.add(feature)
+
+    @factory.post_generation
+    def proficiencies(self, create, extracted, **kwargs):
+        if not create:
+            return
+
+        if extracted:
+            for proficiency in extracted:
+                self.proficiencies.add(proficiency)
 
 
 class FeatureFactory(factory.django.DjangoModelFactory):

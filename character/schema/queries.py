@@ -14,7 +14,7 @@ from .nodes import NPCNode, FeatureNode, SkillNode, LanguageNode, ProficiencyNod
 
 class NPCQuery(graphene.ObjectType):
     npc = relay.Node.Field(NPCNode)
-    npc_list = DjangoFilterConnectionField(NPCNode)
+    npcs = DjangoFilterConnectionField(NPCNode)
 
 
 class FeatureQuery(graphene.ObjectType):
