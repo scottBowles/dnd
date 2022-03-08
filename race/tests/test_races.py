@@ -77,6 +77,106 @@ class CompareMixin(GraphQLTestCase):
         self.assertEqual(model_trait.description, node_trait["description"])
 
 
+class AbilityScoreIncreaseQueryTests(CompareMixin, GraphQLTestCase):
+    def test_asi_detail_query(self):
+        asi = AbilityScoreIncreaseFactory()
+
+        response = self.query(
+            """
+            query {
+                abilityScoreIncrease(id: "%s") {
+                    id
+                    abilityScore
+                    increase
+                }
+            }
+            """
+            % to_global_id("AbilityScoreIncreaseNode", asi.id)
+        )
+        self.assertResponseNoErrors(response)
+
+        res_json = json.loads(response.content)
+        res_asi = res_json["data"]["abilityScoreIncrease"]
+
+        self.compare_ability_score_increases(asi, res_asi)
+
+    def test_trait_list_query(self):
+        asis = AbilityScoreIncreaseFactory.create_batch(random.randint(0, 3))
+
+        response = self.query(
+            """
+            query {
+                abilityScoreIncreases {
+                    edges {
+                        node {
+                            id
+                            abilityScore
+                            increase
+                        }
+                    }
+                }
+            }
+            """
+        )
+        self.assertResponseNoErrors(response)
+
+        res_json = json.loads(response.content)
+        res_asis = res_json["data"]["abilityScoreIncreases"]["edges"]
+
+        for i, asi in enumerate(asis):
+            self.compare_ability_score_increases(asi, res_asis[i]["node"])
+
+
+class TraitQueryTests(CompareMixin, GraphQLTestCase):
+    def test_trait_detail_query(self):
+        trait = TraitFactory()
+
+        response = self.query(
+            """
+            query {
+                trait(id: "%s") {
+                    id
+                    name
+                    description
+                }
+            }
+            """
+            % to_global_id("TraitNode", trait.id)
+        )
+        self.assertResponseNoErrors(response)
+
+        res_json = json.loads(response.content)
+        res_trait = res_json["data"]["trait"]
+
+        self.compare_traits(trait, res_trait)
+
+    def test_trait_list_query(self):
+        traits = TraitFactory.create_batch(random.randint(0, 3))
+
+        response = self.query(
+            """
+            query {
+                traits {
+                    edges {
+                        node {
+                            id
+                            name
+                            description
+                        }
+                    }
+                }
+            }
+            """
+        )
+        self.assertResponseNoErrors(response)
+
+        res_json = json.loads(response.content)
+        res_traits = res_json["data"]["traits"]["edges"]
+
+        for i, trait in enumerate(traits):
+            self.compare_traits(trait, res_traits[i]["node"])
+
+
 class RaceQueryTests(CompareMixin, GraphQLTestCase):
     def test_basic_race_detail_query(self):
         race = RaceFactory()

@@ -7,6 +7,7 @@ from character.models.models import ALIGNMENTS, SIZES, ABILITIES
 class AbilityScoreIncreaseFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = AbilityScoreIncrease
+        django_get_or_create = ("ability_score",)
 
     ability_score = fuzzy.FuzzyChoice(ABILITIES, getter=lambda c: c[0])
     increase = fuzzy.FuzzyInteger(1, 6)
