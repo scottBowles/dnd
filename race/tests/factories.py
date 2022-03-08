@@ -1,7 +1,15 @@
 import factory
 from factory import fuzzy
-from ..models import Race, Trait
-from character.models.models import ALIGNMENTS, SIZES
+from ..models import Race, AbilityScoreIncrease, Trait
+from character.models.models import ALIGNMENTS, SIZES, ABILITIES
+
+
+class AbilityScoreIncreaseFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = AbilityScoreIncrease
+
+    ability_score = fuzzy.FuzzyChoice(ABILITIES, getter=lambda c: c[0])
+    increase = fuzzy.FuzzyInteger(1, 6)
 
 
 class TraitFactory(factory.django.DjangoModelFactory):
@@ -22,6 +30,15 @@ class RaceFactory(factory.django.DjangoModelFactory):
     alignment = fuzzy.FuzzyChoice(ALIGNMENTS, getter=lambda c: c[0])
     size = fuzzy.FuzzyChoice(SIZES, getter=lambda c: c[0])
     speed = factory.Faker("pyint")
+
+    @factory.post_generation
+    def ability_score_increases(self, create, extracted, **kwargs):
+        if not create:
+            return
+
+        if extracted:
+            for ability_score_increase in extracted:
+                self.ability_score_increases.add(ability_score_increase)
 
     @factory.post_generation
     def languages(self, create, extracted, **kwargs):

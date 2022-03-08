@@ -2,7 +2,7 @@ import random
 import json
 from graphene_django.utils.testing import GraphQLTestCase
 from graphql_relay import from_global_id, to_global_id
-from .factories import RaceFactory, TraitFactory
+from .factories import RaceFactory, AbilityScoreIncreaseFactory, TraitFactory
 from character.tests.factories import LanguageFactory
 
 
@@ -12,9 +12,10 @@ class CompareMixin(GraphQLTestCase):
         model_race,
         node_race,
         compare_base_races_to_depth=0,
+        compare_subraces=False,
+        compare_ability_score_increases=False,
         compare_languages=False,
         compare_traits=False,
-        compare_subraces=False,
     ):
         if model_race is None:
             self.assertIsNone(node_race)
@@ -34,6 +35,12 @@ class CompareMixin(GraphQLTestCase):
                 compare_base_races_to_depth=compare_base_races_to_depth - 1,
             )
 
+        if compare_subraces:
+            model_subraces = model_race.subraces.all()
+            node_subraces = node_race["subraces"]["edges"]
+            for i, model_subrace in enumerate(model_subraces):
+                self.compare_races(model_subrace, node_subraces[i]["node"])
+
         if compare_languages:
             model_languages = model_race.languages.all()
             node_languages = node_race["languages"]["edges"]
@@ -46,11 +53,17 @@ class CompareMixin(GraphQLTestCase):
             for i, model_trait in enumerate(model_traits):
                 self.compare_traits(model_trait, node_traits[i]["node"])
 
-        if compare_subraces:
-            model_subraces = model_race.subraces.all()
-            node_subraces = node_race["subraces"]["edges"]
-            for i, model_subrace in enumerate(model_subraces):
-                self.compare_races(model_subrace, node_subraces[i]["node"])
+        if compare_ability_score_increases:
+            model_ability_score_increases = model_race.ability_score_increases.all()
+            node_ability_score_increases = node_race["abilityScoreIncreases"]["edges"]
+            for i, model_asi in enumerate(model_ability_score_increases):
+                self.compare_ability_score_increases(
+                    model_asi, node_ability_score_increases[i]["node"]
+                )
+
+    def compare_ability_score_increases(self, model_asi, node_asi):
+        self.assertEqual(model_asi.ability_score, node_asi["abilityScore"])
+        self.assertEqual(model_asi.increase, node_asi["increase"])
 
     def compare_languages(self, model_language, node_language):
         self.assertEqual(str(model_language.id), from_global_id(node_language["id"])[1])
@@ -92,9 +105,16 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
         self.compare_races(race, res_race)
 
     def test_race_detail_query_with_relations(self):
+        ability_score_increases = AbilityScoreIncreaseFactory.create_batch(
+            random.randint(0, 3)
+        )
         languages = LanguageFactory.create_batch(random.randint(0, 3))
         traits = TraitFactory.create_batch(random.randint(0, 3))
-        race = RaceFactory(languages=languages, traits=traits)
+        race = RaceFactory(
+            languages=languages,
+            traits=traits,
+            ability_score_increases=ability_score_increases,
+        )
 
         response = self.query(
             """
@@ -107,6 +127,14 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
                     alignment
                     size
                     speed
+                    abilityScoreIncreases {
+                        edges {
+                            node {
+                                abilityScore
+                                increase
+                            }
+                        }
+                    }
                     languages {
                         edges {
                             node {
@@ -138,7 +166,13 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
         res_json = json.loads(response.content)
         res_race = res_json["data"]["race"]
 
-        self.compare_races(race, res_race, compare_languages=True, compare_traits=True)
+        self.compare_races(
+            race,
+            res_race,
+            compare_ability_score_increases=True,
+            compare_languages=True,
+            compare_traits=True,
+        )
 
     def test_race_detail_query_with_base_and_sub_races(self):
         base_race = RaceFactory()

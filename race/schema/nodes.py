@@ -2,7 +2,15 @@ from graphene import relay
 from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
 
-from ..models import Race, Trait
+from ..models import Race, Trait, AbilityScoreIncrease
+
+
+class AbilityScoreIncreaseNode(DjangoObjectType):
+    class Meta:
+        model = AbilityScoreIncrease
+        fields = ("id", "ability_score", "increase")
+        filter_fields = ["ability_score"]
+        interfaces = (relay.Node,)
 
 
 class TraitNode(DjangoObjectType):
@@ -21,6 +29,7 @@ class RaceNode(DjangoObjectType):
             "name",
             "age_of_adulthood",
             "life_expectancy",
+            "ability_score_increases",
             "alignment",
             "size",
             "speed",
