@@ -55,6 +55,7 @@ class CompareMixin(GraphQLTestCase):
         compare_exports=False,
         compare_races=False,
         compare_parents_to_depth=0,
+        compare_children_to_depth=0,
     ):
         self.assertEqual(str(model_place.id), from_global_id(node_place["id"])[1])
         self.assertEqual(model_place.name, node_place["name"])
@@ -68,6 +69,14 @@ class CompareMixin(GraphQLTestCase):
                 node_place["parent"],
                 compare_parents_to_depth=compare_parents_to_depth - 1,
             )
+
+        if compare_children_to_depth > 0 and model_place.children.count() > 0:
+            for i, child in enumerate(model_place.children.all()):
+                self.compare_places(
+                    child,
+                    node_place["children"]["edges"][i]["node"],
+                    compare_children_to_depth=compare_children_to_depth - 1,
+                )
 
         if compare_associations:
             place_associations = model_place.placeassociation_set.all()
@@ -199,12 +208,11 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
         self.compare_places(place, res_place)
 
     def test_place_detail_query_with_parents(self):
-        place_greatgrandparent = PlaceFactory(name="place_greatgrandparent")
-        place_grandparent = PlaceFactory(
-            parent=place_greatgrandparent, name="place_grandparent"
-        )
+        place_grandparent = PlaceFactory(name="place_grandparent")
         place_parent = PlaceFactory(parent=place_grandparent, name="place_parent")
-        place_child = PlaceFactory(parent=place_parent, name="place_child")
+        place = PlaceFactory(parent=place_parent, name="place")
+        PlaceFactory(parent=place, name="place_child1")
+        PlaceFactory(parent=place, name="place_child2")
 
         response = self.query(
             """
@@ -235,17 +243,38 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
                             population
                         }
                     }
+                    children {
+                        edges {
+                            node {
+                                id
+                                name
+                                description
+                                created
+                                updated
+                                placeType
+                                population
+                            }
+                        }
+                    }
                 }
             }
             """
-            % to_global_id("PlaceNode", place_child.id)
+            % to_global_id("PlaceNode", place.id)
         )
         self.assertResponseNoErrors(response)
 
         res_place = json.loads(response.content)
         res_place = res_place["data"]["place"]
 
-        self.compare_places(place_child, res_place, compare_parents_to_depth=2)
+        self.assertEqual(res_place["parent"]["parent"]["name"], place_grandparent.name)
+        self.assertEqual(len(res_place["children"]["edges"]), 2)
+
+        self.compare_places(
+            place,
+            res_place,
+            compare_parents_to_depth=2,
+            compare_children_to_depth=1,
+        )
 
     def test_place_detail_query_with_m2m_associations(self):
         place1 = PlaceFactory()

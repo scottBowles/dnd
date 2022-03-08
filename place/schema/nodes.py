@@ -6,6 +6,7 @@ from ..models import Place, PlaceExport, Export, PlaceRace, PlaceAssociation
 from race.models import Race
 from association.schema import AssociationNode
 from django.db.models import Prefetch
+from graphene_django.filter import DjangoFilterConnectionField
 
 
 class ExportNode(DjangoObjectType):
@@ -140,6 +141,7 @@ class PlaceNode(DjangoObjectType):
             "updated",
             "place_type",
             "parent",
+            "children",
             "population",
             "exports",
             "common_races",

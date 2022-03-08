@@ -78,7 +78,9 @@ class Place(Entity):
     ]
     place_type = models.CharField(max_length=8, choices=PLACE_TYPES, default=LOCATION)
 
-    parent = models.ForeignKey("self", on_delete=models.PROTECT, null=True, blank=True)
+    parent = models.ForeignKey(
+        "self", on_delete=models.PROTECT, null=True, blank=True, related_name="children"
+    )
 
     population = models.IntegerField(default=0)
     exports = models.ManyToManyField(Export, through="PlaceExport")
