@@ -10,6 +10,9 @@ class AbilityScoreIncrease(models.Model):
     )
     increase = models.IntegerField()
 
+    class Meta:
+        unique_together = (("ability_score", "increase"),)
+
 
 class Trait(models.Model):
     name = models.CharField(max_length=255)
