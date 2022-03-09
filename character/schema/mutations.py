@@ -1,47 +1,33 @@
-# import graphene
+import graphene
 
-# from nucleus.utils import RelayCUD
-# from ..models import Item
-# from ..serializers import ItemSerializerGQL
-# from .nodes import ItemNode
-
-
-# class ArtifactInput(graphene.InputObjectType):
-#     notes = graphene.String()
+from nucleus.utils import RelayCUD
+from ..models import Language
+from ..serializers import LanguageSerializer
+from .nodes import LanguageNode
+from graphql_relay import from_global_id
 
 
-# class ArmorInput(graphene.InputObjectType):
-#     ac_bonus = graphene.Int()
+class LanguageCUD(RelayCUD):
+    field = "language"
+    Node = LanguageNode
+    model = Language
+    serializer_class = LanguageSerializer
+
+    class Input:
+        name = graphene.String()
+        description = graphene.String()
+        script = graphene.GlobalID()
+
+    def prepare_inputs(self, info, **input):
+        script_global_id = input.pop("script", None)
+        if script_global_id is not None:
+            script_id = from_global_id(script_global_id)[1]
+            input["script"] = script_id
+        return input
 
 
-# class EquipmentInput(graphene.InputObjectType):
-#     brief_description = graphene.String()
+LanguageMutations = LanguageCUD().get_mutation_class()
 
 
-# class WeaponInput(graphene.InputObjectType):
-#     attack_bonus = graphene.Int()
-
-
-# class ItemCUD(RelayCUD):
-#     field = "item"
-#     Node = ItemNode
-#     model = Item
-#     serializer_class = ItemSerializerGQL
-
-#     class Input:
-#         name = graphene.String()
-#         description = graphene.String()
-#         artifact = ArtifactInput(required=False)
-#         armor = ArmorInput(required=False)
-#         equipment = EquipmentInput(required=False)
-#         weapon = WeaponInput(required=False)
-
-
-# ItemMutations = ItemCUD().get_mutation_class()
-
-
-# class Mutation(
-#     ItemMutations,
-#     graphene.ObjectType,
-# ):
-#     pass
+class Mutation(LanguageMutations, graphene.ObjectType):
+    pass

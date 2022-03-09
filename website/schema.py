@@ -21,6 +21,8 @@ class Mutation(
     association.schema.Mutation,
     place.schema.Mutation,
     item.schema.Mutation,
+    character.schema.Mutation,
+    race.schema.Mutation,
     graphene.ObjectType,
 ):
     pass

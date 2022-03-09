@@ -7,60 +7,9 @@ from .factories import (
     FeatureFactory,
     SkillFactory,
     ProficiencyFactory,
-    ScriptFactory,
-    LanguageFactory,
 )
 from race.tests.factories import RaceFactory
-from race.tests import test_races
-
-
-class CompareMixin(test_races.CompareMixin, GraphQLTestCase):
-    def compare_npcs(
-        self, model_npc, node_npc, compare_features=False, compare_proficiencies=False
-    ):
-        self.assertEqual(str(model_npc.id), from_global_id(node_npc["id"])[1])
-        self.assertEqual(model_npc.name, node_npc["name"])
-        self.assertEqual(model_npc.description, node_npc["description"])
-        self.assertEqual(model_npc.size, node_npc["size"])
-        self.compare_races(model_npc.race, node_npc["race"])
-        if compare_features:
-            for i, feature in enumerate(model_npc.features_and_traits.all()):
-                self.compare_features(
-                    feature, node_npc["featuresAndTraits"]["edges"][i]["node"]
-                )
-        if compare_proficiencies:
-            for i, proficiency in enumerate(model_npc.proficiencies.all()):
-                self.compare_proficiencies(
-                    proficiency, node_npc["proficiencies"]["edges"][i]["node"]
-                )
-
-    def compare_features(self, model_feature, node_feature):
-        self.assertEqual(str(model_feature.id), from_global_id(node_feature["id"])[1])
-        self.assertEqual(model_feature.name, node_feature["name"])
-        self.assertEqual(model_feature.description, node_feature["description"])
-
-    def compare_proficiencies(self, model_proficiency, node_proficiency):
-        self.assertEqual(
-            str(model_proficiency.id), from_global_id(node_proficiency["id"])[1]
-        )
-        self.assertEqual(model_proficiency.name, node_proficiency["name"])
-        self.assertEqual(model_proficiency.description, node_proficiency["description"])
-        self.assertEqual(
-            model_proficiency.proficiency_type, node_proficiency["proficiencyType"]
-        )
-
-    def compare_skills(self, model_skill, node_skill):
-        self.assertEqual(str(model_skill.id), from_global_id(node_skill["id"])[1])
-        self.assertEqual(model_skill.name, node_skill["name"])
-        self.assertEqual(model_skill.description, node_skill["description"])
-        self.assertEqual(model_skill.related_ability, node_skill["relatedAbility"])
-        self.assertEqual(model_skill.custom, node_skill["custom"])
-
-    def compare_languages(self, model_language, node_language):
-        self.assertEqual(str(model_language.id), from_global_id(node_language["id"])[1])
-        self.assertEqual(model_language.name, node_language["name"])
-        self.assertEqual(model_language.description, node_language["description"])
-        self.assertEqual(model_language.script.name, node_language["script"]["name"])
+from .utils import CompareMixin
 
 
 class NPCQueryTests(CompareMixin, GraphQLTestCase):
@@ -303,60 +252,6 @@ class ProficiencyTests(CompareMixin, GraphQLTestCase):
         for i, proficiency in enumerate(proficiencies):
             res_proficiency = res_proficiencies[i]["node"]
             self.compare_proficiencies(proficiency, res_proficiency)
-
-
-class LanguageTests(CompareMixin, GraphQLTestCase):
-    def test_language_detail_query(self):
-        language = LanguageFactory()
-        response = self.query(
-            """
-            query {
-                language(id: "%s") {
-                    id
-                    name
-                    description
-                    script {
-                        name
-                    }
-                }
-            }
-            """
-            % to_global_id("LanguageNode", language.id)
-        )
-        self.assertResponseNoErrors(response)
-
-        res_json = json.loads(response.content)
-        res_language = res_json["data"]["language"]
-        self.compare_languages(language, res_language)
-
-    def test_language_list_query(self):
-        num_languages = random.randint(0, 10)
-        languages = LanguageFactory.create_batch(num_languages)
-        response = self.query(
-            """
-            query {
-                languages {
-                    edges {
-                        node {
-                            id
-                            name
-                            description
-                            script {
-                                name
-                            }
-                        }
-                    }
-                }
-            }
-            """
-        )
-        self.assertResponseNoErrors(response)
-        res_json = json.loads(response.content)
-        res_languages = res_json["data"]["languages"]["edges"]
-        self.assertEqual(len(res_languages), num_languages)
-        for i, language in enumerate(languages):
-            res_language = res_languages[i]["node"]
-            self.compare_languages(language, res_language)
 
 
 # class PlaceQueryTests(CompareMixin, GraphQLTestCase):
