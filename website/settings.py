@@ -53,7 +53,6 @@ INSTALLED_APPS = [
     "association",
     "character",
     "item",
-    "npc",
     "place",
     "quest",
     "race",
