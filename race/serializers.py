@@ -1,14 +1,14 @@
-from rest_framework import serializers
 from .models import Race, AbilityScoreIncrease, Trait
+from nucleus.utils import RelayModelSerializer
 
 
-class RaceSerializer(serializers.ModelSerializer):
+class RaceSerializer(RelayModelSerializer):
     class Meta:
         model = Race
         fields = "__all__"
 
 
-class AbilityScoreIncreaseSerializer(serializers.ModelSerializer):
+class AbilityScoreIncreaseSerializer(RelayModelSerializer):
     class Meta:
         model = AbilityScoreIncrease
         fields = "__all__"
@@ -21,7 +21,7 @@ class AbilityScoreIncreaseSerializer(serializers.ModelSerializer):
         )[0]
 
 
-class TraitSerializer(serializers.ModelSerializer):
+class TraitSerializer(RelayModelSerializer):
     class Meta:
         model = Trait
         fields = "__all__"

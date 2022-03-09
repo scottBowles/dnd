@@ -36,6 +36,7 @@ class ScriptNode(DjangoObjectType):
 class LanguageNode(DjangoObjectType):
     class Meta:
         model = Language
+        fields = ("id", "name", "description", "script")
         filter_fields = ["name"]
         interfaces = (relay.Node,)
 

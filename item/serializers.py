@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Item, ArtifactTraits, ArmorTraits, WeaponTraits, EquipmentTraits
+from nucleus.utils import RelayModelSerializer
 
 """
 Mixins provide fields specific to each one-to-one relationship.
@@ -7,25 +8,25 @@ Mixins provide fields specific to each one-to-one relationship.
 """
 
 
-class ArtifactSerializer(serializers.ModelSerializer):
+class ArtifactSerializer(RelayModelSerializer):
     class Meta:
         model = ArtifactTraits
         fields = ["notes"]
 
 
-class ArmorSerializer(serializers.ModelSerializer):
+class ArmorSerializer(RelayModelSerializer):
     class Meta:
         model = ArmorTraits
         fields = ["ac_bonus"]
 
 
-class WeaponSerializer(serializers.ModelSerializer):
+class WeaponSerializer(RelayModelSerializer):
     class Meta:
         model = WeaponTraits
         fields = ["attack_bonus"]
 
 
-class EquipmentSerializer(serializers.ModelSerializer):
+class EquipmentSerializer(RelayModelSerializer):
     class Meta:
         model = EquipmentTraits
         fields = ["brief_description"]
@@ -63,7 +64,7 @@ class ItemSerializer:
     pass
 
 
-# class ItemSerializer(serializers.ModelSerializer):
+# class ItemSerializer(RelayModelSerializer):
 #     artifact = serializers.SerializerMethodField(required=False)
 #     armor = serializers.SerializerMethodField(required=False)
 #     weapon = serializers.SerializerMethodField(required=False)
@@ -134,7 +135,7 @@ class ItemSerializer:
 #         super().update(instance, validated_data)
 
 #         return instance
-class ItemSerializerGQL(serializers.ModelSerializer):
+class ItemSerializerGQL(RelayModelSerializer):
     artifact = ArtifactSerializer(required=False)
     armor = ArmorSerializer(required=False)
     weapon = WeaponSerializer(required=False)

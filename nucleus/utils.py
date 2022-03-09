@@ -5,8 +5,20 @@ from rest_framework import serializers
 
 
 class RelayPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
+    """
+    PrimaryKeyRelatedField that converts incoming global ids to internal ids.
+    """
+
     def to_internal_value(self, data):
         return super().to_internal_value(from_global_id(data)[1])
+
+
+class RelayModelSerializer(serializers.ModelSerializer):
+    """
+    ModelSerializer that accepts global ids for foreign keys.
+    """
+
+    serializer_related_field = RelayPrimaryKeyRelatedField
 
 
 class RelayCUD(object):

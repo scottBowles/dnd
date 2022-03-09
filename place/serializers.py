@@ -1,5 +1,3 @@
-from rest_framework import serializers
-
 from place.models.place import PlaceAssociation
 from .models import (
     Place,
@@ -13,8 +11,7 @@ from .models import (
     Export,
     PlaceExport,
 )
-from nucleus.utils import RelayPrimaryKeyRelatedField
-from association.models import Association
+from nucleus.utils import RelayPrimaryKeyRelatedField, RelayModelSerializer
 
 """
 Places are held on one table with proxy models for different place types.
@@ -23,7 +20,7 @@ each type.
 """
 
 
-class ExportSerializer(serializers.ModelSerializer):
+class ExportSerializer(RelayModelSerializer):
     class Meta:
         model = Export
         fields = (
@@ -33,8 +30,7 @@ class ExportSerializer(serializers.ModelSerializer):
         )
 
 
-class PlaceExportSerializer(serializers.ModelSerializer):
-    export = RelayPrimaryKeyRelatedField(queryset=Export.objects.all())
+class PlaceExportSerializer(RelayModelSerializer):
     place = RelayPrimaryKeyRelatedField(
         queryset=Place.objects.all(),
         default=None,
@@ -50,8 +46,7 @@ class PlaceExportSerializer(serializers.ModelSerializer):
         fields = ("significance", "export", "place")
 
 
-class PlaceAssociationSerializer(serializers.ModelSerializer):
-    association = RelayPrimaryKeyRelatedField(queryset=Association.objects.all())
+class PlaceAssociationSerializer(RelayModelSerializer):
     place = RelayPrimaryKeyRelatedField(
         queryset=Place.objects.all(),
         default=None,
@@ -67,7 +62,7 @@ class PlaceAssociationSerializer(serializers.ModelSerializer):
         fields = ("notes", "association", "place")
 
 
-class PlaceSerializer(serializers.ModelSerializer):
+class PlaceSerializer(RelayModelSerializer):
     exports = PlaceExportSerializer(many=True, required=False)
     associations = PlaceAssociationSerializer(many=True, required=False)
 
@@ -105,31 +100,31 @@ class StarSerializer(PlaceSerializer):
         model = Star
 
 
-class PlanetSerializer(serializers.ModelSerializer):
+class PlanetSerializer(RelayModelSerializer):
     class Meta:
         model = Planet
 
 
-class MoonSerializer(serializers.ModelSerializer):
+class MoonSerializer(RelayModelSerializer):
     class Meta:
         model = Moon
 
 
-class RegionSerializer(serializers.ModelSerializer):
+class RegionSerializer(RelayModelSerializer):
     class Meta:
         model = Region
 
 
-class TownSerializer(serializers.ModelSerializer):
+class TownSerializer(RelayModelSerializer):
     class Meta:
         model = Town
 
 
-class DistrictSerializer(serializers.ModelSerializer):
+class DistrictSerializer(RelayModelSerializer):
     class Meta:
         model = District
 
 
-class LocationSerializer(serializers.ModelSerializer):
+class LocationSerializer(RelayModelSerializer):
     class Meta:
         model = Location

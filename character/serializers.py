@@ -1,18 +1,19 @@
-from rest_framework import serializers
-from .models import Character, Language, Script
+from .models import Character, Language
+from nucleus.utils import RelayModelSerializer
 
 
-class CharacterSerializer(serializers.ModelSerializer):
+class CharacterSerializer(RelayModelSerializer):
     class Meta:
         model = Character
         fields = "__all__"
 
 
-class LanguageSerializer(serializers.ModelSerializer):
-    script = serializers.PrimaryKeyRelatedField(
-        queryset=Script.objects.all(), allow_null=True, required=False
-    )
-
+class LanguageSerializer(RelayModelSerializer):
     class Meta:
         model = Language
-        fields = "__all__"
+        fields = (
+            "id",
+            "name",
+            "description",
+            "script",
+        )
