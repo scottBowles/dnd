@@ -10,6 +10,8 @@ class RelayPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
 
 
 class RelayCUD(object):
+    actions = ("create", "update", "patch", "delete")
+
     def __init__(self, *args, **kwargs):
         for el in ["field", "Node", "model", "serializer_class"]:
             if not hasattr(self, el):
@@ -57,10 +59,14 @@ class RelayCUD(object):
         instance.delete()
         return instance
 
+    def prepare_inputs(self, info, **input):
+        return input
+
     def get_mutation_base(self, action, Input, include_field=True):
         field = self.field
         Node = self.Node
         _Input = Input
+        prepare_inputs = self.prepare_inputs
 
         class MutationBase:
             ok = graphene.Boolean()
@@ -71,6 +77,7 @@ class RelayCUD(object):
 
             @classmethod
             def mutate_and_get_payload(cls, root, info, **input):
+                input = prepare_inputs(info, **input)
                 instance = action(info, **input)
                 args = {"ok": True}
                 if include_field:
@@ -110,14 +117,26 @@ class RelayCUD(object):
         mutation_class_name = self.field.title() + "DeleteMutation"
         return type(mutation_class_name, (Mixin, relay.ClientIDMutation), {})
 
+    def get_mutation_name(self, action):
+        return f"{self.field}_{action}"
+
+    def get_mutation_class_for_action(self, action):
+        return self.__getattribute__(action + "_mutation")()
+
     def get_mutation_class(self):
         class Mutation(graphene.ObjectType):
             pass
 
-        setattr(Mutation, self.field + "_create", self.create_mutation().Field())
-        setattr(Mutation, self.field + "_update", self.update_mutation().Field())
-        setattr(Mutation, self.field + "_patch", self.patch_mutation().Field())
-        setattr(Mutation, self.field + "_delete", self.delete_mutation().Field())
+        # By default this adds create, update, patch and delete mutations
+        # Override `actions` to limit the mutations (e.g., `actions = ("create", "update")`)
+        for action in self.actions:
+            mutation_name = self.get_mutation_name(action)
+            mutation_class = self.get_mutation_class_for_action(action)
+            setattr(
+                Mutation,
+                mutation_name,
+                mutation_class.Field(),
+            )
 
         return Mutation
 

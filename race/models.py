@@ -1,9 +1,9 @@
 from django.db import models
 
+from character.models.models import Language, ABILITIES, ALIGNMENTS, SIZES
+
 
 class AbilityScoreIncrease(models.Model):
-    from character.models.models import ABILITIES
-
     ability_score = models.CharField(
         max_length=12,
         choices=ABILITIES,
@@ -20,8 +20,6 @@ class Trait(models.Model):
 
 
 class Race(models.Model):
-    from character.models.models import Language, ALIGNMENTS, SIZES
-
     name = models.CharField(max_length=255)
     ability_score_increases = models.ManyToManyField(AbilityScoreIncrease, blank=True)
     age_of_adulthood = models.PositiveIntegerField(null=True, blank=True)
