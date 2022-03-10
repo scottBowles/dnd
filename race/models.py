@@ -16,7 +16,7 @@ class AbilityScoreIncrease(models.Model):
 
 class Trait(models.Model):
     name = models.CharField(max_length=255)
-    description = models.TextField()
+    description = models.TextField(null=True)
 
 
 class Race(models.Model):

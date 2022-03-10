@@ -103,7 +103,7 @@ class LanguageTests(CompareMixin, GraphQLTestCase):
 
         self.compare_languages(created_language, res_language)
 
-    def test_language_create_mutation_with_existing_script(self):
+    def test_language_create_mutation_with_script(self):
         name = "Test Language Name"
         description = "Test Language Description"
         script = ScriptFactory()
@@ -171,7 +171,7 @@ class LanguageTests(CompareMixin, GraphQLTestCase):
         response = self.query(query)
         self.assertResponseHasErrors(response)
 
-    def test_language_update_mutation(self):
+    def test_language_update_mutation_without_script(self):
         language = LanguageFactory(
             name="Not Test Language Name", description="Not Test Language Description"
         )
@@ -211,6 +211,54 @@ class LanguageTests(CompareMixin, GraphQLTestCase):
         )
         self.assertEqual(updated_language.name, "Test Language Name")
         self.assertEqual(updated_language.description, "Test Language Description")
+
+        self.compare_languages(updated_language, res_language)
+
+    def test_language_update_mutation_with_script(self):
+        language = LanguageFactory(
+            name="Not Test Language Name", description="Not Test Language Description"
+        )
+        language_global_id = to_global_id("LanguageNode", language.id)
+        new_script = ScriptFactory()
+        script_global_id = to_global_id("ScriptNode", new_script.id)
+        query = """
+            mutation {
+                languageUpdate(input: {
+                    id: "%s"
+                    name: "Test Language Name"
+                    description: "Test Language Description"
+                    script: "%s"
+                }) {
+                    language {
+                        id
+                        name
+                        description
+                        script {
+                            name
+                        }
+                    }
+                }
+            }
+        """ % (
+            language_global_id,
+            script_global_id,
+        )
+        response = self.query(query)
+        self.assertResponseNoErrors(response)
+
+        result = json.loads(response.content)
+        res_language = result["data"]["languageUpdate"]["language"]
+
+        self.assertEqual(res_language["name"], "Test Language Name")
+        self.assertEqual(res_language["description"], "Test Language Description")
+        self.assertEqual(res_language["script"]["name"], new_script.name)
+
+        updated_language = Language.objects.get(
+            pk=from_global_id(res_language["id"])[1]
+        )
+        self.assertEqual(updated_language.name, "Test Language Name")
+        self.assertEqual(updated_language.description, "Test Language Description")
+        self.assertEqual(updated_language.script.name, new_script.name)
 
         self.compare_languages(updated_language, res_language)
 
