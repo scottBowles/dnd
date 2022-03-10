@@ -1,15 +1,14 @@
 import graphene
 from graphene import relay
 from graphene_django.filter import DjangoFilterConnectionField
-from .nodes import NPCNode, FeatureNode, SkillNode, LanguageNode, ProficiencyNode
-
-# from .nodes import (
-#     ItemNode,
-#     # ArtifactNode,
-#     # ArmorNode,
-#     # WeaponNode,
-#     # EquipmentNode,
-# )
+from .nodes import (
+    NPCNode,
+    FeatureNode,
+    SkillNode,
+    LanguageNode,
+    ScriptNode,
+    ProficiencyNode,
+)
 
 
 class NPCQuery(graphene.ObjectType):
@@ -32,45 +31,14 @@ class LanguageQuery(graphene.ObjectType):
     languages = DjangoFilterConnectionField(LanguageNode)
 
 
+class ScriptQuery(graphene.ObjectType):
+    script = relay.Node.Field(ScriptNode)
+    scripts = DjangoFilterConnectionField(ScriptNode)
+
+
 class ProficiencyQuery(graphene.ObjectType):
     proficiency = relay.Node.Field(ProficiencyNode)
     proficiencies = DjangoFilterConnectionField(ProficiencyNode)
-
-
-# class ItemQuery(graphene.ObjectType):
-#     item = relay.Node.Field(ItemNode)
-#     items = DjangoFilterConnectionField(ItemNode)
-
-
-# # class ArtifactQuery(graphene.ObjectType):
-# #     artifact = relay.Node.Field(ArtifactNode)
-# #     artifacts = DjangoFilterConnectionField(ArtifactNode)
-
-
-# # class ArmorQuery(graphene.ObjectType):
-# #     armor = relay.Node.Field(ArmorNode)
-# #     armors = DjangoFilterConnectionField(ArmorNode)
-
-
-# # class WeaponQuery(graphene.ObjectType):
-# #     weapon = relay.Node.Field(WeaponNode)
-# #     weapons = DjangoFilterConnectionField(WeaponNode)
-
-
-# # class EquipmentQuery(graphene.ObjectType):
-# #     equipment = relay.Node.Field(EquipmentNode)
-# #     equipments = DjangoFilterConnectionField(EquipmentNode)
-
-
-# class Query(
-#     ItemQuery,
-#     # ArtifactQuery,
-#     # ArmorQuery,
-#     # WeaponQuery,
-#     # EquipmentQuery,
-#     graphene.ObjectType,
-# ):
-#     pass
 
 
 class Query(
@@ -79,6 +47,7 @@ class Query(
     SkillQuery,
     ProficiencyQuery,
     LanguageQuery,
+    ScriptQuery,
     graphene.ObjectType,
 ):
     pass
