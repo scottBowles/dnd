@@ -10,7 +10,7 @@ class AbilityScoreIncreaseFactory(factory.django.DjangoModelFactory):
         django_get_or_create = ("ability_score",)
 
     ability_score = fuzzy.FuzzyChoice(ABILITIES, getter=lambda c: c[0])
-    increase = fuzzy.FuzzyInteger(1, 6)
+    increase = factory.Faker("pyint", min_value=1, max_value=6)
 
 
 class TraitFactory(factory.django.DjangoModelFactory):

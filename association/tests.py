@@ -66,7 +66,7 @@ class AssociationTests(GraphQLTestCase):
         response = self.query(query)
         self.assertResponseHasErrors(response)
 
-    def test_association_retrieve_query(self):
+    def test_association_detail_query(self):
         association = AssociationFactory()
         association_global_id = to_global_id("AssociationNode", association.id)
         query = (
