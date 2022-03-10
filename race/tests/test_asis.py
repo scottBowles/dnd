@@ -32,9 +32,10 @@ class AbilityScoreIncreaseQueryTests(CompareMixin, GraphQLTestCase):
 
         self.compare_ability_score_increases(asi, res_asi)
 
-    def test_trait_list_query(self):
+    def test_asi_list_query(self):
         asis = AbilityScoreIncreaseFactory.create_batch(random.randint(0, 3))
         asis = list(set(asis))
+        asis.sort(key=lambda x: x.id)
 
         response = self.query(
             """
