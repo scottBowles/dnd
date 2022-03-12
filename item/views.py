@@ -1,6 +1,6 @@
 from rest_framework import viewsets
-from .models import Item, Artifact, Armor, Equipment, Weapon
-from .serializers import compose_item_serializer
+from .models import Item, Armor, Equipment, Weapon
+from .serializers_drf import compose_item_serializer
 
 
 class ItemViewSet(viewsets.ModelViewSet):
@@ -16,9 +16,9 @@ class ItemViewSet(viewsets.ModelViewSet):
         return compose_item_serializer(all=True)
 
 
-class ArtifactViewSet(ItemViewSet):
-    queryset = Artifact.objects.all()
-    default_expand = ["artifact"]
+# class ArtifactViewSet(ItemViewSet):
+#     queryset = Artifact.objects.all()
+#     default_expand = ["artifact"]
 
 
 class EquipmentViewSet(ItemViewSet):

@@ -2,24 +2,7 @@ import graphene
 from graphene import relay
 from graphene_django import DjangoObjectType
 
-from ..models import (
-    Item,
-    ArtifactTraits,
-    ArmorTraits,
-    WeaponTraits,
-    EquipmentTraits,
-    Artifact,
-    Armor,
-    Weapon,
-    Equipment,
-)
-
-
-class ArtifactTraitsNode(DjangoObjectType):
-    class Meta:
-        model = ArtifactTraits
-        fields = ("notes",)
-        interfaces = (relay.Node,)
+from ..models import Item, ArmorTraits, WeaponTraits, EquipmentTraits, Artifact
 
 
 class ArmorTraitsNode(DjangoObjectType):
@@ -44,7 +27,6 @@ class EquipmentTraitsNode(DjangoObjectType):
 
 
 class ItemNodeBase:
-    artifact = graphene.Field(ArtifactTraitsNode)
     armor = graphene.Field(ArmorTraitsNode)
     weapon = graphene.Field(WeaponTraitsNode)
     equipment = graphene.Field(EquipmentTraitsNode)
@@ -56,7 +38,6 @@ class ItemNodeBase:
             "description",
             "created",
             "updated",
-            "artifact",
             "armor",
             "weapon",
             "equipment",
@@ -75,21 +56,19 @@ class ItemNode(ItemNodeBase, DjangoObjectType):
         model = Item
 
 
-class ArtifactNode(ItemNodeBase, DjangoObjectType):
-    class Meta(ItemNodeBase.Meta):
+class ArtifactNode(DjangoObjectType):
+    class Meta:
         model = Artifact
-
-
-class ArmorNode(ItemNodeBase, DjangoObjectType):
-    class Meta(ItemNodeBase.Meta):
-        model = Armor
-
-
-class EquipmentNode(ItemNodeBase, DjangoObjectType):
-    class Meta(ItemNodeBase.Meta):
-        model = Equipment
-
-
-class WeaponNode(ItemNodeBase, DjangoObjectType):
-    class Meta(ItemNodeBase.Meta):
-        model = Weapon
+        fields = (
+            "items",
+            "notes",
+            "name",
+            "description",
+            "created",
+            "updated",
+        )
+        filter_fields = [
+            "name",
+            "created",
+        ]
+        interfaces = (relay.Node,)

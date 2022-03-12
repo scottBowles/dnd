@@ -12,27 +12,27 @@ class Item(Entity):
         return self.name
 
 
-class ArtifactTraits(models.Model):
-    item = models.OneToOneField(Item, on_delete=models.CASCADE, related_name="artifact")
-    notes = models.TextField(default="", blank=True)
+class Artifact(models.Model):
+    name = models.CharField(max_length=255, null=True, blank=True)
+    description = models.TextField(null=True, blank=True)
+    items = models.ManyToManyField(Item, related_name="artifacts")
+    notes = models.TextField(null=True, blank=True)
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return self.name
 
-class ArtifactManager(models.Manager):
-    def get_queryset(self):
-        return super().get_queryset().filter(artifact__isnull=False)
+    def __repr__(self):
+        return f"<Artifact {self.name}>"
 
+    def __getattr__(self, attr):
+        if attr == "name":
+            return self.get_name()
+        return super().__getattr__(attr)
 
-class Artifact(Item):
-    objects = ArtifactManager()
-
-    class Meta:
-        proxy = True
-        verbose_name_plural = "Artifact"
-
-    def save(self, *args, **kwargs):
-        if self.artifact is None:
-            raise TypeError("Artifact has no artifact traits.")
-        super().save(*args, **kwargs)
+    def get_name(self):
+        return self.name or self.items.first().name
 
 
 class ArmorTraits(models.Model):

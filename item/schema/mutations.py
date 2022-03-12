@@ -2,7 +2,7 @@ import graphene
 
 from nucleus.utils import RelayCUD
 from ..models import Item
-from ..serializers import ItemSerializerGQL
+from ..serializers import ItemSerializer
 from .nodes import ItemNode
 
 
@@ -26,7 +26,7 @@ class ItemCUD(RelayCUD):
     field = "item"
     Node = ItemNode
     model = Item
-    serializer_class = ItemSerializerGQL
+    serializer_class = ItemSerializer
 
     class Input:
         name = graphene.String()

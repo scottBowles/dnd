@@ -1,17 +1,6 @@
 from django.contrib import admin
-from ..models import (
-    Item,
-    Artifact,
-    Equipment,
-    Armor,
-    Weapon,
-)
-from .inlines import (
-    ArtifactTraitsInline,
-    ArmorTraitsInline,
-    WeaponTraitsInline,
-    EquipmentTraitsInline,
-)
+from ..models import Item, Artifact
+from .inlines import ArmorTraitsInline, WeaponTraitsInline, EquipmentTraitsInline
 
 
 class ItemMixin(admin.ModelAdmin):
@@ -22,15 +11,10 @@ class ItemMixin(admin.ModelAdmin):
 
     list_display = [
         "name",
-        "is_artifact",
         "is_armor",
         "is_weapon",
         "is_equipment",
     ]
-
-    @admin.display(boolean=True, description="Artifact")
-    def is_artifact(self, obj):
-        return obj.artifact is not None
 
     @admin.display(boolean=True, description="Armor")
     def is_armor(self, obj):
@@ -50,39 +34,15 @@ class ItemMixin(admin.ModelAdmin):
 
 class ItemAdmin(ItemMixin):
     inlines = [
-        ArtifactTraitsInline,
         ArmorTraitsInline,
         WeaponTraitsInline,
         EquipmentTraitsInline,
     ]
 
 
-class ArtifactAdmin(ItemMixin):
-    inlines = [
-        ArtifactTraitsInline,
-    ]
-
-
-class ArmorAdmin(ItemMixin):
-    inlines = [
-        ArmorTraitsInline,
-    ]
-
-
-class WeaponAdmin(ItemMixin):
-    inlines = [
-        WeaponTraitsInline,
-    ]
-
-
-class EquipmentAdmin(ItemMixin):
-    inlines = [
-        EquipmentTraitsInline,
-    ]
+class ArtifactAdmin(admin.ModelAdmin):
+    pass
 
 
 admin.site.register(Item, ItemAdmin)
 admin.site.register(Artifact, ArtifactAdmin)
-admin.site.register(Armor, ArmorAdmin)
-admin.site.register(Weapon, WeaponAdmin)
-admin.site.register(Equipment, EquipmentAdmin)

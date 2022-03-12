@@ -1,5 +1,4 @@
 from django.db import models
-from django.forms import ValidationError
 
 from nucleus.models import Entity
 from django.db import models

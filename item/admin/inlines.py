@@ -1,13 +1,5 @@
 from django.contrib import admin
-from ..models import ArtifactTraits, ArmorTraits, EquipmentTraits, WeaponTraits
-
-
-class ArtifactTraitsInline(admin.TabularInline):
-    model = ArtifactTraits
-    extra = 1
-    classes = [
-        "collapse",
-    ]
+from ..models import ArmorTraits, EquipmentTraits, WeaponTraits
 
 
 class ArmorTraitsInline(admin.TabularInline):
