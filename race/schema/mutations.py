@@ -49,7 +49,7 @@ class RaceCUD(RelayCUD):
 
     class Input:
         name = graphene.String(required=True)
-        # ability_score_increases = models.ManyToManyField(AbilityScoreIncrease, blank=True)
+
         age_of_adulthood = graphene.Int()
         life_expectancy = graphene.Int()
         # alignment = models.CharField(
@@ -59,11 +59,11 @@ class RaceCUD(RelayCUD):
         # size = models.CharField(max_length=10, choices=SIZES, null=True, blank=True)
         size = graphene.String()
         speed = graphene.Int()
-        # languages = models.ManyToManyField(Language, blank=True)
-        # traits = models.ManyToManyField(Trait, blank=True)
-        # base_race = models.ForeignKey(
-        #     "self", null=True, blank=True, on_delete=models.CASCADE, related_name="subraces"
-        # )
+        # ability_score_increases = graphene.List(graphene.String)
+        languages = graphene.List(graphene.String)
+        traits = graphene.List(graphene.String)
+        subraces = graphene.List(graphene.String)
+        base_race = graphene.String()
 
 
 # class RaceInput(graphene.InputObjectType):

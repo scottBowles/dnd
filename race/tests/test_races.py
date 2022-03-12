@@ -385,9 +385,317 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
 
         self.compare_races(created_race, res_race)
 
-    # def test_race_create_with_base_and_subraces(self):
-    #     base_race = RaceFactory()
-    #     subraces = RaceFactory.create_batch(2)
+    def test_race_create_with_base_and_subraces(self):
+        base_race = RaceFactory()
+        subraces = RaceFactory.create_batch(2)
+        query = """
+            mutation {
+                raceCreate(input: {
+                    name: "%s",
+                    ageOfAdulthood: %s,
+                    lifeExpectancy: %s,
+                    alignment: "%s",
+                    size: "%s",
+                    speed: %s,
+                    baseRace: "%s",
+                    subraces: [
+                        "%s",
+                        "%s"
+                    ]
+                }) {
+                    ok
+                    errors
+                    race {
+                        id
+                        name
+                        ageOfAdulthood
+                        lifeExpectancy
+                        alignment
+                        size
+                        speed
+                        baseRace {
+                            id
+                            name
+                            ageOfAdulthood
+                            lifeExpectancy
+                            alignment
+                            size
+                            speed
+                        }
+                        subraces {
+                            edges {
+                                node {
+                                    id
+                                    name
+                                    ageOfAdulthood
+                                    lifeExpectancy
+                                    alignment
+                                    size
+                                    speed
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        """ % (
+            self.name,
+            self.age_of_adulthood,
+            self.life_expectancy,
+            self.alignment,
+            self.size,
+            self.speed,
+            to_global_id("RaceNode", base_race.id),
+            to_global_id("RaceNode", subraces[0].id),
+            to_global_id("RaceNode", subraces[1].id),
+        )
+
+        response = self.query(query)
+        self.assertResponseNoErrors(response)
+
+        result = json.loads(response.content)
+        res_race = result["data"]["raceCreate"]["race"]
+
+        created_race = Race.objects.get(pk=from_global_id(res_race["id"])[1])
+
+        self.compare_races(
+            created_race, res_race, compare_subraces=True, compare_base_races_to_depth=1
+        )
+
+    def test_race_create_with_adding_existing_languages(self):
+        language1 = LanguageFactory()
+        language2 = LanguageFactory()
+
+        query = """
+            mutation {
+                raceCreate(input: {
+                    name: "%s",
+                    ageOfAdulthood: %s,
+                    lifeExpectancy: %s,
+                    alignment: "%s",
+                    size: "%s",
+                    speed: %s,
+                    languages: ["%s", "%s"]
+                }) {
+                    ok
+                    errors
+                    race {
+                        id
+                        name
+                        ageOfAdulthood
+                        lifeExpectancy
+                        alignment
+                        size
+                        speed
+                        languages {
+                            edges {
+                                node {
+                                    id
+                                    name
+                                    description
+                                    script {
+                                        name
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        """ % (
+            self.name,
+            self.age_of_adulthood,
+            self.life_expectancy,
+            self.alignment,
+            self.size,
+            self.speed,
+            to_global_id("LanguageNode", language1.id),
+            to_global_id("LanguageNode", language2.id),
+        )
+
+        response = self.query(query)
+        self.assertResponseNoErrors(response)
+
+        result = json.loads(response.content)
+        res_race = result["data"]["raceCreate"]["race"]
+
+        created_race = Race.objects.get(pk=from_global_id(res_race["id"])[1])
+
+        self.assertEqual(len(created_race.languages.all()), 2)
+        self.compare_races(created_race, res_race, compare_languages=True)
+
+    def test_race_create_fails_with_nonexisting_language_ids(self):
+        query = """
+            mutation {
+                raceCreate(input: {
+                    name: "%s",
+                    ageOfAdulthood: %s,
+                    lifeExpectancy: %s,
+                    alignment: "%s",
+                    size: "%s",
+                    speed: %s,
+                    languages: ["%s", "%s"]
+                }) {
+                    ok
+                    errors
+                    race {
+                        id
+                        name
+                        ageOfAdulthood
+                        lifeExpectancy
+                        alignment
+                        size
+                        speed
+                        languages {
+                            edges {
+                                node {
+                                    id
+                                    name
+                                    description
+                                    script {
+                                        name
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        """ % (
+            self.name,
+            self.age_of_adulthood,
+            self.life_expectancy,
+            self.alignment,
+            self.size,
+            self.speed,
+            to_global_id("LanguageNode", 23456),
+            to_global_id("LanguageNode", 12345),
+        )
+
+        response = self.query(query)
+        self.assertResponseHasErrors(response)
+
+        with self.assertRaises(Race.DoesNotExist):
+            Race.objects.get(name="Test Race Name")
+
+    def test_race_create_with_adding_existing_traits(self):
+        trait1 = TraitFactory()
+        trait2 = TraitFactory()
+
+        query = """
+            mutation {
+                raceCreate(input: {
+                    name: "%s",
+                    ageOfAdulthood: %s,
+                    lifeExpectancy: %s,
+                    alignment: "%s",
+                    size: "%s",
+                    speed: %s,
+                    traits: ["%s", "%s"]
+                }) {
+                    ok
+                    errors
+                    race {
+                        id
+                        name
+                        ageOfAdulthood
+                        lifeExpectancy
+                        alignment
+                        size
+                        speed
+                        traits {
+                            edges {
+                                node {
+                                    id
+                                    name
+                                    description
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        """ % (
+            self.name,
+            self.age_of_adulthood,
+            self.life_expectancy,
+            self.alignment,
+            self.size,
+            self.speed,
+            to_global_id("TraitNode", trait1.id),
+            to_global_id("TraitNode", trait2.id),
+        )
+
+        response = self.query(query)
+        self.assertResponseNoErrors(response)
+
+        result = json.loads(response.content)
+        res_race = result["data"]["raceCreate"]["race"]
+
+        created_race = Race.objects.get(pk=from_global_id(res_race["id"])[1])
+
+        self.assertEqual(len(created_race.traits.all()), 2)
+        self.compare_races(created_race, res_race, compare_traits=True)
+
+    def test_race_create_fails_with_nonexisting_trait_ids(self):
+        query = """
+            mutation {
+                raceCreate(input: {
+                    name: "%s",
+                    ageOfAdulthood: %s,
+                    lifeExpectancy: %s,
+                    alignment: "%s",
+                    size: "%s",
+                    speed: %s,
+                    traits: ["%s", "%s"]
+                }) {
+                    ok
+                    errors
+                    race {
+                        id
+                        name
+                        ageOfAdulthood
+                        lifeExpectancy
+                        alignment
+                        size
+                        speed
+                        traits {
+                            edges {
+                                node {
+                                    id
+                                    name
+                                    description
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        """ % (
+            self.name,
+            self.age_of_adulthood,
+            self.life_expectancy,
+            self.alignment,
+            self.size,
+            self.speed,
+            to_global_id("TraitNode", 23456),
+            to_global_id("TraitNode", 12345),
+        )
+
+        response = self.query(query)
+        self.assertResponseHasErrors(response)
+
+        with self.assertRaises(Race.DoesNotExist):
+            Race.objects.get(name="Test Race Name")
+
+    # def test_race_create_with_adding_existing_AbilityScoreIncreases(self):
+    #     asis = AbilityScoreIncreaseFactory.create_batch(8)
+    #     asis = list(set(asis))
+    #     asis.sort(key=lambda x: x.id)
+    #     asi_global_ids = ", ".join(
+    #         [str(to_global_id("AbilityScoreIncreaseNode", asi.id)) for asi in asis]
+    #     )
+
     #     query = """
     #         mutation {
     #             raceCreate(input: {
@@ -397,11 +705,7 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
     #                 alignment: "%s",
     #                 size: "%s",
     #                 speed: %s,
-    #                 baseRace: "%s",
-    #                 subraces: [
-    #                     "%s",
-    #                     "%s"
-    #                 ]
+    #                 abilityScoreIncreases: "%s"
     #             }) {
     #                 ok
     #                 errors
@@ -413,25 +717,12 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
     #                     alignment
     #                     size
     #                     speed
-    #                     baseRace {
-    #                         id
-    #                         name
-    #                         ageOfAdulthood
-    #                         lifeExpectancy
-    #                         alignment
-    #                         size
-    #                         speed
-    #                     }
-    #                     subraces {
+    #                     abilityScoreIncreases {
     #                         edges {
     #                             node {
     #                                 id
-    #                                 name
-    #                                 ageOfAdulthood
-    #                                 lifeExpectancy
-    #                                 alignment
-    #                                 size
-    #                                 speed
+    #                                 abilityScore
+    #                                 increase
     #                             }
     #                         }
     #                     }
@@ -445,9 +736,9 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
     #         self.alignment,
     #         self.size,
     #         self.speed,
-    #         to_global_id("RaceNode", base_race.id),
-    #         to_global_id("RaceNode", subraces[0].id),
-    #         to_global_id("RaceNode", subraces[1].id),
+    #         f"{asi_global_ids}",
+    #         # to_global_id("AbilityScoreIncreaseNode", ability_score_increase_1.id),
+    #         # to_global_id("AbilityScoreIncreaseNode", ability_score_increase_2.id),
     #     )
 
     #     response = self.query(query)
@@ -458,116 +749,60 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
 
     #     created_race = Race.objects.get(pk=from_global_id(res_race["id"])[1])
 
-    #     self.compare_races(created_race, res_race)
+    #     self.assertEqual(len(created_race.ability_score_increases.all()), len(asis))
+    #     self.compare_races(created_race, res_race, compare_ability_score_increases=True)
 
+    # def test_race_create_fails_with_nonexisting_ability_score_increase_ids(self):
+    #     query = """
+    #         mutation {
+    #             raceCreate(input: {
+    #                 name: "%s",
+    #                 ageOfAdulthood: %s,
+    #                 lifeExpectancy: %s,
+    #                 alignment: "%s",
+    #                 size: "%s",
+    #                 speed: %s,
+    #                 abilityScoreIncreases: ["%s", "%s"]
+    #             }) {
+    #                 ok
+    #                 errors
+    #                 race {
+    #                     id
+    #                     name
+    #                     ageOfAdulthood
+    #                     lifeExpectancy
+    #                     alignment
+    #                     size
+    #                     speed
+    #                     abilityScoreIncreases {
+    #                         edges {
+    #                             node {
+    #                                 id
+    #                                 abilityScore
+    #                                 increase
+    #                             }
+    #                         }
+    #                     }
+    #                 }
+    #             }
+    #         }
+    #     """ % (
+    #         self.name,
+    #         self.age_of_adulthood,
+    #         self.life_expectancy,
+    #         self.alignment,
+    #         self.size,
+    #         self.speed,
+    #         to_global_id("AbilityScoreIncreaseNode", 23456),
+    #         to_global_id("AbilityScoreIncreaseNode", 12345),
+    #     )
 
-#     def test_race_create_with_adding_existing_exports(self):
-#         export1 = ExportFactory()
-#         export2 = ExportFactory()
+    #     response = self.query(query)
+    #     self.assertResponseHasErrors(response)
 
-#         query = """
-#             mutation {
-#                 raceCreate(input: {
-#                     name: "Test Race Name"
-#                     description: "Test Race Description"
-#                     raceType: "TOWN"
-#                     population: 100
-#                     exports: [{
-#                         significance: 0
-#                         export: "%s"
-#                     }, {
-#                         significance: 1
-#                         export: "%s"
-#                     }]
-#                 }) {
-#                     ok
-#                     errors
-#                     race {
-#                         id
-#                         name
-#                         description
-#                         created
-#                         updated
-#                         raceType
-#                         population
-#                         exports {
-#                             edges {
-#                                 significance
-#                                 node {
-#                                     id
-#                                     name
-#                                     description
-#                                 }
-#                             }
-#                         }
-#                     }
-#                 }
-#             }
-#         """ % (
-#             to_global_id("ExportNode", export1.id),
-#             to_global_id("ExportNode", export2.id),
-#         )
+    #     with self.assertRaises(Race.DoesNotExist):
+    #         Race.objects.get(name="Test Race Name")
 
-#         response = self.query(query)
-#         self.assertResponseNoErrors(response)
-
-#         result = json.loads(response.content)
-#         res_race = result["data"]["raceCreate"]["race"]
-
-#         created_race = Race.objects.get(pk=from_global_id(res_race["id"])[1])
-
-#         self.assertEqual(len(created_race.exports.all()), 2)
-#         self.compare_races(created_race, res_race, compare_exports=True)
-
-#     def test_race_create_fails_with_nonexisting_export_ids(self):
-#         query = """
-#             mutation {
-#                 raceCreate(input: {
-#                     name: "Test Race Name"
-#                     description: "Test Race Description"
-#                     raceType: "TOWN"
-#                     population: 100
-#                     exports: [{
-#                         significance: 0
-#                         export: "%s"
-#                     }, {
-#                         significance: 1
-#                         export: "%s"
-#                     }]
-#                 }) {
-#                     ok
-#                     errors
-#                     race {
-#                         id
-#                         name
-#                         description
-#                         created
-#                         updated
-#                         raceType
-#                         population
-#                         exports {
-#                             edges {
-#                                 significance
-#                                 node {
-#                                     id
-#                                     name
-#                                     description
-#                                 }
-#                             }
-#                         }
-#                     }
-#                 }
-#             }
-#         """ % (
-#             to_global_id("ExportNode", 23456),
-#             to_global_id("ExportNode", 12345),
-#         )
-
-#         response = self.query(query)
-#         self.assertResponseHasErrors(response)
-
-#         with self.assertRaises(Race.DoesNotExist):
-#             Race.objects.get(name="Test Race Name")
 
 #     def test_race_create_with_adding_existing_associations(self):
 #         association1 = AssociationFactory()

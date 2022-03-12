@@ -1,8 +1,12 @@
 from .models import Race, AbilityScoreIncrease, Trait
-from nucleus.utils import RelayModelSerializer
+from nucleus.utils import RelayModelSerializer, RelayPrimaryKeyRelatedField
 
 
 class RaceSerializer(RelayModelSerializer):
+    subraces = RelayPrimaryKeyRelatedField(
+        queryset=Race.objects.all(), many=True, default=list
+    )
+
     class Meta:
         model = Race
         fields = "__all__"
