@@ -1,7 +1,6 @@
 from django.contrib import admin
-from django.db.models import Sum
 
-from character.models import Character, CharacterClass
+from character.models import Character, CharacterClass, NPC
 from .inlines import (
     ClassAndLevelInline,
     AttackInline,
@@ -165,3 +164,4 @@ class CharacterAdmin(admin.ModelAdmin):
 
 
 admin.site.register(CharacterClass)
+admin.site.register(NPC)

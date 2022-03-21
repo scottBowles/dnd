@@ -1,0 +1,1498 @@
+type Query {
+  race(
+    """The ID of the object"""
+    id: ID!
+  ): RaceNode
+  races(offset: Int = null, before: String = null, after: String = null, first: Int = null, last: Int = null): RaceNodeConnection
+  trait(
+    """The ID of the object"""
+    id: ID!
+  ): TraitNode
+  traits(offset: Int = null, before: String = null, after: String = null, first: Int = null, last: Int = null, name: String = null): TraitNodeConnection
+  abilityScoreIncrease(
+    """The ID of the object"""
+    id: ID!
+  ): AbilityScoreIncreaseNode
+  abilityScoreIncreases(offset: Int = null, before: String = null, after: String = null, first: Int = null, last: Int = null, abilityScore: String = null): AbilityScoreIncreaseNodeConnection
+  script(
+    """The ID of the object"""
+    id: ID!
+  ): ScriptNode
+  scripts(offset: Int = null, before: String = null, after: String = null, first: Int = null, last: Int = null, name: String = null): ScriptNodeConnection
+  language(
+    """The ID of the object"""
+    id: ID!
+  ): LanguageNode
+  languages(offset: Int = null, before: String = null, after: String = null, first: Int = null, last: Int = null, name: String = null): LanguageNodeConnection
+  proficiency(
+    """The ID of the object"""
+    id: ID!
+  ): ProficiencyNode
+  proficiencies(offset: Int = null, before: String = null, after: String = null, first: Int = null, last: Int = null, name: String = null): ProficiencyNodeConnection
+  skill(
+    """The ID of the object"""
+    id: ID!
+  ): SkillNode
+  skills(offset: Int = null, before: String = null, after: String = null, first: Int = null, last: Int = null, name: String = null): SkillNodeConnection
+  feature(
+    """The ID of the object"""
+    id: ID!
+  ): FeatureNode
+  features(offset: Int = null, before: String = null, after: String = null, first: Int = null, last: Int = null, name: String = null): FeatureNodeConnection
+  npc(
+    """The ID of the object"""
+    id: ID!
+  ): NPCNode
+  npcs(offset: Int = null, before: String = null, after: String = null, first: Int = null, last: Int = null, name: String = null): NPCNodeConnection
+  item(
+    """The ID of the object"""
+    id: ID!
+  ): ItemNode
+  items(offset: Int = null, before: String = null, after: String = null, first: Int = null, last: Int = null, name: String = null, description: String = null, created: DateTime = null, updated: DateTime = null): ItemNodeConnection
+  artifact(
+    """The ID of the object"""
+    id: ID!
+  ): ArtifactNode
+  artifacts(offset: Int = null, before: String = null, after: String = null, first: Int = null, last: Int = null, name: String = null, created: DateTime = null): ArtifactNodeConnection
+  place(
+    """The ID of the object"""
+    id: ID!
+  ): PlaceNode
+  places(offset: Int = null, before: String = null, after: String = null, first: Int = null, last: Int = null, placeType: String = null, name: String = null, description: String = null, created: DateTime = null, updated: DateTime = null): PlaceNodeConnection
+  export(
+    """The ID of the object"""
+    id: ID!
+  ): ExportNode
+  exports(offset: Int = null, before: String = null, after: String = null, first: Int = null, last: Int = null): ExportNodeConnection
+  association(
+    """The ID of the object"""
+    id: ID!
+  ): AssociationNode
+  associations(offset: Int = null, before: String = null, after: String = null, first: Int = null, last: Int = null, name: String = null, description: String = null, created: DateTime = null, updated: DateTime = null): AssociationNodeConnection
+}
+
+type RaceNode implements Node {
+  """The ID of the object"""
+  id: ID!
+  name: String!
+  abilityScoreIncreases(offset: Int = null, before: String = null, after: String = null, first: Int = null, last: Int = null, abilityScore: String = null): AbilityScoreIncreaseNodeConnection!
+  ageOfAdulthood: Int
+  lifeExpectancy: Int
+  alignment: RaceRaceAlignmentChoices
+  size: RaceRaceSizeChoices
+  speed: Int
+  languages(offset: Int = null, before: String = null, after: String = null, first: Int = null, last: Int = null, name: String = null): LanguageNodeConnection!
+  traits(offset: Int = null, before: String = null, after: String = null, first: Int = null, last: Int = null, name: String = null): TraitNodeConnection!
+  baseRace: RaceNode
+  subraces(offset: Int = null, before: String = null, after: String = null, first: Int = null, last: Int = null): RaceNodeConnection!
+}
+
+"""An object with an ID"""
+interface Node {
+  """The ID of the object"""
+  id: ID!
+}
+
+type AbilityScoreIncreaseNodeConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [AbilityScoreIncreaseNodeEdge]!
+}
+
+"""
+The Relay compliant `PageInfo` type, containing data necessary to paginate this connection.
+"""
+type PageInfo {
+  """When paginating forwards, are there more items?"""
+  hasNextPage: Boolean!
+
+  """When paginating backwards, are there more items?"""
+  hasPreviousPage: Boolean!
+
+  """When paginating backwards, the cursor to continue."""
+  startCursor: String
+
+  """When paginating forwards, the cursor to continue."""
+  endCursor: String
+}
+
+"""A Relay edge containing a `AbilityScoreIncreaseNode` and its cursor."""
+type AbilityScoreIncreaseNodeEdge {
+  """The item at the end of the edge"""
+  node: AbilityScoreIncreaseNode
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type AbilityScoreIncreaseNode implements Node {
+  """The ID of the object"""
+  id: ID!
+  abilityScore: RaceAbilityScoreIncreaseAbilityScoreChoices!
+  increase: Int!
+}
+
+"""An enumeration."""
+enum RaceAbilityScoreIncreaseAbilityScoreChoices {
+  """Strength"""
+  STRENGTH
+
+  """Dexterity"""
+  DEXTERITY
+
+  """Constitution"""
+  CONSTITUTION
+
+  """Intelligence"""
+  INTELLIGENCE
+
+  """Wisdom"""
+  WISDOM
+
+  """Charisma"""
+  CHARISMA
+}
+
+"""An enumeration."""
+enum RaceRaceAlignmentChoices {
+  """Lawful Good"""
+  LG
+
+  """Neutral Good"""
+  NG
+
+  """Chaotic Good"""
+  CG
+
+  """Lawful Neutral"""
+  LN
+
+  """True Neutral"""
+  N
+
+  """Chaotic Neutral"""
+  CN
+
+  """Lawful Evil"""
+  LE
+
+  """Neutral Evil"""
+  NE
+
+  """Chaotic Evil"""
+  CE
+}
+
+"""An enumeration."""
+enum RaceRaceSizeChoices {
+  """Tiny"""
+  TINY
+
+  """Small"""
+  SMALL
+
+  """Medium"""
+  MEDIUM
+
+  """Large"""
+  LARGE
+
+  """Huge"""
+  HUGE
+
+  """Gargantuan"""
+  GARGANTUAN
+}
+
+type LanguageNodeConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [LanguageNodeEdge]!
+}
+
+"""A Relay edge containing a `LanguageNode` and its cursor."""
+type LanguageNodeEdge {
+  """The item at the end of the edge"""
+  node: LanguageNode
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type LanguageNode implements Node {
+  """The ID of the object"""
+  id: ID!
+  name: String!
+  description: String!
+  script: ScriptNode
+}
+
+type ScriptNode implements Node {
+  """The ID of the object"""
+  id: ID!
+  name: String!
+}
+
+type TraitNodeConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [TraitNodeEdge]!
+}
+
+"""A Relay edge containing a `TraitNode` and its cursor."""
+type TraitNodeEdge {
+  """The item at the end of the edge"""
+  node: TraitNode
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type TraitNode implements Node {
+  """The ID of the object"""
+  id: ID!
+  name: String!
+  description: String
+}
+
+type RaceNodeConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [RaceNodeEdge]!
+}
+
+"""A Relay edge containing a `RaceNode` and its cursor."""
+type RaceNodeEdge {
+  """The item at the end of the edge"""
+  node: RaceNode
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type ScriptNodeConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [ScriptNodeEdge]!
+}
+
+"""A Relay edge containing a `ScriptNode` and its cursor."""
+type ScriptNodeEdge {
+  """The item at the end of the edge"""
+  node: ScriptNode
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type ProficiencyNode implements Node {
+  """The ID of the object"""
+  id: ID!
+  name: String!
+  proficiencyType: CharacterProficiencyProficiencyTypeChoices!
+  description: String!
+  npcs(offset: Int = null, before: String = null, after: String = null, first: Int = null, last: Int = null, name: String = null): NPCNodeConnection!
+}
+
+"""An enumeration."""
+enum CharacterProficiencyProficiencyTypeChoices {
+  """Armor"""
+  ARMOR
+
+  """Weapon"""
+  WEAPON
+
+  """Skill"""
+  SKILL
+
+  """Tool"""
+  TOOL
+
+  """Language"""
+  LANGUAGE
+
+  """Ability"""
+  ABILITY
+
+  """Other"""
+  OTHER
+}
+
+type NPCNodeConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [NPCNodeEdge]!
+}
+
+"""A Relay edge containing a `NPCNode` and its cursor."""
+type NPCNodeEdge {
+  """The item at the end of the edge"""
+  node: NPCNode
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type NPCNode implements Node {
+  """The ID of the object"""
+  id: ID!
+  created: DateTime!
+  updated: DateTime!
+  slug: String!
+  name: String!
+  race: RaceNode
+  description: String
+  featuresAndTraits(before: String = null, after: String = null, first: Int = null, last: Int = null): FeaturesAndTraitConnection
+  proficiencies(offset: Int = null, before: String = null, after: String = null, first: Int = null, last: Int = null, name: String = null): ProficiencyNodeConnection!
+  size: CharacterNPCSizeChoices
+  profiencies(before: String = null, after: String = null, first: Int = null, last: Int = null): ProficiencyConnection
+}
+
+"""
+The `DateTime` scalar type represents a DateTime
+value as specified by
+[iso8601](https://en.wikipedia.org/wiki/ISO_8601).
+"""
+scalar DateTime
+
+type FeaturesAndTraitConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [FeaturesAndTraitEdge]!
+}
+
+"""A Relay edge containing a `FeaturesAndTrait` and its cursor."""
+type FeaturesAndTraitEdge {
+  """The item at the end of the edge"""
+  node: FeatureNode
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type FeatureNode implements Node {
+  """The ID of the object"""
+  id: ID!
+  name: String!
+  description: String!
+  npcs(offset: Int = null, before: String = null, after: String = null, first: Int = null, last: Int = null, name: String = null): NPCNodeConnection!
+}
+
+type ProficiencyNodeConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [ProficiencyNodeEdge]!
+}
+
+"""A Relay edge containing a `ProficiencyNode` and its cursor."""
+type ProficiencyNodeEdge {
+  """The item at the end of the edge"""
+  node: ProficiencyNode
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+"""An enumeration."""
+enum CharacterNPCSizeChoices {
+  """Tiny"""
+  TINY
+
+  """Small"""
+  SMALL
+
+  """Medium"""
+  MEDIUM
+
+  """Large"""
+  LARGE
+
+  """Huge"""
+  HUGE
+
+  """Gargantuan"""
+  GARGANTUAN
+}
+
+type ProficiencyConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [ProficiencyEdge]!
+}
+
+"""A Relay edge containing a `Proficiency` and its cursor."""
+type ProficiencyEdge {
+  """The item at the end of the edge"""
+  node: ProficiencyNode
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type SkillNode implements Node {
+  """The ID of the object"""
+  id: ID!
+  name: String!
+  description: String!
+  relatedAbility: CharacterSkillRelatedAbilityChoices!
+  custom: Boolean!
+}
+
+"""An enumeration."""
+enum CharacterSkillRelatedAbilityChoices {
+  """Strength"""
+  STRENGTH
+
+  """Dexterity"""
+  DEXTERITY
+
+  """Constitution"""
+  CONSTITUTION
+
+  """Intelligence"""
+  INTELLIGENCE
+
+  """Wisdom"""
+  WISDOM
+
+  """Charisma"""
+  CHARISMA
+}
+
+type SkillNodeConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [SkillNodeEdge]!
+}
+
+"""A Relay edge containing a `SkillNode` and its cursor."""
+type SkillNodeEdge {
+  """The item at the end of the edge"""
+  node: SkillNode
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type FeatureNodeConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [FeatureNodeEdge]!
+}
+
+"""A Relay edge containing a `FeatureNode` and its cursor."""
+type FeatureNodeEdge {
+  """The item at the end of the edge"""
+  node: FeatureNode
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type ItemNode implements Node {
+  """The ID of the object"""
+  id: ID!
+  created: DateTime!
+  updated: DateTime!
+  name: String!
+  description: String
+  armor: ArmorTraitsNode
+  weapon: WeaponTraitsNode
+  equipment: EquipmentTraitsNode
+}
+
+type ArmorTraitsNode implements Node {
+  acBonus: Int!
+
+  """The ID of the object"""
+  id: ID!
+}
+
+type WeaponTraitsNode implements Node {
+  attackBonus: Int!
+
+  """The ID of the object"""
+  id: ID!
+}
+
+type EquipmentTraitsNode implements Node {
+  briefDescription: String!
+
+  """The ID of the object"""
+  id: ID!
+}
+
+type ItemNodeConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [ItemNodeEdge]!
+}
+
+"""A Relay edge containing a `ItemNode` and its cursor."""
+type ItemNodeEdge {
+  """The item at the end of the edge"""
+  node: ItemNode
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type ArtifactNode implements Node {
+  name: String
+  description: String
+  items(offset: Int = null, before: String = null, after: String = null, first: Int = null, last: Int = null, name: String = null, description: String = null, created: DateTime = null, updated: DateTime = null): ItemNodeConnection!
+  notes: String
+  created: DateTime!
+  updated: DateTime!
+
+  """The ID of the object"""
+  id: ID!
+}
+
+type ArtifactNodeConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [ArtifactNodeEdge]!
+}
+
+"""A Relay edge containing a `ArtifactNode` and its cursor."""
+type ArtifactNodeEdge {
+  """The item at the end of the edge"""
+  node: ArtifactNode
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type PlaceNode implements Node {
+  """The ID of the object"""
+  id: ID!
+  created: DateTime!
+  updated: DateTime!
+  name: String!
+  description: String
+  placeType: PlacePlacePlaceTypeChoices!
+  parent: PlaceNode
+  population: Int!
+  exports(before: String = null, after: String = null, first: Int = null, last: Int = null): ExportConnection
+  commonRaces(before: String = null, after: String = null, first: Int = null, last: Int = null): RaceConnection
+  associations(before: String = null, after: String = null, first: Int = null, last: Int = null): AssociationConnection
+  children(offset: Int = null, before: String = null, after: String = null, first: Int = null, last: Int = null, placeType: String = null, name: String = null, description: String = null, created: DateTime = null, updated: DateTime = null): PlaceNodeConnection!
+}
+
+"""An enumeration."""
+enum PlacePlacePlaceTypeChoices {
+  """Star"""
+  STAR
+
+  """Planet"""
+  PLANET
+
+  """Moon"""
+  MOON
+
+  """Region"""
+  REGION
+
+  """Town"""
+  TOWN
+
+  """District"""
+  DISTRICT
+
+  """Location"""
+  LOCATION
+}
+
+type ExportConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [ExportEdge]!
+}
+
+"""A Relay edge containing a `Export` and its cursor."""
+type ExportEdge {
+  """The item at the end of the edge"""
+  node: ExportNode
+
+  """A cursor for use in pagination"""
+  cursor: String!
+  significance: String
+}
+
+type ExportNode implements Node {
+  """The ID of the object"""
+  id: ID!
+  created: DateTime!
+  updated: DateTime!
+  name: String!
+  description: String
+}
+
+type RaceConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [RaceEdge]!
+}
+
+"""A Relay edge containing a `Race` and its cursor."""
+type RaceEdge {
+  """The item at the end of the edge"""
+  node: RaceNode
+
+  """A cursor for use in pagination"""
+  cursor: String!
+  percent: Float
+  notes: String
+}
+
+type AssociationConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [AssociationEdge]!
+}
+
+"""A Relay edge containing a `Association` and its cursor."""
+type AssociationEdge {
+  """The item at the end of the edge"""
+  node: AssociationNode
+
+  """A cursor for use in pagination"""
+  cursor: String!
+  notes: String
+}
+
+type AssociationNode implements Node {
+  created: DateTime!
+  updated: DateTime!
+  name: String!
+  description: String
+
+  """The ID of the object"""
+  id: ID!
+}
+
+type PlaceNodeConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [PlaceNodeEdge]!
+}
+
+"""A Relay edge containing a `PlaceNode` and its cursor."""
+type PlaceNodeEdge {
+  """The item at the end of the edge"""
+  node: PlaceNode
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type ExportNodeConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [ExportNodeEdge]!
+}
+
+"""A Relay edge containing a `ExportNode` and its cursor."""
+type ExportNodeEdge {
+  """The item at the end of the edge"""
+  node: ExportNode
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type AssociationNodeConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [AssociationNodeEdge]!
+}
+
+"""A Relay edge containing a `AssociationNode` and its cursor."""
+type AssociationNodeEdge {
+  """The item at the end of the edge"""
+  node: AssociationNode
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type Mutation {
+  raceCreate(input: RaceCreateMutationInput!): RaceCreateMutationPayload
+  raceUpdate(input: RaceUpdateMutationInput!): RaceUpdateMutationPayload
+  racePatch(input: RacePatchMutationInput!): RacePatchMutationPayload
+  raceDelete(input: RaceDeleteMutationInput!): RaceDeleteMutationPayload
+  traitCreate(input: TraitCreateMutationInput!): TraitCreateMutationPayload
+  traitUpdate(input: TraitUpdateMutationInput!): TraitUpdateMutationPayload
+  traitPatch(input: TraitPatchMutationInput!): TraitPatchMutationPayload
+  traitDelete(input: TraitDeleteMutationInput!): TraitDeleteMutationPayload
+  abilityScoreIncreaseCreate(input: AbilityscoreincreaseCreateMutationInput!): AbilityscoreincreaseCreateMutationPayload
+  proficiencyCreate(input: ProficiencyCreateMutationInput!): ProficiencyCreateMutationPayload
+  proficiencyUpdate(input: ProficiencyUpdateMutationInput!): ProficiencyUpdateMutationPayload
+  proficiencyPatch(input: ProficiencyPatchMutationInput!): ProficiencyPatchMutationPayload
+  proficiencyDelete(input: ProficiencyDeleteMutationInput!): ProficiencyDeleteMutationPayload
+  skillCreate(input: SkillCreateMutationInput!): SkillCreateMutationPayload
+  skillUpdate(input: SkillUpdateMutationInput!): SkillUpdateMutationPayload
+  skillPatch(input: SkillPatchMutationInput!): SkillPatchMutationPayload
+  skillDelete(input: SkillDeleteMutationInput!): SkillDeleteMutationPayload
+  featureCreate(input: FeatureCreateMutationInput!): FeatureCreateMutationPayload
+  featureUpdate(input: FeatureUpdateMutationInput!): FeatureUpdateMutationPayload
+  featurePatch(input: FeaturePatchMutationInput!): FeaturePatchMutationPayload
+  featureDelete(input: FeatureDeleteMutationInput!): FeatureDeleteMutationPayload
+  scriptCreate(input: ScriptCreateMutationInput!): ScriptCreateMutationPayload
+  scriptUpdate(input: ScriptUpdateMutationInput!): ScriptUpdateMutationPayload
+  scriptPatch(input: ScriptPatchMutationInput!): ScriptPatchMutationPayload
+  scriptDelete(input: ScriptDeleteMutationInput!): ScriptDeleteMutationPayload
+  languageCreate(input: LanguageCreateMutationInput!): LanguageCreateMutationPayload
+  languageUpdate(input: LanguageUpdateMutationInput!): LanguageUpdateMutationPayload
+  languagePatch(input: LanguagePatchMutationInput!): LanguagePatchMutationPayload
+  languageDelete(input: LanguageDeleteMutationInput!): LanguageDeleteMutationPayload
+  itemCreate(input: ItemCreateMutationInput!): ItemCreateMutationPayload
+  itemUpdate(input: ItemUpdateMutationInput!): ItemUpdateMutationPayload
+  itemPatch(input: ItemPatchMutationInput!): ItemPatchMutationPayload
+  itemDelete(input: ItemDeleteMutationInput!): ItemDeleteMutationPayload
+  placeCreate(input: PlaceCreateMutationInput!): PlaceCreateMutationPayload
+  placeUpdate(input: PlaceUpdateMutationInput!): PlaceUpdateMutationPayload
+  placePatch(input: PlacePatchMutationInput!): PlacePatchMutationPayload
+  placeDelete(input: PlaceDeleteMutationInput!): PlaceDeleteMutationPayload
+  exportCreate(input: ExportCreateMutationInput!): ExportCreateMutationPayload
+  exportUpdate(input: ExportUpdateMutationInput!): ExportUpdateMutationPayload
+  exportPatch(input: ExportPatchMutationInput!): ExportPatchMutationPayload
+  exportDelete(input: ExportDeleteMutationInput!): ExportDeleteMutationPayload
+  associationCreate(input: AssociationCreateMutationInput!): AssociationCreateMutationPayload
+  associationUpdate(input: AssociationUpdateMutationInput!): AssociationUpdateMutationPayload
+  associationPatch(input: AssociationPatchMutationInput!): AssociationPatchMutationPayload
+  associationDelete(input: AssociationDeleteMutationInput!): AssociationDeleteMutationPayload
+}
+
+type RaceCreateMutationPayload {
+  ok: Boolean
+  errors: String
+  race: RaceNode
+  clientMutationId: String
+}
+
+input RaceCreateMutationInput {
+  name: String!
+  ageOfAdulthood: Int
+  lifeExpectancy: Int
+  alignment: String
+  size: String
+  speed: Int
+  languages: [String]
+  traits: [String]
+  subraces: [String]
+  baseRace: String
+  clientMutationId: String
+}
+
+type RaceUpdateMutationPayload {
+  ok: Boolean
+  errors: String
+  race: RaceNode
+  clientMutationId: String
+}
+
+input RaceUpdateMutationInput {
+  name: String!
+  ageOfAdulthood: Int
+  lifeExpectancy: Int
+  alignment: String
+  size: String
+  speed: Int
+  languages: [String]
+  traits: [String]
+  subraces: [String]
+  baseRace: String
+  id: ID
+  clientMutationId: String
+}
+
+type RacePatchMutationPayload {
+  ok: Boolean
+  errors: String
+  race: RaceNode
+  clientMutationId: String
+}
+
+input RacePatchMutationInput {
+  name: String!
+  ageOfAdulthood: Int
+  lifeExpectancy: Int
+  alignment: String
+  size: String
+  speed: Int
+  languages: [String]
+  traits: [String]
+  subraces: [String]
+  baseRace: String
+  id: ID
+  clientMutationId: String
+}
+
+type RaceDeleteMutationPayload {
+  ok: Boolean
+  errors: String
+  clientMutationId: String
+}
+
+input RaceDeleteMutationInput {
+  id: ID
+  clientMutationId: String
+}
+
+type TraitCreateMutationPayload {
+  ok: Boolean
+  errors: String
+  trait: TraitNode
+  clientMutationId: String
+}
+
+input TraitCreateMutationInput {
+  name: String!
+  description: String
+  clientMutationId: String
+}
+
+type TraitUpdateMutationPayload {
+  ok: Boolean
+  errors: String
+  trait: TraitNode
+  clientMutationId: String
+}
+
+input TraitUpdateMutationInput {
+  name: String!
+  description: String
+  id: ID
+  clientMutationId: String
+}
+
+type TraitPatchMutationPayload {
+  ok: Boolean
+  errors: String
+  trait: TraitNode
+  clientMutationId: String
+}
+
+input TraitPatchMutationInput {
+  name: String!
+  description: String
+  id: ID
+  clientMutationId: String
+}
+
+type TraitDeleteMutationPayload {
+  ok: Boolean
+  errors: String
+  clientMutationId: String
+}
+
+input TraitDeleteMutationInput {
+  id: ID
+  clientMutationId: String
+}
+
+type AbilityscoreincreaseCreateMutationPayload {
+  ok: Boolean
+  errors: String
+  abilityScoreIncrease: AbilityScoreIncreaseNode
+  clientMutationId: String
+}
+
+input AbilityscoreincreaseCreateMutationInput {
+  abilityScore: String!
+  increase: Int!
+  clientMutationId: String
+}
+
+type ProficiencyCreateMutationPayload {
+  ok: Boolean
+  errors: String
+  proficiency: ProficiencyNode
+  clientMutationId: String
+}
+
+input ProficiencyCreateMutationInput {
+  name: String
+  description: String
+  proficiencyType: String
+  clientMutationId: String
+}
+
+type ProficiencyUpdateMutationPayload {
+  ok: Boolean
+  errors: String
+  proficiency: ProficiencyNode
+  clientMutationId: String
+}
+
+input ProficiencyUpdateMutationInput {
+  name: String
+  description: String
+  proficiencyType: String
+  id: ID
+  clientMutationId: String
+}
+
+type ProficiencyPatchMutationPayload {
+  ok: Boolean
+  errors: String
+  proficiency: ProficiencyNode
+  clientMutationId: String
+}
+
+input ProficiencyPatchMutationInput {
+  name: String
+  description: String
+  proficiencyType: String
+  id: ID
+  clientMutationId: String
+}
+
+type ProficiencyDeleteMutationPayload {
+  ok: Boolean
+  errors: String
+  clientMutationId: String
+}
+
+input ProficiencyDeleteMutationInput {
+  id: ID
+  clientMutationId: String
+}
+
+type SkillCreateMutationPayload {
+  ok: Boolean
+  errors: String
+  skill: SkillNode
+  clientMutationId: String
+}
+
+input SkillCreateMutationInput {
+  name: String
+  description: String
+  relatedAbility: String
+  custom: Boolean
+  clientMutationId: String
+}
+
+type SkillUpdateMutationPayload {
+  ok: Boolean
+  errors: String
+  skill: SkillNode
+  clientMutationId: String
+}
+
+input SkillUpdateMutationInput {
+  name: String
+  description: String
+  relatedAbility: String
+  custom: Boolean
+  id: ID
+  clientMutationId: String
+}
+
+type SkillPatchMutationPayload {
+  ok: Boolean
+  errors: String
+  skill: SkillNode
+  clientMutationId: String
+}
+
+input SkillPatchMutationInput {
+  name: String
+  description: String
+  relatedAbility: String
+  custom: Boolean
+  id: ID
+  clientMutationId: String
+}
+
+type SkillDeleteMutationPayload {
+  ok: Boolean
+  errors: String
+  clientMutationId: String
+}
+
+input SkillDeleteMutationInput {
+  id: ID
+  clientMutationId: String
+}
+
+type FeatureCreateMutationPayload {
+  ok: Boolean
+  errors: String
+  feature: FeatureNode
+  clientMutationId: String
+}
+
+input FeatureCreateMutationInput {
+  name: String
+  description: String
+  clientMutationId: String
+}
+
+type FeatureUpdateMutationPayload {
+  ok: Boolean
+  errors: String
+  feature: FeatureNode
+  clientMutationId: String
+}
+
+input FeatureUpdateMutationInput {
+  name: String
+  description: String
+  id: ID
+  clientMutationId: String
+}
+
+type FeaturePatchMutationPayload {
+  ok: Boolean
+  errors: String
+  feature: FeatureNode
+  clientMutationId: String
+}
+
+input FeaturePatchMutationInput {
+  name: String
+  description: String
+  id: ID
+  clientMutationId: String
+}
+
+type FeatureDeleteMutationPayload {
+  ok: Boolean
+  errors: String
+  clientMutationId: String
+}
+
+input FeatureDeleteMutationInput {
+  id: ID
+  clientMutationId: String
+}
+
+type ScriptCreateMutationPayload {
+  ok: Boolean
+  errors: String
+  script: ScriptNode
+  clientMutationId: String
+}
+
+input ScriptCreateMutationInput {
+  name: String
+  clientMutationId: String
+}
+
+type ScriptUpdateMutationPayload {
+  ok: Boolean
+  errors: String
+  script: ScriptNode
+  clientMutationId: String
+}
+
+input ScriptUpdateMutationInput {
+  name: String
+  id: ID
+  clientMutationId: String
+}
+
+type ScriptPatchMutationPayload {
+  ok: Boolean
+  errors: String
+  script: ScriptNode
+  clientMutationId: String
+}
+
+input ScriptPatchMutationInput {
+  name: String
+  id: ID
+  clientMutationId: String
+}
+
+type ScriptDeleteMutationPayload {
+  ok: Boolean
+  errors: String
+  clientMutationId: String
+}
+
+input ScriptDeleteMutationInput {
+  id: ID
+  clientMutationId: String
+}
+
+type LanguageCreateMutationPayload {
+  ok: Boolean
+  errors: String
+  language: LanguageNode
+  clientMutationId: String
+}
+
+input LanguageCreateMutationInput {
+  name: String
+  description: String
+  script: String
+  clientMutationId: String
+}
+
+type LanguageUpdateMutationPayload {
+  ok: Boolean
+  errors: String
+  language: LanguageNode
+  clientMutationId: String
+}
+
+input LanguageUpdateMutationInput {
+  name: String
+  description: String
+  script: String
+  id: ID
+  clientMutationId: String
+}
+
+type LanguagePatchMutationPayload {
+  ok: Boolean
+  errors: String
+  language: LanguageNode
+  clientMutationId: String
+}
+
+input LanguagePatchMutationInput {
+  name: String
+  description: String
+  script: String
+  id: ID
+  clientMutationId: String
+}
+
+type LanguageDeleteMutationPayload {
+  ok: Boolean
+  errors: String
+  clientMutationId: String
+}
+
+input LanguageDeleteMutationInput {
+  id: ID
+  clientMutationId: String
+}
+
+type ItemCreateMutationPayload {
+  ok: Boolean
+  errors: String
+  item: ItemNode
+  clientMutationId: String
+}
+
+input ItemCreateMutationInput {
+  name: String
+  description: String
+  artifact: ArtifactInput
+  armor: ArmorInput
+  equipment: EquipmentInput
+  weapon: WeaponInput
+  clientMutationId: String
+}
+
+input ArtifactInput {
+  notes: String
+}
+
+input ArmorInput {
+  acBonus: Int
+}
+
+input EquipmentInput {
+  briefDescription: String
+}
+
+input WeaponInput {
+  attackBonus: Int
+}
+
+type ItemUpdateMutationPayload {
+  ok: Boolean
+  errors: String
+  item: ItemNode
+  clientMutationId: String
+}
+
+input ItemUpdateMutationInput {
+  name: String
+  description: String
+  artifact: ArtifactInput
+  armor: ArmorInput
+  equipment: EquipmentInput
+  weapon: WeaponInput
+  id: ID
+  clientMutationId: String
+}
+
+type ItemPatchMutationPayload {
+  ok: Boolean
+  errors: String
+  item: ItemNode
+  clientMutationId: String
+}
+
+input ItemPatchMutationInput {
+  name: String
+  description: String
+  artifact: ArtifactInput
+  armor: ArmorInput
+  equipment: EquipmentInput
+  weapon: WeaponInput
+  id: ID
+  clientMutationId: String
+}
+
+type ItemDeleteMutationPayload {
+  ok: Boolean
+  errors: String
+  clientMutationId: String
+}
+
+input ItemDeleteMutationInput {
+  id: ID
+  clientMutationId: String
+}
+
+type PlaceCreateMutationPayload {
+  ok: Boolean
+  errors: String
+  place: PlaceNode
+  clientMutationId: String
+}
+
+input PlaceCreateMutationInput {
+  name: String
+  description: String
+  placeType: String
+  population: Int
+  associations: [PlaceAssociationInput]
+  races: [PlaceRaceInput]
+  exports: [PlaceExportInput]
+  parent: UUID
+  clientMutationId: String
+}
+
+input PlaceAssociationInput {
+  association: String
+  notes: String
+}
+
+input PlaceRaceInput {
+  race: RaceInput
+  percent: Float
+  notes: String
+}
+
+"""
+This should eventually be constructed in the Race app and
+imported from there
+"""
+input RaceInput {
+  name: String
+}
+
+input PlaceExportInput {
+  export: String
+  significance: Int
+}
+
+"""
+Leverages the internal Python implementation of UUID (uuid.UUID) to provide native UUID objects
+in fields, resolvers and input.
+"""
+scalar UUID
+
+type PlaceUpdateMutationPayload {
+  ok: Boolean
+  errors: String
+  place: PlaceNode
+  clientMutationId: String
+}
+
+input PlaceUpdateMutationInput {
+  name: String
+  description: String
+  placeType: String
+  population: Int
+  associations: [PlaceAssociationInput]
+  races: [PlaceRaceInput]
+  exports: [PlaceExportInput]
+  parent: UUID
+  id: ID
+  clientMutationId: String
+}
+
+type PlacePatchMutationPayload {
+  ok: Boolean
+  errors: String
+  place: PlaceNode
+  clientMutationId: String
+}
+
+input PlacePatchMutationInput {
+  name: String
+  description: String
+  placeType: String
+  population: Int
+  associations: [PlaceAssociationInput]
+  races: [PlaceRaceInput]
+  exports: [PlaceExportInput]
+  parent: UUID
+  id: ID
+  clientMutationId: String
+}
+
+type PlaceDeleteMutationPayload {
+  ok: Boolean
+  errors: String
+  clientMutationId: String
+}
+
+input PlaceDeleteMutationInput {
+  id: ID
+  clientMutationId: String
+}
+
+type ExportCreateMutationPayload {
+  ok: Boolean
+  errors: String
+  export: ExportNode
+  clientMutationId: String
+}
+
+input ExportCreateMutationInput {
+  name: String
+  description: String
+  clientMutationId: String
+}
+
+type ExportUpdateMutationPayload {
+  ok: Boolean
+  errors: String
+  export: ExportNode
+  clientMutationId: String
+}
+
+input ExportUpdateMutationInput {
+  name: String
+  description: String
+  id: ID
+  clientMutationId: String
+}
+
+type ExportPatchMutationPayload {
+  ok: Boolean
+  errors: String
+  export: ExportNode
+  clientMutationId: String
+}
+
+input ExportPatchMutationInput {
+  name: String
+  description: String
+  id: ID
+  clientMutationId: String
+}
+
+type ExportDeleteMutationPayload {
+  ok: Boolean
+  errors: String
+  clientMutationId: String
+}
+
+input ExportDeleteMutationInput {
+  id: ID
+  clientMutationId: String
+}
+
+type AssociationCreateMutationPayload {
+  ok: Boolean
+  errors: String
+  association: AssociationNode
+  clientMutationId: String
+}
+
+input AssociationCreateMutationInput {
+  name: String
+  description: String
+  clientMutationId: String
+}
+
+type AssociationUpdateMutationPayload {
+  ok: Boolean
+  errors: String
+  association: AssociationNode
+  clientMutationId: String
+}
+
+input AssociationUpdateMutationInput {
+  name: String
+  description: String
+  id: ID
+  clientMutationId: String
+}
+
+type AssociationPatchMutationPayload {
+  ok: Boolean
+  errors: String
+  association: AssociationNode
+  clientMutationId: String
+}
+
+input AssociationPatchMutationInput {
+  name: String
+  description: String
+  id: ID
+  clientMutationId: String
+}
+
+type AssociationDeleteMutationPayload {
+  ok: Boolean
+  errors: String
+  clientMutationId: String
+}
+
+input AssociationDeleteMutationInput {
+  id: ID
+  clientMutationId: String
+}
