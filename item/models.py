@@ -12,13 +12,9 @@ class Item(Entity):
         return self.name
 
 
-class Artifact(models.Model):
-    name = models.CharField(max_length=255, null=True, blank=True)
-    description = models.TextField(null=True, blank=True)
+class Artifact(Entity):
     items = models.ManyToManyField(Item, related_name="artifacts")
     notes = models.TextField(null=True, blank=True)
-    created = models.DateTimeField(auto_now_add=True)
-    updated = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.name

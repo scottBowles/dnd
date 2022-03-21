@@ -1,6 +1,7 @@
 from django.db import models
 
 from character.models.models import Language, ABILITIES, ALIGNMENTS, SIZES
+from nucleus.models import Entity
 
 
 class AbilityScoreIncrease(models.Model):
@@ -19,8 +20,7 @@ class Trait(models.Model):
     description = models.TextField(null=True)
 
 
-class Race(models.Model):
-    name = models.CharField(max_length=255)
+class Race(Entity):
     ability_score_increases = models.ManyToManyField(AbilityScoreIncrease, blank=True)
     age_of_adulthood = models.PositiveIntegerField(null=True, blank=True)
     life_expectancy = models.PositiveIntegerField(null=True, blank=True)
