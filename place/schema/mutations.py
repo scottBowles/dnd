@@ -53,6 +53,8 @@ class ExportInput:
 class PlaceInput:
     name = graphene.String()
     description = graphene.String()
+    image_id = graphene.String()
+    thumbnail_id = graphene.String()
     place_type = graphene.String()
     population = graphene.Int()
     associations = graphene.List(PlaceAssociationInput)
@@ -70,6 +72,8 @@ class PlaceCUD(RelayCUD):
     class Input:
         name = graphene.String()
         description = graphene.String()
+        image_id = graphene.String()
+        thumbnail_id = graphene.String()
         place_type = graphene.String()
         population = graphene.Int()
         associations = graphene.List(PlaceAssociationInput)

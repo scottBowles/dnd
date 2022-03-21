@@ -12,6 +12,8 @@ class PlaceFactory(factory.django.DjangoModelFactory):
     place_type = factory.Iterator(Place.PLACE_TYPES, getter=lambda c: c[0])
     name = factory.Faker("name")
     description = factory.Faker("text")
+    image_id = factory.Faker("text")
+    thumbnail_id = factory.Faker("text")
     population = factory.Faker("pyint")
 
 

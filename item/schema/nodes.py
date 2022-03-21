@@ -36,6 +36,8 @@ class ItemNodeBase:
             "id",
             "name",
             "description",
+            "image_id",
+            "thumbnail_id",
             "created",
             "updated",
             "armor",
@@ -64,6 +66,8 @@ class ArtifactNode(DjangoObjectType):
             "notes",
             "name",
             "description",
+            "image_id",
+            "thumbnail_id",
             "created",
             "updated",
         )

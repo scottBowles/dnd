@@ -74,9 +74,7 @@ class ImageIdsModel(models.Model):
     """
 
     image_id = models.CharField(max_length=255, blank=True, null=True)
-    thumbnail_id = models.CharField(
-        _("image ids"), max_length=255, blank=True, null=True
-    )
+    thumbnail_id = models.CharField(max_length=255, blank=True, null=True)
 
     class Meta:
         abstract = True

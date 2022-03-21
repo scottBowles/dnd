@@ -31,6 +31,8 @@ class ItemCUD(RelayCUD):
     class Input:
         name = graphene.String()
         description = graphene.String()
+        image_id = graphene.String()
+        thumbnail_id = graphene.String()
         artifact = ArtifactInput(required=False)
         armor = ArmorInput(required=False)
         equipment = EquipmentInput(required=False)

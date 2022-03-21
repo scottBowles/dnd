@@ -10,7 +10,14 @@ from nucleus.utils import RelayCUD
 class AssociationNode(DjangoObjectType):
     class Meta:
         model = Association
-        fields = ("name", "description", "created", "updated")
+        fields = (
+            "name",
+            "description",
+            "image_id",
+            "thumbnail_id",
+            "created",
+            "updated",
+        )
         filter_fields = [
             "name",
             "description",
@@ -38,6 +45,8 @@ class AssociationInput(graphene.InputObjectType):
 
     name = graphene.String()
     description = graphene.String()
+    image_id = graphene.String()
+    thumbnail_id = graphene.String()
 
 
 class AssociationCUD(RelayCUD):
@@ -49,6 +58,8 @@ class AssociationCUD(RelayCUD):
     class Input:
         name = graphene.String()
         description = graphene.String()
+        image_id = graphene.String()
+        thumbnail_id = graphene.String()
 
 
 mutations = AssociationCUD()

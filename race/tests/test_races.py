@@ -20,6 +20,9 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
                 race(id: "%s") {
                     id
                     name
+                    description
+                    imageId
+                    thumbnailId
                     ageOfAdulthood
                     lifeExpectancy
                     alignment
@@ -55,6 +58,9 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
                 race(id: "%s") {
                     id
                     name
+                    description
+                    imageId
+                    thumbnailId
                     ageOfAdulthood
                     lifeExpectancy
                     alignment
@@ -121,6 +127,9 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
                 race(id: "%s") {
                     id
                     name
+                    description
+                    imageId
+                    thumbnailId
                     ageOfAdulthood
                     lifeExpectancy
                     alignment
@@ -129,6 +138,9 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
                     baseRace {
                         id
                         name
+                        description
+                        imageId
+                        thumbnailId
                         ageOfAdulthood
                         lifeExpectancy
                         alignment
@@ -140,6 +152,9 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
                             node {
                                 id
                                 name
+                                description
+                                imageId
+                                thumbnailId
                                 ageOfAdulthood
                                 lifeExpectancy
                                 alignment
@@ -173,6 +188,9 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
                         node {
                             id
                             name
+                            description
+                            imageId
+                            thumbnailId
                             ageOfAdulthood
                             lifeExpectancy
                             alignment
@@ -208,6 +226,9 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
                         node {
                             id
                             name
+                            description
+                            imageId
+                            thumbnailId
                             ageOfAdulthood
                             lifeExpectancy
                             alignment
@@ -273,6 +294,9 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
                         node {
                             id
                             name
+                            description
+                            imageId
+                            thumbnailId
                             ageOfAdulthood
                             lifeExpectancy
                             alignment
@@ -281,6 +305,9 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
                             baseRace {
                                 id
                                 name
+                                description
+                                imageId
+                                thumbnailId
                                 ageOfAdulthood
                                 lifeExpectancy
                                 alignment
@@ -292,6 +319,9 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
                                     node {
                                         id
                                         name
+                                        description
+                                        imageId
+                                        thumbnailId
                                         ageOfAdulthood
                                         lifeExpectancy
                                         alignment
@@ -323,6 +353,9 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
 class RaceMutationTests(CompareMixin, GraphQLTestCase):
     def setUp(self):
         self.name = "Test Race Name"
+        self.description = "Test Race Description"
+        self.image_id = "Test Race Image Id"
+        self.thumbnail_id = "Test Race Thumbnail Id"
         self.age_of_adulthood = 18
         self.life_expectancy = 99
         self.alignment = ALIGNMENTS[0][0]
@@ -334,6 +367,9 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
             mutation {
                 raceCreate(input: {
                     name: "%s",
+                    description: "%s",
+                    imageId: "%s",
+                    thumbnailId: "%s",
                     ageOfAdulthood: %s,
                     lifeExpectancy: %s,
                     alignment: "%s",
@@ -345,6 +381,9 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
                     race {
                         id
                         name
+                        description
+                        imageId
+                        thumbnailId
                         ageOfAdulthood
                         lifeExpectancy
                         alignment
@@ -355,6 +394,9 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
             }
         """ % (
             self.name,
+            self.description,
+            self.image_id,
+            self.thumbnail_id,
             self.age_of_adulthood,
             self.life_expectancy,
             self.alignment,
@@ -368,6 +410,9 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
         res_race = result["data"]["raceCreate"]["race"]
 
         self.assertEqual(res_race["name"], self.name)
+        self.assertEqual(res_race["description"], self.description)
+        self.assertEqual(res_race["imageId"], self.image_id)
+        self.assertEqual(res_race["thumbnailId"], self.thumbnail_id)
         self.assertEqual(res_race["ageOfAdulthood"], self.age_of_adulthood)
         self.assertEqual(res_race["lifeExpectancy"], self.life_expectancy)
         self.assertEqual(res_race["alignment"], self.alignment)
@@ -377,6 +422,9 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
         created_race = Race.objects.first()
         self.assertEqual(str(created_race.id), from_global_id(res_race["id"])[1])
         self.assertEqual(created_race.name, self.name)
+        self.assertEqual(created_race.description, self.description)
+        self.assertEqual(created_race.image_id, self.image_id)
+        self.assertEqual(created_race.thumbnail_id, self.thumbnail_id)
         self.assertEqual(created_race.age_of_adulthood, self.age_of_adulthood)
         self.assertEqual(created_race.life_expectancy, self.life_expectancy)
         self.assertEqual(created_race.alignment, self.alignment)
@@ -392,6 +440,9 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
             mutation {
                 raceCreate(input: {
                     name: "%s",
+                    description: "%s",
+                    imageId: "%s",
+                    thumbnailId: "%s",
                     ageOfAdulthood: %s,
                     lifeExpectancy: %s,
                     alignment: "%s",
@@ -408,6 +459,9 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
                     race {
                         id
                         name
+                        description
+                        imageId
+                        thumbnailId
                         ageOfAdulthood
                         lifeExpectancy
                         alignment
@@ -416,6 +470,9 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
                         baseRace {
                             id
                             name
+                            description
+                            imageId
+                            thumbnailId
                             ageOfAdulthood
                             lifeExpectancy
                             alignment
@@ -427,6 +484,9 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
                                 node {
                                     id
                                     name
+                                    description
+                                    imageId
+                                    thumbnailId
                                     ageOfAdulthood
                                     lifeExpectancy
                                     alignment
@@ -440,6 +500,9 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
             }
         """ % (
             self.name,
+            self.description,
+            self.image_id,
+            self.thumbnail_id,
             self.age_of_adulthood,
             self.life_expectancy,
             self.alignment,
@@ -470,6 +533,9 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
             mutation {
                 raceCreate(input: {
                     name: "%s",
+                    description: "%s",
+                    imageId: "%s",
+                    thumbnailId: "%s",
                     ageOfAdulthood: %s,
                     lifeExpectancy: %s,
                     alignment: "%s",
@@ -482,6 +548,9 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
                     race {
                         id
                         name
+                        description
+                        imageId
+                        thumbnailId
                         ageOfAdulthood
                         lifeExpectancy
                         alignment
@@ -504,6 +573,9 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
             }
         """ % (
             self.name,
+            self.description,
+            self.image_id,
+            self.thumbnail_id,
             self.age_of_adulthood,
             self.life_expectancy,
             self.alignment,
@@ -529,6 +601,9 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
             mutation {
                 raceCreate(input: {
                     name: "%s",
+                    description: "%s",
+                    imageId: "%s",
+                    thumbnailId: "%s",
                     ageOfAdulthood: %s,
                     lifeExpectancy: %s,
                     alignment: "%s",
@@ -541,6 +616,9 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
                     race {
                         id
                         name
+                        description
+                        image_id
+                        thumbnail_id
                         ageOfAdulthood
                         lifeExpectancy
                         alignment
@@ -563,6 +641,9 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
             }
         """ % (
             self.name,
+            self.description,
+            self.image_id,
+            self.thumbnail_id,
             self.age_of_adulthood,
             self.life_expectancy,
             self.alignment,
@@ -586,6 +667,9 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
             mutation {
                 raceCreate(input: {
                     name: "%s",
+                    description: "%s",
+                    imageId: "%s",
+                    thumbnailId: "%s",
                     ageOfAdulthood: %s,
                     lifeExpectancy: %s,
                     alignment: "%s",
@@ -598,6 +682,9 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
                     race {
                         id
                         name
+                        description
+                        imageId
+                        thumbnailId
                         ageOfAdulthood
                         lifeExpectancy
                         alignment
@@ -617,6 +704,9 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
             }
         """ % (
             self.name,
+            self.description,
+            self.image_id,
+            self.thumbnail_id,
             self.age_of_adulthood,
             self.life_expectancy,
             self.alignment,
@@ -642,6 +732,9 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
             mutation {
                 raceCreate(input: {
                     name: "%s",
+                    description: "%s",
+                    imageId: "%s",
+                    thumbnailId: "%s",
                     ageOfAdulthood: %s,
                     lifeExpectancy: %s,
                     alignment: "%s",
@@ -654,6 +747,9 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
                     race {
                         id
                         name
+                        description
+                        image_id
+                        thumbnail_id
                         ageOfAdulthood
                         lifeExpectancy
                         alignment
@@ -673,6 +769,9 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
             }
         """ % (
             self.name,
+            self.description,
+            self.image_id,
+            self.thumbnail_id,
             self.age_of_adulthood,
             self.life_expectancy,
             self.alignment,

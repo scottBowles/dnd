@@ -19,6 +19,8 @@ class NPCFactory(factory.django.DjangoModelFactory):
     name = factory.Faker("name")
     description = factory.Faker("text")
     size = fuzzy.FuzzyChoice(SIZES, getter=lambda c: c[0])
+    image_id = factory.Faker("text")
+    thumbnail_id = factory.Faker("text")
 
     @factory.post_generation
     def features_and_traits(self, create, extracted, **kwargs):

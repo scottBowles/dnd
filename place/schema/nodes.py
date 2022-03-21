@@ -137,6 +137,8 @@ class PlaceNode(DjangoObjectType):
             "id",
             "name",
             "description",
+            "image_id",
+            "thumbnail_id",
             "created",
             "updated",
             "place_type",

@@ -60,6 +60,8 @@ class CompareMixin(GraphQLTestCase):
         self.assertEqual(str(model_place.id), from_global_id(node_place["id"])[1])
         self.assertEqual(model_place.name, node_place["name"])
         self.assertEqual(model_place.description, node_place["description"])
+        self.assertEqual(model_place.image_id, node_place["imageId"])
+        self.assertEqual(model_place.thumbnail_id, node_place["thumbnailId"])
         self.assertEqual(model_place.place_type, node_place["placeType"])
         self.assertEqual(model_place.population, node_place["population"])
 
@@ -107,6 +109,8 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
                             id
                             name
                             description
+                            imageId
+                            thumbnailId
                             created
                             updated
                             placeType
@@ -127,6 +131,8 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
             self.assertEqual(str(place.id), from_global_id(equivalent_place["id"])[1])
             self.assertEqual(place.name, equivalent_place["name"])
             self.assertEqual(place.description, equivalent_place["description"])
+            self.assertEqual(place.image_id, equivalent_place["imageId"])
+            self.assertEqual(place.thumbnail_id, equivalent_place["thumbnailId"])
             self.assertEqual(place.place_type, equivalent_place["placeType"])
             self.assertEqual(place.population, equivalent_place["population"])
 
@@ -146,6 +152,8 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
                             id
                             name
                             description
+                            imageId
+                            thumbnailId
                             created
                             updated
                             placeType
@@ -154,6 +162,8 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
                                 id
                                 name
                                 description
+                                imageId
+                                thumbnailId
                                 created
                                 updated
                                 placeType
@@ -162,6 +172,8 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
                                     id
                                     name
                                     description
+                                    imageId
+                                    thumbnailId
                                     created
                                     updated
                                     placeType
@@ -191,6 +203,8 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
                     id
                     name
                     description
+                    imageId
+                    thumbnailId
                     created
                     updated
                     placeType
@@ -221,6 +235,8 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
                     id
                     name
                     description
+                    imageId
+                    thumbnailId
                     created
                     updated
                     placeType
@@ -229,6 +245,8 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
                         id
                         name
                         description
+                        imageId
+                        thumbnailId
                         created
                         updated
                         placeType
@@ -237,6 +255,8 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
                             id
                             name
                             description
+                            imageId
+                            thumbnailId
                             created
                             updated
                             placeType
@@ -249,6 +269,8 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
                                 id
                                 name
                                 description
+                                imageId
+                                thumbnailId
                                 created
                                 updated
                                 placeType
@@ -293,6 +315,8 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
                     id
                     name
                     description
+                    imageId
+                    thumbnailId
                     created
                     updated
                     placeType
@@ -337,6 +361,8 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
                     id
                     name
                     description
+                    imageId
+                    thumbnailId
                     created
                     updated
                     placeType
@@ -381,6 +407,8 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
                     id
                     name
                     description
+                    imageId
+                    thumbnailId
                     created
                     updated
                     placeType
@@ -416,6 +444,8 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
                 placeCreate(input: {
                     name: "Test Place Name"
                     description: "Test Place Description"
+                    imageId: "test-image-id"
+                    thumbnailId: "test-thumbnail-id"
                     placeType: "TOWN"
                     population: 100
                 }) {
@@ -425,6 +455,8 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
                         id
                         name
                         description
+                        imageId
+                        thumbnailId
                         created
                         updated
                         placeType
@@ -441,10 +473,14 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
 
         self.assertEqual(res_place["name"], "Test Place Name")
         self.assertEqual(res_place["description"], "Test Place Description")
+        self.assertEqual(res_place["imageId"], "test-image-id")
+        self.assertEqual(res_place["thumbnailId"], "test-thumbnail-id")
 
         created_place = Place.objects.get(pk=from_global_id(res_place["id"])[1])
         self.assertEqual(created_place.name, "Test Place Name")
         self.assertEqual(created_place.description, "Test Place Description")
+        self.assertEqual(created_place.image_id, "test-image-id")
+        self.assertEqual(created_place.thumbnail_id, "test-thumbnail-id")
 
         self.compare_places(created_place, res_place)
 
@@ -478,6 +514,8 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
                 placeCreate(input: {
                     name: "Test Place Name"
                     description: "Test Place Description"
+                    imageId: "test-image-id"
+                    thumbnailId: "test-thumbnail-id"
                     placeType: "TOWN"
                     population: 100
                     parent: {
@@ -490,6 +528,8 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
                         id
                         name
                         description
+                        imageId
+                        thumbnailId
                         created
                         updated
                         placeType
@@ -498,6 +538,8 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
                             id
                             name
                             description
+                            imageId
+                            thumbnailId
                             created
                             updated
                             placeType
@@ -529,6 +571,8 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
                 placeCreate(input: {
                     name: "Test Place Name"
                     description: "Test Place Description"
+                    imageId: "test-image-id"
+                    thumbnailId: "test-thumbnail-id"
                     placeType: "TOWN"
                     population: 100
                     exports: [{
@@ -545,6 +589,8 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
                         id
                         name
                         description
+                        imageId
+                        thumbnailId
                         created
                         updated
                         placeType
@@ -584,6 +630,8 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
                 placeCreate(input: {
                     name: "Test Place Name"
                     description: "Test Place Description"
+                    imageId: "test-image-id"
+                    thumbnailId: "test-thumbnail-id"
                     placeType: "TOWN"
                     population: 100
                     exports: [{
@@ -600,6 +648,8 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
                         id
                         name
                         description
+                        imageId
+                        thumbnailId
                         created
                         updated
                         placeType
@@ -637,6 +687,8 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
                 placeCreate(input: {
                     name: "Test Place Name"
                     description: "Test Place Description"
+                    imageId: "test-image-id"
+                    thumbnailId: "test-thumbnail-id"
                     placeType: "TOWN"
                     population: 100
                     associations: [{
@@ -653,6 +705,8 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
                         id
                         name
                         description
+                        imageId
+                        thumbnailId
                         created
                         updated
                         placeType
@@ -692,6 +746,8 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
                 placeCreate(input: {
                     name: "Test Place Name"
                     description: "Test Place Description"
+                    imageId: "test-image-id"
+                    thumbnailId: "test-thumbnail-id"
                     placeType: "TOWN"
                     population: 100
                     associations: [{
@@ -708,6 +764,8 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
                         id
                         name
                         description
+                        imageId
+                        thumbnailId
                         created
                         updated
                         placeType

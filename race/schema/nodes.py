@@ -27,6 +27,9 @@ class RaceNode(DjangoObjectType):
         fields = (
             "id",
             "name",
+            "description",
+            "image_id",
+            "thumbnail_id",
             "age_of_adulthood",
             "life_expectancy",
             "ability_score_increases",

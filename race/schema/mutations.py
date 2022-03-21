@@ -1,4 +1,3 @@
-from ctypes import alignment
 import graphene
 
 from nucleus.utils import RelayCUD
@@ -49,6 +48,9 @@ class RaceCUD(RelayCUD):
 
     class Input:
         name = graphene.String(required=True)
+        description = graphene.String()
+        image_id = graphene.String()
+        thumbnail_id = graphene.String()
 
         age_of_adulthood = graphene.Int()
         life_expectancy = graphene.Int()

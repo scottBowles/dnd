@@ -17,6 +17,8 @@ class NPCQueryTests(CompareMixin, GraphQLTestCase):
                     id
                     name
                     description
+                    imageId
+                    thumbnailId
                     size
                     race {
                         id
@@ -109,6 +111,8 @@ class NPCQueryTests(CompareMixin, GraphQLTestCase):
                             id
                             name
                             description
+                            imageId
+                            thumbnailId
                             size
                             race {
                                 id
@@ -156,10 +160,15 @@ class NPCQueryTests(CompareMixin, GraphQLTestCase):
                             id
                             name
                             description
+                            imageId
+                            thumbnailId
                             size
                             race {
                                 id
                                 name
+                                description
+                                imageId
+                                thumbnailId
                                 ageOfAdulthood
                                 lifeExpectancy
                                 alignment
@@ -199,7 +208,6 @@ class NPCQueryTests(CompareMixin, GraphQLTestCase):
         self.assertEqual(len(res_npcs), len(npcs))
 
         for i, npc in enumerate(npcs):
-            print("here")
             res_npc = res_npcs[i]["node"]
             self.assertGreater(len(res_npc["featuresAndTraits"]["edges"]), 0)
             self.assertGreater(len(res_npc["proficiencies"]["edges"]), 0)
