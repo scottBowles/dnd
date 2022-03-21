@@ -66,7 +66,23 @@ class NameSlugDescriptionModel(NameDescriptionModel):
         abstract = True
 
 
-class Entity(NameSlugDescriptionModel, BaseModel):
+class ImageIdsModel(models.Model):
+    """
+    ImageIdsModel
+
+    An abstract base class model that provides image ids fields.
+    """
+
+    image_id = models.CharField(max_length=255, blank=True, null=True)
+    thumbnail_id = models.CharField(
+        _("image ids"), max_length=255, blank=True, null=True
+    )
+
+    class Meta:
+        abstract = True
+
+
+class Entity(NameSlugDescriptionModel, ImageIdsModel, BaseModel):
     def __str__(self):
         return self.name
 
