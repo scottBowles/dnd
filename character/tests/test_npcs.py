@@ -98,6 +98,115 @@ class NPCQueryTests(CompareMixin, GraphQLTestCase):
             npc, res_npc, compare_features=True, compare_proficiencies=True
         )
 
+    def test_basic_npc_list_query(self):
+        npcs = NPCFactory.create_batch(random.randint(1, 4))
+        response = self.query(
+            """
+            query {
+                npcs {
+                    edges {
+                        node {
+                            id
+                            name
+                            description
+                            size
+                            race {
+                                id
+                                name
+                                ageOfAdulthood
+                                lifeExpectancy
+                                alignment
+                                size
+                                speed
+                            }
+                        }
+                    }
+                }
+            }
+            """
+        )
+        self.assertResponseNoErrors(response)
+
+        res_json = json.loads(response.content)
+        res_npcs = res_json["data"]["npcs"]["edges"]
+
+        self.assertEqual(len(res_npcs), len(npcs))
+
+        for i, npc in enumerate(npcs):
+            self.compare_npcs(npc, res_npcs[i]["node"])
+
+    def test_npc_detail_query_with_relations(self):
+        npcs = []
+        for i in range(random.randint(1, 3)):
+            race = RaceFactory()
+            features = FeatureFactory.create_batch(random.randint(1, 4))
+            proficiencies = ProficiencyFactory.create_batch(random.randint(1, 4))
+
+            npc = NPCFactory(
+                race=race, features_and_traits=features, proficiencies=proficiencies
+            )
+            npcs.append(npc)
+
+        response = self.query(
+            """
+            query {
+                npcs {
+                    edges {
+                        node {
+                            id
+                            name
+                            description
+                            size
+                            race {
+                                id
+                                name
+                                ageOfAdulthood
+                                lifeExpectancy
+                                alignment
+                                size
+                                speed
+                            }
+                            featuresAndTraits {
+                                edges {
+                                    node {
+                                        id
+                                        name
+                                        description
+                                    }
+                                }
+                            }
+                            proficiencies {
+                                edges {
+                                    node {
+                                        id
+                                        name
+                                        description
+                                        proficiencyType
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            """
+        )
+        self.assertResponseNoErrors(response)
+
+        res_json = json.loads(response.content)
+        res_npcs = res_json["data"]["npcs"]["edges"]
+
+        self.assertEqual(len(res_npcs), len(npcs))
+
+        for i, npc in enumerate(npcs):
+            print("here")
+            res_npc = res_npcs[i]["node"]
+            self.assertGreater(len(res_npc["featuresAndTraits"]["edges"]), 0)
+            self.assertGreater(len(res_npc["proficiencies"]["edges"]), 0)
+            self.compare_npcs(
+                npc, res_npc, compare_features=True, compare_proficiencies=True
+            )
+
 
 # class PlaceQueryTests(CompareMixin, GraphQLTestCase):
 #     def test_basic_place_list_query(self):
