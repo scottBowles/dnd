@@ -17,6 +17,7 @@ django-filter = "*"
 factory-boy = "*"
 dj-database-url = "*"
 gunicorn = "*"
+whitenoise = {extras = ["brotli"], version = "*"}
 
 [dev-packages]
 black = "*"
