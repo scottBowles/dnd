@@ -122,9 +122,9 @@ DATABASES = {
         # from dj_database_url (https://github.com/jacobian/dj-database-url):
         #   postgres://USER:PASSWORD@HOST:PORT/NAME
         default="postgresql://{}:{}@127.0.0.1:5432/{}".format(
-            os.environ.get("POSTGRES_USER"),
-            os.environ.get("POSTGRES_PASSWORD"),
-            os.environ.get("POSTGRES_DB"),
+            os.environ.get("POSTGRES_USER", None),
+            os.environ.get("POSTGRES_PASSWORD", None),
+            os.environ.get("POSTGRES_DB", None),
         ),
         conn_max_age=600,
     )
