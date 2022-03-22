@@ -182,6 +182,9 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework.authentication.TokenAuthentication",
     ),
+    # The below disables the browsable api, which isn't useful for the current
+    # graphql api and can only slow things down. Remove this if we want it back.
+    "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
 }
 
 CORS_ALLOWED_ORIGINS = [
