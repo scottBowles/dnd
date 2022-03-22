@@ -5,4 +5,4 @@ set -o errexit
 pipenv install
 
 # python manage.py collectstatic --no-input
-python manage.py migrate
+pipenv run python manage.py migrate
