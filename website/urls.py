@@ -30,6 +30,7 @@ from place.views import (
     DistrictViewSet,
     LocationViewSet,
 )
+from .views import introspection_schema
 
 admin.site.site_header = "D&D Admin"
 admin.site.index_title = "Admin"
@@ -56,6 +57,7 @@ urlpatterns = [
     path("api-auth/", include("rest_framework.urls", namespace="rest_framework")),
     path("auth/", include("djoser.urls")),
     path("auth/", include("djoser.urls.authtoken")),
+    path("graphql/schema/", introspection_schema),
     path("graphql/", csrf_exempt(GraphQLView.as_view(graphiql=False))),
     path("graphiql/", csrf_exempt(GraphQLView.as_view(graphiql=True))),
 ]
