@@ -187,9 +187,14 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
 }
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-]
+CORS_ALLOWED_ORIGINS = (
+    [
+        "http://localhost:3000",
+        "https://aireldnd.onrender.com",
+    ]
+    if DEBUG
+    else ["https://aireldnd.onrender.com"]
+)
 
 AUTH_USER_MODEL = "nucleus.User"
 
