@@ -3,6 +3,7 @@ from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
 
 from ..models import Race, Trait, AbilityScoreIncrease
+from nucleus.utils import login_or_queryset_none
 
 
 class AbilityScoreIncreaseNode(DjangoObjectType):
@@ -12,6 +13,11 @@ class AbilityScoreIncreaseNode(DjangoObjectType):
         filter_fields = ["ability_score"]
         interfaces = (relay.Node,)
 
+    @classmethod
+    @login_or_queryset_none
+    def get_queryset(cls, queryset, info):
+        return queryset
+
 
 class TraitNode(DjangoObjectType):
     class Meta:
@@ -19,6 +25,11 @@ class TraitNode(DjangoObjectType):
         fields = ("id", "name", "description")
         filter_fields = ["name"]
         interfaces = (relay.Node,)
+
+    @classmethod
+    @login_or_queryset_none
+    def get_queryset(cls, queryset, info):
+        return queryset
 
 
 class RaceNode(DjangoObjectType):
@@ -43,3 +54,8 @@ class RaceNode(DjangoObjectType):
         )
         filter_fields = []
         interfaces = (relay.Node,)
+
+    @classmethod
+    @login_or_queryset_none
+    def get_queryset(cls, queryset, info):
+        return queryset

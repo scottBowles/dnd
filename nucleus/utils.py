@@ -1,6 +1,7 @@
 import graphene
 from graphene import relay
 from graphql_relay import from_global_id
+from graphql_jwt.decorators import login_required
 from rest_framework import serializers
 
 
@@ -19,6 +20,16 @@ class RelayModelSerializer(serializers.ModelSerializer):
     """
 
     serializer_related_field = RelayPrimaryKeyRelatedField
+
+
+# decorator for get_queryset that returns queryset.none() is user is not authenticated
+def login_or_queryset_none(func):
+    def wrapper(cls, queryset, info):
+        if info.context.user.is_authenticated:
+            return func(cls, queryset, info)
+        return queryset.none()
+
+    return wrapper
 
 
 class RelayCUD(object):
@@ -88,6 +99,7 @@ class RelayCUD(object):
                 pass
 
             @classmethod
+            @login_required
             def mutate_and_get_payload(cls, root, info, **input):
                 input = prepare_inputs(info, **input)
                 instance = action(info, **input)

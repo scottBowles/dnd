@@ -4,12 +4,19 @@ from graphene_django import DjangoObjectType
 
 from ..models import Item, ArmorTraits, WeaponTraits, EquipmentTraits, Artifact
 
+from nucleus.utils import login_or_queryset_none
+
 
 class ArmorTraitsNode(DjangoObjectType):
     class Meta:
         model = ArmorTraits
         fields = ("ac_bonus",)
         interfaces = (relay.Node,)
+
+    @classmethod
+    @login_or_queryset_none
+    def get_queryset(cls, queryset, info):
+        return queryset
 
 
 class WeaponTraitsNode(DjangoObjectType):
@@ -18,6 +25,11 @@ class WeaponTraitsNode(DjangoObjectType):
         fields = ("attack_bonus",)
         interfaces = (relay.Node,)
 
+    @classmethod
+    @login_or_queryset_none
+    def get_queryset(cls, queryset, info):
+        return queryset
+
 
 class EquipmentTraitsNode(DjangoObjectType):
     class Meta:
@@ -25,13 +37,19 @@ class EquipmentTraitsNode(DjangoObjectType):
         fields = ("brief_description",)
         interfaces = (relay.Node,)
 
+    @classmethod
+    @login_or_queryset_none
+    def get_queryset(cls, queryset, info):
+        return queryset
 
-class ItemNodeBase:
+
+class ItemNode(DjangoObjectType):
     armor = graphene.Field(ArmorTraitsNode)
     weapon = graphene.Field(WeaponTraitsNode)
     equipment = graphene.Field(EquipmentTraitsNode)
 
     class Meta:
+        model = Item
         fields = (
             "id",
             "name",
@@ -52,10 +70,10 @@ class ItemNodeBase:
         ]
         interfaces = (relay.Node,)
 
-
-class ItemNode(ItemNodeBase, DjangoObjectType):
-    class Meta(ItemNodeBase.Meta):
-        model = Item
+    @classmethod
+    @login_or_queryset_none
+    def get_queryset(cls, queryset, info):
+        return queryset
 
 
 class ArtifactNode(DjangoObjectType):
@@ -76,3 +94,8 @@ class ArtifactNode(DjangoObjectType):
             "created",
         ]
         interfaces = (relay.Node,)
+
+    @classmethod
+    @login_or_queryset_none
+    def get_queryset(cls, queryset, info):
+        return queryset

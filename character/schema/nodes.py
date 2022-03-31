@@ -2,6 +2,7 @@ from graphene import relay
 from graphene_django import DjangoObjectType
 
 from ..models import NPC, Feature, Skill, Script, Language, Proficiency
+from nucleus.utils import login_or_queryset_none
 
 
 class FeatureNode(DjangoObjectType):
@@ -10,6 +11,11 @@ class FeatureNode(DjangoObjectType):
         filter_fields = ["name"]
         interfaces = (relay.Node,)
 
+    @classmethod
+    @login_or_queryset_none
+    def get_queryset(cls, queryset, info):
+        return queryset
+
 
 class SkillNode(DjangoObjectType):
     class Meta:
@@ -17,12 +23,22 @@ class SkillNode(DjangoObjectType):
         filter_fields = ["name"]
         interfaces = (relay.Node,)
 
+    @classmethod
+    @login_or_queryset_none
+    def get_queryset(cls, queryset, info):
+        return queryset
+
 
 class ProficiencyNode(DjangoObjectType):
     class Meta:
         model = Proficiency
         filter_fields = ["name"]
         interfaces = (relay.Node,)
+
+    @classmethod
+    @login_or_queryset_none
+    def get_queryset(cls, queryset, info):
+        return queryset
 
 
 class ScriptNode(DjangoObjectType):
@@ -32,6 +48,11 @@ class ScriptNode(DjangoObjectType):
         filter_fields = ["name"]
         interfaces = (relay.Node,)
 
+    @classmethod
+    @login_or_queryset_none
+    def get_queryset(cls, queryset, info):
+        return queryset
+
 
 class LanguageNode(DjangoObjectType):
     class Meta:
@@ -39,6 +60,11 @@ class LanguageNode(DjangoObjectType):
         fields = ("id", "name", "description", "script")
         filter_fields = ["name"]
         interfaces = (relay.Node,)
+
+    @classmethod
+    @login_or_queryset_none
+    def get_queryset(cls, queryset, info):
+        return queryset
 
 
 class FeaturesAndTraitConnection(relay.Connection):
@@ -65,3 +91,8 @@ class NPCNode(DjangoObjectType):
         model = NPC
         filter_fields = ["name"]
         interfaces = (relay.Node,)
+
+    @classmethod
+    @login_or_queryset_none
+    def get_queryset(cls, queryset, info):
+        return queryset

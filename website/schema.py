@@ -4,6 +4,9 @@ import item.schema
 import place.schema
 import character.schema
 import race.schema
+import nucleus.schema
+
+import graphql_jwt
 
 
 class Query(
@@ -12,6 +15,7 @@ class Query(
     item.schema.Query,
     character.schema.Query,
     race.schema.Query,
+    nucleus.schema.Query,
     graphene.ObjectType,
 ):
     pass
@@ -25,7 +29,9 @@ class Mutation(
     race.schema.Mutation,
     graphene.ObjectType,
 ):
-    pass
+    token_auth = graphql_jwt.relay.ObtainJSONWebToken.Field()
+    verify_token = graphql_jwt.relay.Verify.Field()
+    refresh_token = graphql_jwt.relay.Refresh.Field()
 
 
 schema = graphene.Schema(query=Query, mutation=Mutation)

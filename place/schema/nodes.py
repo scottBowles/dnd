@@ -7,6 +7,7 @@ from race.models import Race
 from association.schema import AssociationNode
 from django.db.models import Prefetch
 from graphene_django.filter import DjangoFilterConnectionField
+from nucleus.utils import login_or_queryset_none
 
 
 class ExportNode(DjangoObjectType):
@@ -15,6 +16,11 @@ class ExportNode(DjangoObjectType):
         fields = ("id", "name", "description", "created", "updated")
         filter_fields = []
         interfaces = (relay.Node,)
+
+    @classmethod
+    @login_or_queryset_none
+    def get_queryset(cls, queryset, info):
+        return queryset
 
 
 class PlaceExportNode(DjangoObjectType):
@@ -28,6 +34,11 @@ class PlaceExportNode(DjangoObjectType):
         fields = ("significance", "export", "place")
         filter_fields = []
         interfaces = (relay.Node,)
+
+    @classmethod
+    @login_or_queryset_none
+    def get_queryset(cls, queryset, info):
+        return queryset
 
 
 class RaceNode(DjangoObjectType):
@@ -43,6 +54,11 @@ class RaceNode(DjangoObjectType):
         )
         filter_fields = ("name",)
         interfaces = (relay.Node,)
+
+    @classmethod
+    @login_or_queryset_none
+    def get_queryset(cls, queryset, info):
+        return queryset
 
 
 class AssociationConnection(relay.Connection):
@@ -157,3 +173,8 @@ class PlaceNode(DjangoObjectType):
             "updated",
         ]
         interfaces = (relay.Node,)
+
+    @classmethod
+    @login_or_queryset_none
+    def get_queryset(cls, queryset, info):
+        return queryset

@@ -6,6 +6,8 @@ from rest_framework import serializers
 from graphene_django.filter import DjangoFilterConnectionField
 from nucleus.utils import RelayCUD
 
+from nucleus.utils import login_or_queryset_none
+
 
 class AssociationNode(DjangoObjectType):
     class Meta:
@@ -25,6 +27,11 @@ class AssociationNode(DjangoObjectType):
             "updated",
         ]
         interfaces = (relay.Node,)
+
+    @classmethod
+    @login_or_queryset_none
+    def get_queryset(cls, queryset, info):
+        return queryset
 
 
 class Query(graphene.ObjectType):
