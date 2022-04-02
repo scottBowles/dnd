@@ -80,7 +80,20 @@ class ImageIdsModel(models.Model):
         abstract = True
 
 
-class Entity(NameSlugDescriptionModel, ImageIdsModel, BaseModel):
+class NotesMarkdownModel(models.Model):
+    """
+    NotesMarkdownModel
+
+    An abstract base class model that provides notes and markdown fields.
+    """
+
+    markdown_notes = models.TextField(default="")
+
+    class Meta:
+        abstract = True
+
+
+class Entity(NameSlugDescriptionModel, NotesMarkdownModel, ImageIdsModel, BaseModel):
     def __str__(self):
         return self.name
 
