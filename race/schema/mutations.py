@@ -1,6 +1,6 @@
 import graphene
 
-from nucleus.utils import RelayCUD
+from nucleus.utils import RelayCUD, ConcurrencyLockActions
 from ..models import AbilityScoreIncrease, Trait, Race
 
 from ..serializers import (
@@ -45,6 +45,7 @@ class RaceCUD(RelayCUD):
     Node = RaceNode
     model = Race
     serializer_class = RaceSerializer
+    enforce_lock = True
 
     class Input:
         name = graphene.String(required=True)
@@ -66,6 +67,7 @@ class RaceCUD(RelayCUD):
         traits = graphene.List(graphene.String)
         subraces = graphene.List(graphene.String)
         base_race = graphene.String()
+        markdown_notes = graphene.String()
 
 
 # class RaceInput(graphene.InputObjectType):
@@ -158,16 +160,21 @@ class RaceCUD(RelayCUD):
 #         export_id = from_global_id(input["export"])[1]
 #         return self.model.objects.get(place__id=place_id, export__id=export_id)
 
+class RaceConcurrencyLock(ConcurrencyLockActions):
+    field = "race"
+    model = Race
 
 AbilityScoreIncreaseMutations = AbilityScoreIncreaseCUD().get_mutation_class()
 TraitMutations = TraitCUD().get_mutation_class()
-RaceMutations = RaceCUD().get_mutation_class()
+RaceCUDMutations = RaceCUD().get_mutation_class()
+RaceLockMutations = RaceConcurrencyLock().get_mutation_class()
 
 
 class Mutation(
     AbilityScoreIncreaseMutations,
     TraitMutations,
-    RaceMutations,
+    RaceCUDMutations,
+    RaceLockMutations,
     graphene.ObjectType,
 ):
     pass

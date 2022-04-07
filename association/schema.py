@@ -4,7 +4,7 @@ from graphene_django import DjangoObjectType
 from .models import Association
 from rest_framework import serializers
 from graphene_django.filter import DjangoFilterConnectionField
-from nucleus.utils import RelayCUD
+from nucleus.utils import RelayCUD, ConcurrencyLockActions
 
 from nucleus.utils import login_or_queryset_none
 
@@ -19,6 +19,9 @@ class AssociationNode(DjangoObjectType):
             "thumbnail_id",
             "created",
             "updated",
+            "markdown_notes",
+            "lock_user",
+            "lock_time",
         )
         filter_fields = [
             "name",
@@ -54,6 +57,7 @@ class AssociationInput(graphene.InputObjectType):
     description = graphene.String()
     image_id = graphene.String()
     thumbnail_id = graphene.String()
+    markdown_notes = graphene.String()
 
 
 class AssociationCUD(RelayCUD):
@@ -61,22 +65,27 @@ class AssociationCUD(RelayCUD):
     Node = AssociationNode
     model = Association
     serializer_class = AssociationSerializer
+    enforce_lock = True
 
     class Input:
         name = graphene.String()
         description = graphene.String()
         image_id = graphene.String()
         thumbnail_id = graphene.String()
+        markdown_notes = graphene.String()
 
 
-mutations = AssociationCUD()
+class AssociationConcurrencyLock(ConcurrencyLockActions):
+    field = "association"
+    model = Association
 
 
-class Mutation(graphene.ObjectType):
-    association_create = mutations.create_mutation().Field()
-    association_update = mutations.update_mutation().Field()
-    association_patch = mutations.patch_mutation().Field()
-    association_delete = mutations.delete_mutation().Field()
+AssociationCUDMutations = AssociationCUD().get_mutation_class()
+AssociationLockMutations = AssociationConcurrencyLock().get_mutation_class()
+
+
+class Mutation(AssociationCUDMutations, AssociationLockMutations, graphene.ObjectType):
+    pass
 
 
 schema = graphene.Schema(query=Query, mutation=Mutation)

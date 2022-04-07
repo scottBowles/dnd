@@ -1,6 +1,6 @@
 import graphene
 
-from nucleus.utils import RelayCUD
+from nucleus.utils import RelayCUD, ConcurrencyLockActions
 from ..models import Export, Place, PlaceExport
 from ..serializers import ExportSerializer, PlaceSerializer, PlaceExportSerializer
 from .nodes import ExportNode, PlaceNode, PlaceExportNode
@@ -48,6 +48,7 @@ class ExportInput:
     id = graphene.ID()
     name = graphene.String()
     description = graphene.String()
+    markdown_notes = graphene.String()
 
 
 class PlaceInput:
@@ -61,6 +62,7 @@ class PlaceInput:
     races = graphene.List(PlaceRaceInput)
     exports = graphene.List(PlaceExportInput)
     parent = graphene.UUID()
+    markdown_notes = graphene.String()
 
 
 class PlaceCUD(RelayCUD):
@@ -68,6 +70,7 @@ class PlaceCUD(RelayCUD):
     Node = PlaceNode
     model = Place
     serializer_class = PlaceSerializer
+    enforce_lock = True
 
     class Input:
         name = graphene.String()
@@ -80,6 +83,7 @@ class PlaceCUD(RelayCUD):
         races = graphene.List(PlaceRaceInput)
         exports = graphene.List(PlaceExportInput)
         parent = graphene.UUID()
+        markdown_notes = graphene.String()
 
 
 class ExportCUD(RelayCUD):
@@ -87,10 +91,12 @@ class ExportCUD(RelayCUD):
     Node = ExportNode
     model = Export
     serializer_class = ExportSerializer
+    enforce_lock = True
 
     class Input:
         name = graphene.String()
         description = graphene.String()
+        markdown_notes = graphene.String()
 
 
 # class PlaceExportCUD(RelayCUD):
@@ -114,14 +120,28 @@ class ExportCUD(RelayCUD):
 #         return self.model.objects.get(place__id=place_id, export__id=export_id)
 
 
-PlaceMutations = PlaceCUD().get_mutation_class()
-ExportMutations = ExportCUD().get_mutation_class()
+class PlaceConcurrencyLock(ConcurrencyLockActions):
+    field = "place"
+    model = Place
+
+
+class ExportConcurrencyLock(ConcurrencyLockActions):
+    field = "export"
+    model = Export
+
+
+PlaceCUDMutations = PlaceCUD().get_mutation_class()
+PlaceLockMutations = PlaceConcurrencyLock().get_mutation_class()
+ExportCUDMutations = ExportCUD().get_mutation_class()
+ExportLockMutations = ExportConcurrencyLock().get_mutation_class()
 # PlaceExportMutations = PlaceExportCUD().get_mutation_class()
 
 
 class Mutation(
-    ExportMutations,
-    PlaceMutations,
+    ExportCUDMutations,
+    ExportLockMutations,
+    PlaceCUDMutations,
+    PlaceLockMutations,
     # PlaceExportMutations,
     graphene.ObjectType,
 ):

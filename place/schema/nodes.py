@@ -13,7 +13,16 @@ from nucleus.utils import login_or_queryset_none
 class ExportNode(DjangoObjectType):
     class Meta:
         model = Export
-        fields = ("id", "name", "description", "created", "updated")
+        fields = (
+            "id",
+            "name",
+            "description",
+            "created",
+            "updated",
+            "markdown_notes",
+            "lock_user",
+            "lock_time",
+        )
         filter_fields = []
         interfaces = (relay.Node,)
 
@@ -51,6 +60,9 @@ class RaceNode(DjangoObjectType):
         fields = (
             "id",
             "name",
+            "markdown_notes",
+            "lock_user",
+            "lock_time",
         )
         filter_fields = ("name",)
         interfaces = (relay.Node,)
@@ -164,6 +176,9 @@ class PlaceNode(DjangoObjectType):
             "exports",
             "common_races",
             "associations",
+            "markdown_notes",
+            "lock_user",
+            "lock_time",
         )
         filter_fields = [
             "place_type",

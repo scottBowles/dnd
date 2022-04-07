@@ -1,7 +1,9 @@
+from django.utils import timezone
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django_extensions.db.fields import AutoSlugField
 from django.utils.translation import gettext_lazy as _
+from django.conf import settings
 
 
 class User(AbstractUser):
@@ -93,7 +95,57 @@ class NotesMarkdownModel(models.Model):
         abstract = True
 
 
-class Entity(NameSlugDescriptionModel, NotesMarkdownModel, ImageIdsModel, BaseModel):
+class PessimisticConcurrencyLockModel(models.Model):
+    """
+    PessimisticConcurrencyLockModel
+
+    An abstract base class model that provides pessimistic concurrency lock.
+    """
+
+    lock_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="%(app_label)s_%(class)s_lock_user",
+    )
+    lock_time = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        abstract = True
+
+    def lock(self, user):
+        if self.lock_user != user and self.lock_user is not None:
+            raise ValueError(
+                f"This object is locked by another user: {self.lock_user}."
+            )
+        self.lock_user = user
+        self.lock_time = timezone.now()
+        self.save()
+        return self
+
+    def release_lock(self, user):
+        if (
+            self.lock_user != user
+            and self.lock_user is not None
+            and not self.lock_user.is_superuser
+        ):
+            raise ValueError(
+                f"This object is locked by another user: {self.lock_user}. Cannot release lock."
+            )
+        self.lock_user = None
+        self.lock_time = None
+        self.save()
+        return self
+
+
+class Entity(
+    PessimisticConcurrencyLockModel,
+    NameSlugDescriptionModel,
+    NotesMarkdownModel,
+    ImageIdsModel,
+    BaseModel,
+):
     def __str__(self):
         return self.name
 

@@ -3,6 +3,7 @@ from graphene import relay
 from graphql_relay import from_global_id
 from graphql_jwt.decorators import login_required
 from rest_framework import serializers
+from nucleus.exceptions import ConcurrencyLockException
 
 
 class RelayPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
@@ -32,23 +33,12 @@ def login_or_queryset_none(func):
     return wrapper
 
 
-class RelayCUD(object):
-    actions = ("create", "update", "patch", "delete")
-
-    def __init__(self, *args, **kwargs):
-        for el in ["field", "Node", "model", "serializer_class"]:
-            if not hasattr(self, el):
-                raise ValueError("Missing required attribute: {}".format(el))
-        super().__init__(*args, **kwargs)
-
+class MutationsCreatorMixin:
     class IdentifyingInput:
         id = graphene.ID()
 
     def get_django_id(self, id):
         return from_global_id(id)[1]
-
-    def get_serializer_class(self):
-        return self.serializer_class
 
     def get_model(self):
         return self.model
@@ -57,37 +47,12 @@ class RelayCUD(object):
         id = self.get_django_id(input["id"])
         return self.model.objects.get(id=id)
 
-    def create(self, info, **input):
-        serializer = self.serializer_class(data=input)
-        serializer.is_valid(raise_exception=True)
-        instance = serializer.save()
-        return instance
-
-    def update(self, info, **input):
-        instance = self.get_instance(info, input)
-        serializer = self.serializer_class(instance, data=input)
-        serializer.is_valid(raise_exception=True)
-        instance = serializer.save()
-        return instance
-
-    def partial_update(self, info, **input):
-        instance = self.get_instance(info, input)
-        serializer = self.serializer_class(instance, data=input, partial=True)
-        serializer.is_valid(raise_exception=True)
-        instance = serializer.save()
-        return instance
-
-    def delete(self, info, **input):
-        instance = self.get_instance(info, input)
-        instance.delete()
-        return instance
-
     def prepare_inputs(self, info, **input):
         return input
 
     def get_mutation_base(self, action, Input, include_field=True):
         field = self.field
-        Node = self.Node
+        Node = getattr(self, "Node", None)
         _Input = Input
         prepare_inputs = self.prepare_inputs
 
@@ -112,6 +77,118 @@ class RelayCUD(object):
             setattr(MutationBase, field, graphene.Field(Node))
 
         return MutationBase
+
+    def get_mutation_name(self, action):
+        return f"{self.field}_{action}"
+
+    def get_mutation_class_for_action(self, action):
+        return self.__getattribute__(action + "_mutation")()
+
+    def get_mutation_class(self):
+        class Mutation(graphene.ObjectType):
+            pass
+
+        # By default this adds create, update, patch and delete mutations
+        # Override `actions` to limit the mutations (e.g., `actions = ("create", "update")`)
+        for action in self.actions:
+            mutation_name = self.get_mutation_name(action)
+            mutation_class = self.get_mutation_class_for_action(action)
+            setattr(
+                Mutation,
+                mutation_name,
+                mutation_class.Field(),
+            )
+
+        return Mutation
+
+
+class ConcurrencyLockActions(MutationsCreatorMixin):
+    actions = ("lock", "release_lock")
+    _required_attributes = ("field", "model")
+
+    def __init__(self, *args, **kwargs):
+        for el in self._required_attributes:
+            if not hasattr(self, el):
+                raise ValueError("Missing required attribute: {}".format(el))
+        super().__init__(*args, **kwargs)
+
+    def lock(self, info, **input):
+        instance = self.get_instance(info, input)
+        instance = instance.lock(info.context.user)
+        return instance
+
+    def release_lock(self, info, **input):
+        instance = self.get_instance(info, input)
+        instance = instance.release_lock(info.context.user)
+        return instance
+
+    def lock_mutation(self):
+        Mixin = self.get_mutation_base(
+            self.lock, self.IdentifyingInput, include_field=False
+        )
+        mutation_class_name = self.field.title() + "LockMutation"
+        return type(mutation_class_name, (Mixin, relay.ClientIDMutation), {})
+
+    def release_lock_mutation(self):
+        Mixin = self.get_mutation_base(
+            self.release_lock, self.IdentifyingInput, include_field=False
+        )
+        mutation_class_name = self.field.title() + "ReleaseLockMutation"
+        return type(mutation_class_name, (Mixin, relay.ClientIDMutation), {})
+
+
+class RelayCUD(MutationsCreatorMixin):
+    actions = ("create", "update", "patch", "delete")
+    _required_attributes = ("field", "Node", "model", "serializer_class")
+    enforce_lock = False
+
+    def __init__(self, *args, **kwargs):
+        for el in self._required_attributes:
+            if not hasattr(self, el):
+                raise ValueError("Missing required attribute: {}".format(el))
+        super().__init__(*args, **kwargs)
+
+    def get_serializer_class(self):
+        return self.serializer_class
+
+    def _enforce_lock(self, info, instance):
+        if (
+            hasattr(instance, "lock_user")
+            and instance.lock_user
+            and instance.lock_user != info.context.user
+        ):
+            raise ConcurrencyLockException(
+                f"This object is locked by another user: {instance.lock_user}."
+            )
+
+    def create(self, info, **input):
+        serializer = self.serializer_class(data=input)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        return instance
+
+    def update(self, info, **input):
+        instance = self.get_instance(info, input)
+        if self.enforce_lock:
+            self._enforce_lock(info, instance)
+        serializer = self.serializer_class(instance, data=input)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        return instance
+
+    def partial_update(self, info, **input):
+        instance = self.get_instance(info, input)
+        if self.enforce_lock:
+            self._enforce_lock(info, instance)
+        serializer = self.serializer_class(instance, data=input, partial=True)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        return instance
+
+    def delete(self, info, **input):
+        instance = self.get_instance(info, input)
+        instance.delete()
+        return instance
 
     def create_mutation(self):
         MutationBase = self.get_mutation_base(self.create, self.Input)
@@ -140,29 +217,6 @@ class RelayCUD(object):
         )
         mutation_class_name = self.field.title() + "DeleteMutation"
         return type(mutation_class_name, (Mixin, relay.ClientIDMutation), {})
-
-    def get_mutation_name(self, action):
-        return f"{self.field}_{action}"
-
-    def get_mutation_class_for_action(self, action):
-        return self.__getattribute__(action + "_mutation")()
-
-    def get_mutation_class(self):
-        class Mutation(graphene.ObjectType):
-            pass
-
-        # By default this adds create, update, patch and delete mutations
-        # Override `actions` to limit the mutations (e.g., `actions = ("create", "update")`)
-        for action in self.actions:
-            mutation_name = self.get_mutation_name(action)
-            mutation_class = self.get_mutation_class_for_action(action)
-            setattr(
-                Mutation,
-                mutation_name,
-                mutation_class.Field(),
-            )
-
-        return Mutation
 
     class Meta:
         abstract = True

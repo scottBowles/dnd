@@ -61,6 +61,9 @@ class ItemNode(DjangoObjectType):
             "armor",
             "weapon",
             "equipment",
+            "markdown_notes",
+            "lock_user",
+            "lock_time",
         )
         filter_fields = [
             "name",
@@ -88,6 +91,9 @@ class ArtifactNode(DjangoObjectType):
             "thumbnail_id",
             "created",
             "updated",
+            "markdown_notes",
+            "lock_user",
+            "lock_time",
         )
         filter_fields = [
             "name",

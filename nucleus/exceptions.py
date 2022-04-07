@@ -1,0 +1,2 @@
+class ConcurrencyLockException(Exception):
+    pass

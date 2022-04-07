@@ -51,6 +51,9 @@ class RaceNode(DjangoObjectType):
             "traits",
             "base_race",
             "subraces",
+            "markdown_notes",
+            "lock_user",
+            "lock_time",
         )
         filter_fields = []
         interfaces = (relay.Node,)

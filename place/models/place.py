@@ -1,9 +1,6 @@
 from django.db import models
 
 from nucleus.models import Entity
-from django.db import models
-
-from nucleus.models import Entity
 from race.models import Race
 from association.models import Association
 
