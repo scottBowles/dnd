@@ -1,15 +1,23 @@
 import graphene
 
-from nucleus.utils import RelayCUD
-from ..models import Language, Script, Feature, Skill, Proficiency
+from nucleus.utils import RelayCUD, ConcurrencyLockActions
+from ..models import Language, Script, Feature, Skill, Proficiency, NPC
 from ..serializers import (
     LanguageSerializer,
     ScriptSerializer,
     FeatureSerializer,
     SkillSerializer,
     ProficiencySerializer,
+    NPCSerializer,
 )
-from .nodes import LanguageNode, ScriptNode, FeatureNode, SkillNode, ProficiencyNode
+from .nodes import (
+    LanguageNode,
+    ScriptNode,
+    FeatureNode,
+    SkillNode,
+    ProficiencyNode,
+    NPCNode,
+)
 
 
 class LanguageCUD(RelayCUD):
@@ -89,12 +97,38 @@ class ProficiencyCUD(RelayCUD):
 ProficiencyMutations = ProficiencyCUD().get_mutation_class()
 
 
+class NPCCUD(RelayCUD):
+    field = "npc"
+    Node = NPCNode
+    model = NPC
+    serializer_class = NPCSerializer
+    enforce_lock = True
+
+    class Input:
+        name = graphene.String()
+        description = graphene.String()
+        image_id = graphene.String()
+        thumbnail_id = graphene.String()
+        markdown_notes = graphene.String()
+
+
+class NPCConcurrencyLock(ConcurrencyLockActions):
+    field = "npc"
+    model = NPC
+
+
+NPCCUDMutations = NPCCUD().get_mutation_class()
+NPCLockMutations = NPCConcurrencyLock().get_mutation_class()
+
+
 class Mutation(
     LanguageMutations,
     ScriptMutations,
     FeatureMutations,
     SkillMutations,
     ProficiencyMutations,
+    NPCCUDMutations,
+    NPCLockMutations,
     graphene.ObjectType,
 ):
     pass
