@@ -1,15 +1,19 @@
 import random
-import json
-from graphene_django.utils.testing import GraphQLTestCase
+from graphql_jwt.testcases import JSONWebTokenTestCase
 from graphql_relay import to_global_id
 from .factories import ProficiencyFactory
 from .utils import CompareMixin
+from django.contrib.auth import get_user_model
 
 
-class ProficiencyTests(CompareMixin, GraphQLTestCase):
+class ProficiencyTests(CompareMixin, JSONWebTokenTestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create(username="test")
+        self.client.authenticate(self.user)
+
     def test_proficiency_detail_query(self):
         proficiency = ProficiencyFactory()
-        response = self.query(
+        response = self.client.execute(
             """
             query {
                 proficiency(id: "%s") {
@@ -22,16 +26,15 @@ class ProficiencyTests(CompareMixin, GraphQLTestCase):
             """
             % to_global_id("ProficiencyNode", proficiency.id)
         )
-        self.assertResponseNoErrors(response)
+        self.assertIsNone(response.errors)
 
-        res_json = json.loads(response.content)
-        res_proficiency = res_json["data"]["proficiency"]
+        res_proficiency = response.data["proficiency"]
         self.compare_proficiencies(proficiency, res_proficiency)
 
     def test_proficiency_list_query(self):
         num_proficiencies = random.randint(0, 10)
         proficiencies = ProficiencyFactory.create_batch(num_proficiencies)
-        response = self.query(
+        response = self.client.execute(
             """
             query {
                 proficiencies {
@@ -47,9 +50,8 @@ class ProficiencyTests(CompareMixin, GraphQLTestCase):
             }
             """
         )
-        self.assertResponseNoErrors(response)
-        res_json = json.loads(response.content)
-        res_proficiencies = res_json["data"]["proficiencies"]["edges"]
+        self.assertIsNone(response.errors)
+        res_proficiencies = response.data["proficiencies"]["edges"]
         self.assertEqual(len(res_proficiencies), num_proficiencies)
         for i, proficiency in enumerate(proficiencies):
             res_proficiency = res_proficiencies[i]["node"]

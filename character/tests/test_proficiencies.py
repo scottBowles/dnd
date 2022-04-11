@@ -1,13 +1,15 @@
-import json
-from graphene_django.utils.testing import GraphQLTestCase
+from graphql_jwt.testcases import JSONWebTokenTestCase
 from ..models import Proficiency
 from .utils import CompareMixin
 from graphql_relay import from_global_id, to_global_id
 from .factories import ProficiencyFactory
+from django.contrib.auth import get_user_model
 
 
-class ProficiencyTests(CompareMixin, GraphQLTestCase):
+class ProficiencyTests(CompareMixin, JSONWebTokenTestCase):
     def setUp(self):
+        self.user = get_user_model().objects.create(username="test")
+        self.client.authenticate(self.user)
         self.name = "Test Proficiency Name"
         self.description = "Test Proficiency Description"
         self.proficiency_type = Proficiency.PROFICIENCY_TYPES[0][0]
@@ -29,18 +31,17 @@ class ProficiencyTests(CompareMixin, GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_1 = result["data"]["proficiencies"]["edges"][0]["node"]
-        res_2 = result["data"]["proficiencies"]["edges"][1]["node"]
+        res_1 = response.data["proficiencies"]["edges"][0]["node"]
+        res_2 = response.data["proficiencies"]["edges"][1]["node"]
 
         # Ensure exactly two results exist, have expected values, and are in the expected order
         self.compare_proficiencies(factory1, res_1)
         self.compare_proficiencies(factory2, res_2)
         with self.assertRaises(IndexError):
-            result["data"]["proficiencies"]["edges"][2]
+            response.data["proficiencies"]["edges"][2]
 
     def test_bad_proficiency_list_query(self):
         ProficiencyFactory()
@@ -59,8 +60,8 @@ class ProficiencyTests(CompareMixin, GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_proficiency_detail_query(self):
         proficiency = ProficiencyFactory()
@@ -78,11 +79,10 @@ class ProficiencyTests(CompareMixin, GraphQLTestCase):
         """
             % proficiency_global_id
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_proficiency = result["data"]["proficiency"]
+        res_proficiency = response.data["proficiency"]
 
         self.compare_proficiencies(proficiency, res_proficiency)
 
@@ -109,11 +109,10 @@ class ProficiencyTests(CompareMixin, GraphQLTestCase):
             self.description,
             self.proficiency_type,
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_proficiency = result["data"]["proficiencyCreate"]["proficiency"]
+        res_proficiency = response.data["proficiencyCreate"]["proficiency"]
 
         self.assertEqual(res_proficiency["name"], self.name)
         self.assertEqual(res_proficiency["description"], self.description)
@@ -145,8 +144,8 @@ class ProficiencyTests(CompareMixin, GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_proficiency_update_mutation(self):
         proficiency = ProficiencyFactory(
@@ -176,11 +175,10 @@ class ProficiencyTests(CompareMixin, GraphQLTestCase):
             self.description,
             self.proficiency_type,
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_proficiency = result["data"]["proficiencyUpdate"]["proficiency"]
+        res_proficiency = response.data["proficiencyUpdate"]["proficiency"]
 
         self.assertEqual(res_proficiency["name"], self.name)
         self.assertEqual(res_proficiency["description"], self.description)
@@ -210,8 +208,8 @@ class ProficiencyTests(CompareMixin, GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_proficiency_update_bad_input_no_name(self):
         proficiency = ProficiencyFactory()
@@ -234,8 +232,8 @@ class ProficiencyTests(CompareMixin, GraphQLTestCase):
         """
             % proficiency_global_id
         )
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_proficiency_patch(self):
         proficiency = ProficiencyFactory(
@@ -260,11 +258,10 @@ class ProficiencyTests(CompareMixin, GraphQLTestCase):
         """
             % proficiency_global_id
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_proficiency = result["data"]["proficiencyPatch"]["proficiency"]
+        res_proficiency = response.data["proficiencyPatch"]["proficiency"]
         self.assertEqual(res_proficiency["name"], "Test Proficiency Name")
         self.assertEqual(res_proficiency["description"], "Test Proficiency Description")
 
@@ -291,8 +288,8 @@ class ProficiencyTests(CompareMixin, GraphQLTestCase):
         """
             % proficiency_global_id
         )
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_proficiency_delete(self):
         proficiency = ProficiencyFactory()
@@ -309,11 +306,10 @@ class ProficiencyTests(CompareMixin, GraphQLTestCase):
         """
             % proficiency_global_id
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        self.assertTrue(result["data"]["proficiencyDelete"]["ok"])
+        self.assertTrue(response.data["proficiencyDelete"]["ok"])
 
         with self.assertRaises(Proficiency.DoesNotExist):
             Proficiency.objects.get(pk=proficiency.id)

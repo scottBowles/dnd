@@ -1,8 +1,9 @@
-import json
 import factory
-from graphene_django.utils.testing import GraphQLTestCase
 from .models import Association
 from graphql_relay import from_global_id, to_global_id
+from django.contrib.auth import get_user_model
+
+from graphql_jwt.testcases import JSONWebTokenTestCase
 
 
 class AssociationFactory(factory.django.DjangoModelFactory):
@@ -15,7 +16,11 @@ class AssociationFactory(factory.django.DjangoModelFactory):
     thumbnail_id = factory.Faker("text")
 
 
-class AssociationTests(GraphQLTestCase):
+class AssociationTests(JSONWebTokenTestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create(username="test")
+        self.client.authenticate(self.user)
+
     def test_association_list_query(self):
         factory1 = AssociationFactory()
         factory2 = AssociationFactory()
@@ -34,12 +39,11 @@ class AssociationTests(GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        result = response.data
 
-        result = json.loads(response.content)
-        res_1 = result["data"]["associations"]["edges"][0]["node"]
-        res_2 = result["data"]["associations"]["edges"][1]["node"]
+        res_1 = result["associations"]["edges"][0]["node"]
+        res_2 = result["associations"]["edges"][1]["node"]
 
         # Ensure exactly two results exist, have expected values, and are in the expected order
         self.assertEqual(from_global_id(res_1["id"])[1], str(factory1.id))
@@ -53,7 +57,7 @@ class AssociationTests(GraphQLTestCase):
         self.assertEqual(res_2["imageId"], factory2.image_id)
         self.assertEqual(res_2["thumbnailId"], factory2.thumbnail_id)
         with self.assertRaises(IndexError):
-            result["data"]["associations"]["edges"][2]
+            result["associations"]["edges"][2]
 
     def test_bad_association_list_query(self):
         AssociationFactory()
@@ -71,16 +75,17 @@ class AssociationTests(GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+
+        self.assertIsNotNone(response.errors)
+        self.assertIsNone(response.data)
 
     def test_association_detail_query(self):
         association = AssociationFactory()
         association_global_id = to_global_id("AssociationNode", association.id)
-        query = (
-            """
-            query {
-                association(id: "%s") {
+        query = """
+            query GetAssociation($id: ID!) {
+                association(id: $id) {
                     id
                     name
                     description
@@ -89,13 +94,11 @@ class AssociationTests(GraphQLTestCase):
                 }
             }
         """
-            % association_global_id
-        )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        variables = {"id": association_global_id}
+        response = self.client.execute(query, variables)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_association = result["data"]["association"]
+        res_association = response.data["association"]
 
         self.assertEqual(res_association["name"], association.name)
         self.assertEqual(res_association["description"], association.description)
@@ -125,11 +128,10 @@ class AssociationTests(GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_association = result["data"]["associationCreate"]["association"]
+        res_association = response.data["associationCreate"]["association"]
 
         self.assertEqual(res_association["name"], "Test Assoc Name")
         self.assertEqual(res_association["description"], "Test Assoc Description")
@@ -162,24 +164,17 @@ class AssociationTests(GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_association_update_mutation(self):
         association = AssociationFactory(
             name="Not Test Assoc Name", description="Not Test Assoc Description"
         )
         association_global_id = to_global_id("AssociationNode", association.id)
-        query = (
-            """
-            mutation {
-                associationUpdate(input: {
-                    id: "%s"
-                    name: "Test Assoc Name"
-                    description: "Test Assoc Description"
-                    imageId: "Test Assoc Image ID"
-                    thumbnailId: "Test Assoc Thumbnail ID"
-                }) {
+        query = """
+            mutation UpdateAssociation($input: AssociationUpdateMutationInput!) {
+                associationUpdate(input: $input) {
                     association {
                         id
                         name
@@ -190,13 +185,19 @@ class AssociationTests(GraphQLTestCase):
                 }
             }
         """
-            % association_global_id
-        )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        variables = {
+            "input": {
+                "id": association_global_id,
+                "name": "Test Assoc Name",
+                "description": "Test Assoc Description",
+                "imageId": "Test Assoc Image ID",
+                "thumbnailId": "Test Assoc Thumbnail ID",
+            }
+        }
+        response = self.client.execute(query, variables)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_association = result["data"]["associationUpdate"]["association"]
+        res_association = response.data["associationUpdate"]["association"]
 
         self.assertEqual(res_association["name"], "Test Assoc Name")
         self.assertEqual(res_association["description"], "Test Assoc Description")
@@ -227,8 +228,8 @@ class AssociationTests(GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_association_update_bad_input_no_name(self):
         association = AssociationFactory()
@@ -250,8 +251,8 @@ class AssociationTests(GraphQLTestCase):
         """
             % association_global_id
         )
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_association_patch(self):
         association = AssociationFactory(
@@ -275,11 +276,10 @@ class AssociationTests(GraphQLTestCase):
         """
             % association_global_id
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_association = result["data"]["associationPatch"]["association"]
+        res_association = response.data["associationPatch"]["association"]
         self.assertEqual(res_association["name"], "Test Assoc Name")
         self.assertEqual(res_association["description"], "Test Assoc Description")
 
@@ -305,8 +305,8 @@ class AssociationTests(GraphQLTestCase):
         """
             % association_global_id
         )
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_association_delete(self):
         association = AssociationFactory()
@@ -323,11 +323,10 @@ class AssociationTests(GraphQLTestCase):
         """
             % association_global_id
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        self.assertTrue(result["data"]["associationDelete"]["ok"])
+        self.assertTrue(response.data["associationDelete"]["ok"])
 
         with self.assertRaises(Association.DoesNotExist):
             Association.objects.get(pk=association.id)

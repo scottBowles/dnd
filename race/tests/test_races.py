@@ -1,7 +1,8 @@
 import random
 import json
-from graphene_django.utils.testing import GraphQLTestCase
+from graphql_jwt.testcases import JSONWebTokenTestCase
 from graphql_relay import from_global_id, to_global_id
+from django.contrib.auth import get_user_model
 
 from character.models.models import ALIGNMENTS, SIZES
 from .factories import RaceFactory, AbilityScoreIncreaseFactory, TraitFactory
@@ -10,11 +11,16 @@ from .utils import CompareMixin
 from ..models import Race
 
 
-class RaceQueryTests(CompareMixin, GraphQLTestCase):
+class RaceQueryTests(CompareMixin, JSONWebTokenTestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create(username="test")
+        self.client.authenticate(self.user)
+
     def test_basic_race_detail_query(self):
         race = RaceFactory()
+        race_global_id = to_global_id("RaceNode", race.id)
 
-        response = self.query(
+        response = self.client.execute(
             """
             query {
                 race(id: "%s") {
@@ -31,12 +37,11 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
                 }
             }
             """
-            % to_global_id("RaceNode", race.id)
+            % race_global_id
         )
-        self.assertResponseNoErrors(response)
+        self.assertIsNone(response.errors)
 
-        res_json = json.loads(response.content)
-        res_race = res_json["data"]["race"]
+        res_race = response.data["race"]
 
         self.compare_races(race, res_race)
 
@@ -52,7 +57,7 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
             ability_score_increases=ability_score_increases,
         )
 
-        response = self.query(
+        response = self.client.execute(
             """
             query {
                 race(id: "%s") {
@@ -100,10 +105,9 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
             """
             % to_global_id("RaceNode", race.id)
         )
-        self.assertResponseNoErrors(response)
+        self.assertIsNone(response.errors)
 
-        res_json = json.loads(response.content)
-        res_race = res_json["data"]["race"]
+        res_race = response.data["race"]
 
         self.compare_races(
             race,
@@ -121,7 +125,7 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
             race.subraces.add(r)
         race = RaceFactory(base_race=base_race)
 
-        response = self.query(
+        response = self.client.execute(
             """
             query {
                 race(id: "%s") {
@@ -168,10 +172,9 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
             """
             % to_global_id("RaceNode", race.id)
         )
-        self.assertResponseNoErrors(response)
+        self.assertIsNone(response.errors)
 
-        res_json = json.loads(response.content)
-        res_race = res_json["data"]["race"]
+        res_race = response.data["race"]
 
         self.compare_races(
             race, res_race, compare_base_races_to_depth=1, compare_subraces=True
@@ -180,7 +183,7 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
     def test_basic_race_list_query(self):
         races = RaceFactory.create_batch(random.randint(0, 3))
 
-        response = self.query(
+        response = self.client.execute(
             """
             query {
                 races {
@@ -202,13 +205,15 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
             }
             """
         )
-        self.assertResponseNoErrors(response)
+        self.assertIsNone(response.errors)
 
-        res_json = json.loads(response.content)
-        res_races = res_json["data"]["races"]["edges"]
+        res_races = [edge["node"] for edge in response.data["races"]["edges"]]
 
-        for i, race in enumerate(races):
-            self.compare_races(race, res_races[i]["node"])
+        for race in races:
+            matching_res_race = next(
+                res_race for res_race in res_races if res_race["name"] == race.name
+            )
+            self.compare_races(race, matching_res_race)
 
     def test_race_list_query_with_relations(self):
         races = []
@@ -218,7 +223,7 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
             race = RaceFactory(languages=languages, traits=traits)
             races.append(race)
 
-        response = self.query(
+        response = self.client.execute(
             """
             query {
                 races {
@@ -261,10 +266,9 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
             }
             """
         )
-        self.assertResponseNoErrors(response)
+        self.assertIsNone(response.errors)
 
-        res_json = json.loads(response.content)
-        res_races = res_json["data"]["races"]["edges"]
+        res_races = response.data["races"]["edges"]
 
         for i, race in enumerate(races):
             self.compare_races(
@@ -286,7 +290,7 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
                 all_subraces.append(subrace)
         all_races = [*base_races, *races, *all_subraces]
 
-        response = self.query(
+        response = self.client.execute(
             """
             query {
                 races {
@@ -336,10 +340,9 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
             }
             """
         )
-        self.assertResponseNoErrors(response)
+        self.assertIsNone(response.errors)
 
-        res_json = json.loads(response.content)
-        res_races = res_json["data"]["races"]["edges"]
+        res_races = response.data["races"]["edges"]
 
         for i, race in enumerate(all_races):
             self.compare_races(
@@ -350,8 +353,10 @@ class RaceQueryTests(CompareMixin, GraphQLTestCase):
             )
 
 
-class RaceMutationTests(CompareMixin, GraphQLTestCase):
+class RaceMutationTests(CompareMixin, JSONWebTokenTestCase):
     def setUp(self):
+        self.user = get_user_model().objects.create(username="test")
+        self.client.authenticate(self.user)
         self.name = "Test Race Name"
         self.description = "Test Race Description"
         self.image_id = "Test Race Image Id"
@@ -403,11 +408,10 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
             self.size,
             self.speed,
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_race = result["data"]["raceCreate"]["race"]
+        res_race = response.data["raceCreate"]["race"]
 
         self.assertEqual(res_race["name"], self.name)
         self.assertEqual(res_race["description"], self.description)
@@ -513,11 +517,10 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
             to_global_id("RaceNode", subraces[1].id),
         )
 
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_race = result["data"]["raceCreate"]["race"]
+        res_race = response.data["raceCreate"]["race"]
 
         created_race = Race.objects.get(pk=from_global_id(res_race["id"])[1])
 
@@ -585,11 +588,10 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
             to_global_id("LanguageNode", language2.id),
         )
 
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_race = result["data"]["raceCreate"]["race"]
+        res_race = response.data["raceCreate"]["race"]
 
         created_race = Race.objects.get(pk=from_global_id(res_race["id"])[1])
 
@@ -653,8 +655,8 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
             to_global_id("LanguageNode", 12345),
         )
 
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
         with self.assertRaises(Race.DoesNotExist):
             Race.objects.get(name="Test Race Name")
@@ -716,11 +718,10 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
             to_global_id("TraitNode", trait2.id),
         )
 
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_race = result["data"]["raceCreate"]["race"]
+        res_race = response.data["raceCreate"]["race"]
 
         created_race = Race.objects.get(pk=from_global_id(res_race["id"])[1])
 
@@ -781,430 +782,430 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
             to_global_id("TraitNode", 12345),
         )
 
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
         with self.assertRaises(Race.DoesNotExist):
             Race.objects.get(name="Test Race Name")
 
-    # def test_race_create_with_adding_existing_AbilityScoreIncreases(self):
-    #     asis = AbilityScoreIncreaseFactory.create_batch(8)
-    #     asis = list(set(asis))
-    #     asis.sort(key=lambda x: x.id)
-    #     asi_global_ids = ", ".join(
-    #         [str(to_global_id("AbilityScoreIncreaseNode", asi.id)) for asi in asis]
-    #     )
+        # def test_race_create_with_adding_existing_AbilityScoreIncreases(self):
+        #     asis = AbilityScoreIncreaseFactory.create_batch(8)
+        #     asis = list(set(asis))
+        #     asis.sort(key=lambda x: x.id)
+        #     asi_global_ids = ", ".join(
+        #         [str(to_global_id("AbilityScoreIncreaseNode", asi.id)) for asi in asis]
+        #     )
 
-    #     query = """
-    #         mutation {
-    #             raceCreate(input: {
-    #                 name: "%s",
-    #                 ageOfAdulthood: %s,
-    #                 lifeExpectancy: %s,
-    #                 alignment: "%s",
-    #                 size: "%s",
-    #                 speed: %s,
-    #                 abilityScoreIncreases: "%s"
-    #             }) {
-    #                 ok
-    #                 errors
-    #                 race {
-    #                     id
-    #                     name
-    #                     ageOfAdulthood
-    #                     lifeExpectancy
-    #                     alignment
-    #                     size
-    #                     speed
-    #                     abilityScoreIncreases {
-    #                         edges {
-    #                             node {
-    #                                 id
-    #                                 abilityScore
-    #                                 increase
-    #                             }
-    #                         }
-    #                     }
-    #                 }
-    #             }
-    #         }
-    #     """ % (
-    #         self.name,
-    #         self.age_of_adulthood,
-    #         self.life_expectancy,
-    #         self.alignment,
-    #         self.size,
-    #         self.speed,
-    #         f"{asi_global_ids}",
-    #         # to_global_id("AbilityScoreIncreaseNode", ability_score_increase_1.id),
-    #         # to_global_id("AbilityScoreIncreaseNode", ability_score_increase_2.id),
-    #     )
+        #     query = """
+        #         mutation {
+        #             raceCreate(input: {
+        #                 name: "%s",
+        #                 ageOfAdulthood: %s,
+        #                 lifeExpectancy: %s,
+        #                 alignment: "%s",
+        #                 size: "%s",
+        #                 speed: %s,
+        #                 abilityScoreIncreases: "%s"
+        #             }) {
+        #                 ok
+        #                 errors
+        #                 race {
+        #                     id
+        #                     name
+        #                     ageOfAdulthood
+        #                     lifeExpectancy
+        #                     alignment
+        #                     size
+        #                     speed
+        #                     abilityScoreIncreases {
+        #                         edges {
+        #                             node {
+        #                                 id
+        #                                 abilityScore
+        #                                 increase
+        #                             }
+        #                         }
+        #                     }
+        #                 }
+        #             }
+        #         }
+        #     """ % (
+        #         self.name,
+        #         self.age_of_adulthood,
+        #         self.life_expectancy,
+        #         self.alignment,
+        #         self.size,
+        #         self.speed,
+        #         f"{asi_global_ids}",
+        #         # to_global_id("AbilityScoreIncreaseNode", ability_score_increase_1.id),
+        #         # to_global_id("AbilityScoreIncreaseNode", ability_score_increase_2.id),
+        #     )
 
-    #     response = self.query(query)
-    #     self.assertResponseNoErrors(response)
+        #     response = self.client.execute(query)
+        #     self.assertIsNone(response.errors)
 
-    #     result = json.loads(response.content)
-    #     res_race = result["data"]["raceCreate"]["race"]
+        #
+        #     res_race = response.data["raceCreate"]["race"]
 
-    #     created_race = Race.objects.get(pk=from_global_id(res_race["id"])[1])
+        #     created_race = Race.objects.get(pk=from_global_id(res_race["id"])[1])
 
-    #     self.assertEqual(len(created_race.ability_score_increases.all()), len(asis))
-    #     self.compare_races(created_race, res_race, compare_ability_score_increases=True)
+        #     self.assertEqual(len(created_race.ability_score_increases.all()), len(asis))
+        #     self.compare_races(created_race, res_race, compare_ability_score_increases=True)
 
-    # def test_race_create_fails_with_nonexisting_ability_score_increase_ids(self):
-    #     query = """
-    #         mutation {
-    #             raceCreate(input: {
-    #                 name: "%s",
-    #                 ageOfAdulthood: %s,
-    #                 lifeExpectancy: %s,
-    #                 alignment: "%s",
-    #                 size: "%s",
-    #                 speed: %s,
-    #                 abilityScoreIncreases: ["%s", "%s"]
-    #             }) {
-    #                 ok
-    #                 errors
-    #                 race {
-    #                     id
-    #                     name
-    #                     ageOfAdulthood
-    #                     lifeExpectancy
-    #                     alignment
-    #                     size
-    #                     speed
-    #                     abilityScoreIncreases {
-    #                         edges {
-    #                             node {
-    #                                 id
-    #                                 abilityScore
-    #                                 increase
-    #                             }
-    #                         }
-    #                     }
-    #                 }
-    #             }
-    #         }
-    #     """ % (
-    #         self.name,
-    #         self.age_of_adulthood,
-    #         self.life_expectancy,
-    #         self.alignment,
-    #         self.size,
-    #         self.speed,
-    #         to_global_id("AbilityScoreIncreaseNode", 23456),
-    #         to_global_id("AbilityScoreIncreaseNode", 12345),
-    #     )
+        # def test_race_create_fails_with_nonexisting_ability_score_increase_ids(self):
+        #     query = """
+        #         mutation {
+        #             raceCreate(input: {
+        #                 name: "%s",
+        #                 ageOfAdulthood: %s,
+        #                 lifeExpectancy: %s,
+        #                 alignment: "%s",
+        #                 size: "%s",
+        #                 speed: %s,
+        #                 abilityScoreIncreases: ["%s", "%s"]
+        #             }) {
+        #                 ok
+        #                 errors
+        #                 race {
+        #                     id
+        #                     name
+        #                     ageOfAdulthood
+        #                     lifeExpectancy
+        #                     alignment
+        #                     size
+        #                     speed
+        #                     abilityScoreIncreases {
+        #                         edges {
+        #                             node {
+        #                                 id
+        #                                 abilityScore
+        #                                 increase
+        #                             }
+        #                         }
+        #                     }
+        #                 }
+        #             }
+        #         }
+        #     """ % (
+        #         self.name,
+        #         self.age_of_adulthood,
+        #         self.life_expectancy,
+        #         self.alignment,
+        #         self.size,
+        #         self.speed,
+        #         to_global_id("AbilityScoreIncreaseNode", 23456),
+        #         to_global_id("AbilityScoreIncreaseNode", 12345),
+        #     )
 
-    #     response = self.query(query)
-    #     self.assertResponseHasErrors(response)
+        #     response = self.client.execute(query)
+        #     self.assertIsNotNone(response.errors)
 
-    #     with self.assertRaises(Race.DoesNotExist):
-    #         Race.objects.get(name="Test Race Name")
+        #     with self.assertRaises(Race.DoesNotExist):
+        #         Race.objects.get(name="Test Race Name")
 
+        #     def test_race_create_with_adding_existing_associations(self):
+        #         association1 = AssociationFactory()
+        #         association2 = AssociationFactory()
 
-#     def test_race_create_with_adding_existing_associations(self):
-#         association1 = AssociationFactory()
-#         association2 = AssociationFactory()
+        #         query = """
+        #             mutation {
+        #                 raceCreate(input: {
+        #                     name: "Test Race Name"
+        #                     description: "Test Race Description"
+        #                     raceType: "TOWN"
+        #                     population: 100
+        #                     associations: [{
+        #                         notes: "Test Notes 1"
+        #                         association: "%s"
+        #                     }, {
+        #                         notes: "Test Notes 2"
+        #                         association: "%s"
+        #                     }]
+        #                 }) {
+        #                     ok
+        #                     errors
+        #                     race {
+        #                         id
+        #                         name
+        #                         description
+        #                         created
+        #                         updated
+        #                         raceType
+        #                         population
+        #                         associations {
+        #                             edges {
+        #                                 notes
+        #                                 node {
+        #                                     id
+        #                                     name
+        #                                     description
+        #                                 }
+        #                             }
+        #                         }
+        #                     }
+        #                 }
+        #             }
+        #         """ % (
+        #             to_global_id("AssociationNode", association1.id),
+        #             to_global_id("AssociationNode", association2.id),
+        #         )
 
-#         query = """
-#             mutation {
-#                 raceCreate(input: {
-#                     name: "Test Race Name"
-#                     description: "Test Race Description"
-#                     raceType: "TOWN"
-#                     population: 100
-#                     associations: [{
-#                         notes: "Test Notes 1"
-#                         association: "%s"
-#                     }, {
-#                         notes: "Test Notes 2"
-#                         association: "%s"
-#                     }]
-#                 }) {
-#                     ok
-#                     errors
-#                     race {
-#                         id
-#                         name
-#                         description
-#                         created
-#                         updated
-#                         raceType
-#                         population
-#                         associations {
-#                             edges {
-#                                 notes
-#                                 node {
-#                                     id
-#                                     name
-#                                     description
-#                                 }
-#                             }
-#                         }
-#                     }
-#                 }
-#             }
-#         """ % (
-#             to_global_id("AssociationNode", association1.id),
-#             to_global_id("AssociationNode", association2.id),
-#         )
+        #         response = self.client.execute(query)
+        #         self.assertIsNone(response.errors)
 
-#         response = self.query(query)
-#         self.assertResponseNoErrors(response)
+        #
+        #         res_race = response.data["raceCreate"]["race"]
 
-#         result = json.loads(response.content)
-#         res_race = result["data"]["raceCreate"]["race"]
+        #         created_race = Race.objects.get(pk=from_global_id(res_race["id"])[1])
 
-#         created_race = Race.objects.get(pk=from_global_id(res_race["id"])[1])
+        #         self.assertEqual(len(created_race.associations.all()), 2)
+        #         self.compare_races(created_race, res_race, compare_associations=True)
 
-#         self.assertEqual(len(created_race.associations.all()), 2)
-#         self.compare_races(created_race, res_race, compare_associations=True)
+        #     def test_race_create_fails_with_nonexisting_association_ids(self):
+        #         query = """
+        #             mutation {
+        #                 raceCreate(input: {
+        #                     name: "Test Race Name"
+        #                     description: "Test Race Description"
+        #                     raceType: "TOWN"
+        #                     population: 100
+        #                     associations: [{
+        #                         significance: 0
+        #                         association: "%s"
+        #                     }, {
+        #                         significance: 1
+        #                         association: "%s"
+        #                     }]
+        #                 }) {
+        #                     ok
+        #                     errors
+        #                     race {
+        #                         id
+        #                         name
+        #                         description
+        #                         created
+        #                         updated
+        #                         raceType
+        #                         population
+        #                         associations {
+        #                             edges {
+        #                                 notes
+        #                                 node {
+        #                                     id
+        #                                     name
+        #                                     description
+        #                                 }
+        #                             }
+        #                         }
+        #                     }
+        #                 }
+        #             }
+        #         """ % (
+        #             to_global_id("AssociationNode", 23456),
+        #             to_global_id("AssociationNode", 12345),
+        #         )
 
-#     def test_race_create_fails_with_nonexisting_association_ids(self):
-#         query = """
-#             mutation {
-#                 raceCreate(input: {
-#                     name: "Test Race Name"
-#                     description: "Test Race Description"
-#                     raceType: "TOWN"
-#                     population: 100
-#                     associations: [{
-#                         significance: 0
-#                         association: "%s"
-#                     }, {
-#                         significance: 1
-#                         association: "%s"
-#                     }]
-#                 }) {
-#                     ok
-#                     errors
-#                     race {
-#                         id
-#                         name
-#                         description
-#                         created
-#                         updated
-#                         raceType
-#                         population
-#                         associations {
-#                             edges {
-#                                 notes
-#                                 node {
-#                                     id
-#                                     name
-#                                     description
-#                                 }
-#                             }
-#                         }
-#                     }
-#                 }
-#             }
-#         """ % (
-#             to_global_id("AssociationNode", 23456),
-#             to_global_id("AssociationNode", 12345),
-#         )
+        #         response = self.client.execute(query)
+        #         self.assertIsNotNone(response.errors)
 
-#         response = self.query(query)
-#         self.assertResponseHasErrors(response)
+        #         with self.assertRaises(Race.DoesNotExist):
+        #             Race.objects.get(name="Test Race Name")
 
-#         with self.assertRaises(Race.DoesNotExist):
-#             Race.objects.get(name="Test Race Name")
+        # ASSOCIATIONS AND RACES REMAIN
 
-# ASSOCIATIONS AND RACES REMAIN
+        # def test_association_create_with_common_races(self):
+        #     query = """
+        #         mutation {
+        #             raceCreate(input: {
+        #                 name: "Test Race Name"
+        #                 description: "Test Race Description"
+        #                 raceType: "TOWN"
+        #                 population: 100
+        #                 commonRaces: [{
+        #                     significance: 0
+        #                     export: {
+        #                         name: "Nitre"
+        #                         description: "Salt from the desert"
+        #                     }
+        #                 }, {
+        #                     significance: 1
+        #                     export: {
+        #                         name: "Wheat"
+        #                         description: "Good for making bread"
+        #                     }
+        #                 }]
+        #             }) {
+        #                 ok
+        #                 errors
+        #                 race {
+        #                     id
+        #                     name
+        #                     description
+        #                     created
+        #                     updated
+        #                     raceType
+        #                     population
+        #                     exports {
+        #                         edges {
+        #                             significance
+        #                             node {
+        #                                 id
+        #                                 name
+        #                                 description
+        #                             }
+        #                         }
+        #                     }
+        #                 }
+        #             }
+        #         }
+        #     """
 
-# def test_association_create_with_common_races(self):
-#     query = """
-#         mutation {
-#             raceCreate(input: {
-#                 name: "Test Race Name"
-#                 description: "Test Race Description"
-#                 raceType: "TOWN"
-#                 population: 100
-#                 commonRaces: [{
-#                     significance: 0
-#                     export: {
-#                         name: "Nitre"
-#                         description: "Salt from the desert"
-#                     }
-#                 }, {
-#                     significance: 1
-#                     export: {
-#                         name: "Wheat"
-#                         description: "Good for making bread"
-#                     }
-#                 }]
-#             }) {
-#                 ok
-#                 errors
-#                 race {
-#                     id
-#                     name
-#                     description
-#                     created
-#                     updated
-#                     raceType
-#                     population
-#                     exports {
-#                         edges {
-#                             significance
-#                             node {
-#                                 id
-#                                 name
-#                                 description
-#                             }
-#                         }
-#                     }
-#                 }
-#             }
-#         }
-#     """
+        #     response = self.client.execute(query)
+        #     self.assertIsNone(response.errors)
 
-#     response = self.query(query)
-#     self.assertResponseNoErrors(response)
+        #
+        #     res_race = response.data["raceCreate"]["race"]
 
-#     result = json.loads(response.content)
-#     res_race = result["data"]["raceCreate"]["race"]
+        #     created_race = Race.objects.get(pk=from_global_id(res_race["id"])[1])
 
-#     created_race = Race.objects.get(pk=from_global_id(res_race["id"])[1])
+        #     self.assertEqual(len(created_race.exports.all()), 2)
+        #     self.compare_races(created_race, res_race, compare_exports=True)
 
-#     self.assertEqual(len(created_race.exports.all()), 2)
-#     self.compare_races(created_race, res_race, compare_exports=True)
+        # def test_association_update_mutation(self):
+        #     association = AssociationFactory(
+        #         name="Not Test Assoc Name", description="Not Test Assoc Description"
+        #     )
+        #     association_global_id = to_global_id("AssociationNode", association.id)
+        #     query = (
+        #         """
+        #         mutation {
+        #             associationUpdate(input: {
+        #                 id: "%s"
+        #                 name: "Test Assoc Name"
+        #                 description: "Test Assoc Description"
+        #             }) {
+        #                 association {
+        #                     id
+        #                     name
+        #                     description
+        #                 }
+        #             }
+        #         }
+        #     """
+        #         % association_global_id
+        #     )
+        #     response = self.client.execute(query)
+        #     self.assertIsNone(response.errors)
 
-# def test_association_update_mutation(self):
-#     association = AssociationFactory(
-#         name="Not Test Assoc Name", description="Not Test Assoc Description"
-#     )
-#     association_global_id = to_global_id("AssociationNode", association.id)
-#     query = (
-#         """
-#         mutation {
-#             associationUpdate(input: {
-#                 id: "%s"
-#                 name: "Test Assoc Name"
-#                 description: "Test Assoc Description"
-#             }) {
-#                 association {
-#                     id
-#                     name
-#                     description
-#                 }
-#             }
-#         }
-#     """
-#         % association_global_id
-#     )
-#     response = self.query(query)
-#     self.assertResponseNoErrors(response)
+        #
+        #     res_association = response.data["associationUpdate"]["association"]
 
-#     result = json.loads(response.content)
-#     res_association = result["data"]["associationUpdate"]["association"]
+        #     self.assertEqual(res_association["name"], "Test Assoc Name")
+        #     self.assertEqual(res_association["description"], "Test Assoc Description")
 
-#     self.assertEqual(res_association["name"], "Test Assoc Name")
-#     self.assertEqual(res_association["description"], "Test Assoc Description")
+        #     updated_association = Association.objects.get(
+        #         pk=from_global_id(res_association["id"])[1]
+        #     )
+        #     self.assertEqual(updated_association.name, "Test Assoc Name")
+        #     self.assertEqual(updated_association.description, "Test Assoc Description")
 
-#     updated_association = Association.objects.get(
-#         pk=from_global_id(res_association["id"])[1]
-#     )
-#     self.assertEqual(updated_association.name, "Test Assoc Name")
-#     self.assertEqual(updated_association.description, "Test Assoc Description")
+        # def test_association_update_bad_input_no_id(self):
+        #     AssociationFactory()
+        #     query = """
+        #         mutation {
+        #             associationUpdate(input: {
+        #                 name: "Test Assoc Name"
+        #                 description: "Test Assoc Description"
+        #             }) {
+        #                 association {
+        #                     id
+        #                     name
+        #                     description
+        #                 }
+        #             }
+        #         }
+        #     """
+        #     response = self.client.execute(query)
+        #     self.assertIsNotNone(response.errors)
 
-# def test_association_update_bad_input_no_id(self):
-#     AssociationFactory()
-#     query = """
-#         mutation {
-#             associationUpdate(input: {
-#                 name: "Test Assoc Name"
-#                 description: "Test Assoc Description"
-#             }) {
-#                 association {
-#                     id
-#                     name
-#                     description
-#                 }
-#             }
-#         }
-#     """
-#     response = self.query(query)
-#     self.assertResponseHasErrors(response)
+        # def test_association_update_bad_input_no_name(self):
+        #     association = AssociationFactory()
+        #     association_global_id = to_global_id("AssociationNode", association.id)
+        #     query = (
+        #         """
+        #         mutation {
+        #             associationUpdate(input: {
+        #                 id: "%s"
+        #                 description: "Test Assoc Description"
+        #             }) {
+        #                 association {
+        #                     id
+        #                     name
+        #                     description
+        #                 }
+        #             }
+        #         }
+        #     """
+        #         % association_global_id
+        #     )
+        #     response = self.client.execute(query)
+        #     self.assertIsNotNone(response.errors)
 
-# def test_association_update_bad_input_no_name(self):
-#     association = AssociationFactory()
-#     association_global_id = to_global_id("AssociationNode", association.id)
-#     query = (
-#         """
-#         mutation {
-#             associationUpdate(input: {
-#                 id: "%s"
-#                 description: "Test Assoc Description"
-#             }) {
-#                 association {
-#                     id
-#                     name
-#                     description
-#                 }
-#             }
-#         }
-#     """
-#         % association_global_id
-#     )
-#     response = self.query(query)
-#     self.assertResponseHasErrors(response)
+        # def test_association_patch(self):
+        #     association = AssociationFactory(
+        #         name="Not Test Assoc Name", description="Test Assoc Description"
+        #     )
+        #     association_global_id = to_global_id("AssociationNode", association.id)
+        #     query = (
+        #         """
+        #         mutation {
+        #             associationPatch(input: {
+        #                 id: "%s"
+        #                 name: "Test Assoc Name"
+        #             }) {
+        #                 association {
+        #                     id
+        #                     name
+        #                     description
+        #                 }
+        #             }
+        #         }
+        #     """
+        #         % association_global_id
+        #     )
+        #     response = self.client.execute(query)
+        #     self.assertIsNone(response.errors)
 
-# def test_association_patch(self):
-#     association = AssociationFactory(
-#         name="Not Test Assoc Name", description="Test Assoc Description"
-#     )
-#     association_global_id = to_global_id("AssociationNode", association.id)
-#     query = (
-#         """
-#         mutation {
-#             associationPatch(input: {
-#                 id: "%s"
-#                 name: "Test Assoc Name"
-#             }) {
-#                 association {
-#                     id
-#                     name
-#                     description
-#                 }
-#             }
-#         }
-#     """
-#         % association_global_id
-#     )
-#     response = self.query(query)
-#     self.assertResponseNoErrors(response)
+        #
+        #     res_association = response.data["associationPatch"]["association"]
+        #     self.assertEqual(res_association["name"], "Test Assoc Name")
+        #     self.assertEqual(res_association["description"], "Test Assoc Description")
 
-#     result = json.loads(response.content)
-#     res_association = result["data"]["associationPatch"]["association"]
-#     self.assertEqual(res_association["name"], "Test Assoc Name")
-#     self.assertEqual(res_association["description"], "Test Assoc Description")
+        # def test_association_patch_null_name(self):
+        #     association = AssociationFactory(
+        #         name="Not Test Assoc Name", description="Test Assoc Description"
+        #     )
+        #     association_global_id = to_global_id("AssociationNode", association.id)
+        #     query = (
+        #         """
+        #         mutation {
+        #             associationPatch(input: {
+        #                 id: "%s"
+        #                 name: null
+        #             }) {
+        #                 association {
+        #                     id
+        #                     name
+        #                     description
+        #                 }
+        #             }
+        #         }
+        #     """
+        #         % association_global_id
+        #     )
+        #     response = self.client.execute(query)
+        #     self.assertIsNotNone(response.errors)
 
-# def test_association_patch_null_name(self):
-#     association = AssociationFactory(
-#         name="Not Test Assoc Name", description="Test Assoc Description"
-#     )
-#     association_global_id = to_global_id("AssociationNode", association.id)
-#     query = (
-#         """
-#         mutation {
-#             associationPatch(input: {
-#                 id: "%s"
-#                 name: null
-#             }) {
-#                 association {
-#                     id
-#                     name
-#                     description
-#                 }
-#             }
-#         }
-#     """
-#         % association_global_id
-#     )
-#     response = self.query(query)
-#     self.assertResponseHasErrors(response)
 
 # def test_association_delete(self):
 #     association = AssociationFactory()
@@ -1221,11 +1222,11 @@ class RaceMutationTests(CompareMixin, GraphQLTestCase):
 #     """
 #         % association_global_id
 #     )
-#     response = self.query(query)
-#     self.assertResponseNoErrors(response)
+#     response = self.client.execute(query)
+#     self.assertIsNone(response.errors)
 
-#     result = json.loads(response.content)
-#     self.assertTrue(result["data"]["associationDelete"]["ok"])
+#
+#     self.assertTrue(response.data["associationDelete"]["ok"])
 
 #     with self.assertRaises(Association.DoesNotExist):
 #         Association.objects.get(pk=association.id)

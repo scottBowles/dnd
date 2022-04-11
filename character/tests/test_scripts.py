@@ -1,8 +1,8 @@
-import json
 import factory
-from graphene_django.utils.testing import GraphQLTestCase
+from graphql_jwt.testcases import JSONWebTokenTestCase
 from ..models import Script
 from graphql_relay import from_global_id, to_global_id
+from django.contrib.auth import get_user_model
 
 
 class ScriptFactory(factory.django.DjangoModelFactory):
@@ -12,7 +12,11 @@ class ScriptFactory(factory.django.DjangoModelFactory):
     name = factory.Faker("name")
 
 
-class ScriptTests(GraphQLTestCase):
+class ScriptTests(JSONWebTokenTestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create(username="test")
+        self.client.authenticate(self.user)
+
     def test_script_list_query(self):
         factory1 = ScriptFactory()
         factory2 = ScriptFactory()
@@ -28,12 +32,11 @@ class ScriptTests(GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_1 = result["data"]["scripts"]["edges"][0]["node"]
-        res_2 = result["data"]["scripts"]["edges"][1]["node"]
+        res_1 = response.data["scripts"]["edges"][0]["node"]
+        res_2 = response.data["scripts"]["edges"][1]["node"]
 
         # Ensure exactly two results exist, have expected values, and are in the expected order
         self.assertEqual(from_global_id(res_1["id"])[1], str(factory1.id))
@@ -41,7 +44,7 @@ class ScriptTests(GraphQLTestCase):
         self.assertEqual(from_global_id(res_2["id"])[1], str(factory2.id))
         self.assertEqual(res_2["name"], factory2.name)
         with self.assertRaises(IndexError):
-            result["data"]["scripts"]["edges"][2]
+            response.data["scripts"]["edges"][2]
 
     def test_bad_script_list_query(self):
         ScriptFactory()
@@ -58,8 +61,8 @@ class ScriptTests(GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_script_detail_query(self):
         script = ScriptFactory()
@@ -75,11 +78,10 @@ class ScriptTests(GraphQLTestCase):
         """
             % script_global_id
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_script = result["data"]["script"]
+        res_script = response.data["script"]
 
         self.assertEqual(res_script["name"], script.name)
 
@@ -98,11 +100,10 @@ class ScriptTests(GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_script = result["data"]["scriptCreate"]["script"]
+        res_script = response.data["scriptCreate"]["script"]
 
         self.assertEqual(res_script["name"], "Test Script Name")
 
@@ -126,8 +127,8 @@ class ScriptTests(GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_script_update_mutation(self):
         script = ScriptFactory(name="Not Test Script Name")
@@ -148,11 +149,10 @@ class ScriptTests(GraphQLTestCase):
         """
             % script_global_id
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_script = result["data"]["scriptUpdate"]["script"]
+        res_script = response.data["scriptUpdate"]["script"]
 
         self.assertEqual(res_script["name"], "Test Script Name")
 
@@ -173,8 +173,8 @@ class ScriptTests(GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_script_update_bad_input_no_name(self):
         script = ScriptFactory()
@@ -194,8 +194,8 @@ class ScriptTests(GraphQLTestCase):
         """
             % script_global_id
         )
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_script_patch(self):
         script = ScriptFactory(name="Not Test Script Name")
@@ -216,11 +216,10 @@ class ScriptTests(GraphQLTestCase):
         """
             % script_global_id
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_script = result["data"]["scriptPatch"]["script"]
+        res_script = response.data["scriptPatch"]["script"]
         self.assertEqual(res_script["name"], "Test Script Name")
 
     def test_script_patch_null_name(self):
@@ -242,8 +241,8 @@ class ScriptTests(GraphQLTestCase):
         """
             % script_global_id
         )
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_script_delete(self):
         script = ScriptFactory()
@@ -260,11 +259,10 @@ class ScriptTests(GraphQLTestCase):
         """
             % script_global_id
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        self.assertTrue(result["data"]["scriptDelete"]["ok"])
+        self.assertTrue(response.data["scriptDelete"]["ok"])
 
         with self.assertRaises(Script.DoesNotExist):
             Script.objects.get(pk=script.id)

@@ -1,9 +1,9 @@
-from graphene_django.utils.testing import GraphQLTestCase
+from graphql_jwt.testcases import JSONWebTokenTestCase
 from graphql_relay import from_global_id
 from race.tests import test_races
 
 
-class CompareMixin(test_races.CompareMixin, GraphQLTestCase):
+class CompareMixin(test_races.CompareMixin, JSONWebTokenTestCase):
     def compare_npcs(
         self, model_npc, node_npc, compare_features=False, compare_proficiencies=False
     ):

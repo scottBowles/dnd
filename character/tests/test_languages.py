@@ -1,16 +1,21 @@
 import random
 import json
-from graphene_django.utils.testing import GraphQLTestCase
+from graphql_jwt.testcases import JSONWebTokenTestCase
 from graphql_relay import from_global_id, to_global_id
 from .factories import LanguageFactory, ScriptFactory
 from .utils import CompareMixin
 from ..models import Language
+from django.contrib.auth import get_user_model
 
 
-class LanguageTests(CompareMixin, GraphQLTestCase):
+class LanguageTests(CompareMixin, JSONWebTokenTestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create(username="test")
+        self.client.authenticate(self.user)
+
     def test_language_detail_query(self):
         language = LanguageFactory()
-        response = self.query(
+        response = self.client.execute(
             """
             query {
                 language(id: "%s") {
@@ -25,16 +30,15 @@ class LanguageTests(CompareMixin, GraphQLTestCase):
             """
             % to_global_id("LanguageNode", language.id)
         )
-        self.assertResponseNoErrors(response)
+        self.assertIsNone(response.errors)
 
-        res_json = json.loads(response.content)
-        res_language = res_json["data"]["language"]
+        res_language = response.data["language"]
         self.compare_languages(language, res_language)
 
     def test_language_list_query(self):
         num_languages = random.randint(0, 10)
         languages = LanguageFactory.create_batch(num_languages)
-        response = self.query(
+        response = self.client.execute(
             """
             query {
                 languages {
@@ -52,9 +56,8 @@ class LanguageTests(CompareMixin, GraphQLTestCase):
             }
             """
         )
-        self.assertResponseNoErrors(response)
-        res_json = json.loads(response.content)
-        res_languages = res_json["data"]["languages"]["edges"]
+        self.assertIsNone(response.errors)
+        res_languages = response.data["languages"]["edges"]
         self.assertEqual(len(res_languages), num_languages)
         for i, language in enumerate(languages):
             res_language = res_languages[i]["node"]
@@ -86,11 +89,10 @@ class LanguageTests(CompareMixin, GraphQLTestCase):
             description,
         )
 
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_language = result["data"]["languageCreate"]["language"]
+        res_language = response.data["languageCreate"]["language"]
 
         self.assertEqual(res_language["name"], name)
         self.assertEqual(res_language["description"], description)
@@ -133,11 +135,10 @@ class LanguageTests(CompareMixin, GraphQLTestCase):
             to_global_id("ScriptNode", script.id),
         )
 
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_language = result["data"]["languageCreate"]["language"]
+        res_language = response.data["languageCreate"]["language"]
 
         self.assertEqual(res_language["name"], name)
         self.assertEqual(res_language["description"], description)
@@ -168,8 +169,8 @@ class LanguageTests(CompareMixin, GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_language_update_mutation_without_script(self):
         language = LanguageFactory(
@@ -197,11 +198,10 @@ class LanguageTests(CompareMixin, GraphQLTestCase):
         """
             % language_global_id
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_language = result["data"]["languageUpdate"]["language"]
+        res_language = response.data["languageUpdate"]["language"]
 
         self.assertEqual(res_language["name"], "Test Language Name")
         self.assertEqual(res_language["description"], "Test Language Description")
@@ -243,11 +243,10 @@ class LanguageTests(CompareMixin, GraphQLTestCase):
             language_global_id,
             script_global_id,
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_language = result["data"]["languageUpdate"]["language"]
+        res_language = response.data["languageUpdate"]["language"]
 
         self.assertEqual(res_language["name"], "Test Language Name")
         self.assertEqual(res_language["description"], "Test Language Description")
@@ -278,8 +277,8 @@ class LanguageTests(CompareMixin, GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_language_update_bad_input_no_name(self):
         language = LanguageFactory()
@@ -304,8 +303,8 @@ class LanguageTests(CompareMixin, GraphQLTestCase):
         """
             % language_global_id
         )
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_language_patch(self):
         language = LanguageFactory(
@@ -332,11 +331,10 @@ class LanguageTests(CompareMixin, GraphQLTestCase):
         """
             % language_global_id
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_language = result["data"]["languagePatch"]["language"]
+        res_language = response.data["languagePatch"]["language"]
         self.assertEqual(res_language["name"], "Test Language Name")
         self.assertEqual(res_language["description"], "Test Language Description")
 
@@ -365,8 +363,8 @@ class LanguageTests(CompareMixin, GraphQLTestCase):
         """
             % language_global_id
         )
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_language_delete(self):
         language = LanguageFactory()
@@ -383,11 +381,10 @@ class LanguageTests(CompareMixin, GraphQLTestCase):
         """
             % language_global_id
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        self.assertTrue(result["data"]["languageDelete"]["ok"])
+        self.assertTrue(response.data["languageDelete"]["ok"])
 
         with self.assertRaises(Language.DoesNotExist):
             Language.objects.get(pk=language.id)

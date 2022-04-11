@@ -1,8 +1,9 @@
 import json
 import factory
-from graphene_django.utils.testing import GraphQLTestCase
+from graphql_jwt.testcases import JSONWebTokenTestCase
 from .models import User
 from graphql_relay import from_global_id, to_global_id
+from django.contrib.auth import get_user_model
 
 
 class UserFactory(factory.django.DjangoModelFactory):
@@ -15,10 +16,14 @@ class UserFactory(factory.django.DjangoModelFactory):
     isDM = factory.Faker("pybool")
 
 
-class UserTests(GraphQLTestCase):
+class UserTests(JSONWebTokenTestCase):
+    def setUp(self):
+        self.user = UserFactory()
+        self.client.authenticate(self.user)
+
     def test_user_list_query(self):
-        factory1 = UserFactory()
-        factory2 = UserFactory()
+        first_user = self.user
+        second_user = UserFactory()
         query = """
             query {
                 users {
@@ -35,28 +40,27 @@ class UserTests(GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_1 = result["data"]["users"]["edges"][0]["node"]
-        res_2 = result["data"]["users"]["edges"][1]["node"]
+        res_1 = response.data["users"]["edges"][0]["node"]
+        res_2 = response.data["users"]["edges"][1]["node"]
 
         # Ensure exactly two results exist, have expected values, and are in the expected order
-        self.assertEqual(from_global_id(res_1["id"])[1], str(factory1.id))
-        self.assertEqual(res_1["username"], factory1.username)
-        self.assertEqual(res_1["email"], factory1.email)
-        self.assertEqual(res_1["isDM"], factory1.isDM)
-        self.assertEqual(res_1["firstName"], factory1.first_name)
-        self.assertEqual(res_1["lastName"], factory1.last_name)
-        self.assertEqual(from_global_id(res_2["id"])[1], str(factory2.id))
-        self.assertEqual(res_2["username"], factory2.username)
-        self.assertEqual(res_2["email"], factory2.email)
-        self.assertEqual(res_2["isDM"], factory2.isDM)
-        self.assertEqual(res_2["firstName"], factory2.first_name)
-        self.assertEqual(res_2["lastName"], factory2.last_name)
+        self.assertEqual(from_global_id(res_1["id"])[1], str(first_user.id))
+        self.assertEqual(res_1["username"], first_user.username)
+        self.assertEqual(res_1["email"], first_user.email)
+        self.assertEqual(res_1["isDM"], first_user.isDM)
+        self.assertEqual(res_1["firstName"], first_user.first_name)
+        self.assertEqual(res_1["lastName"], first_user.last_name)
+        self.assertEqual(from_global_id(res_2["id"])[1], str(second_user.id))
+        self.assertEqual(res_2["username"], second_user.username)
+        self.assertEqual(res_2["email"], second_user.email)
+        self.assertEqual(res_2["isDM"], second_user.isDM)
+        self.assertEqual(res_2["firstName"], second_user.first_name)
+        self.assertEqual(res_2["lastName"], second_user.last_name)
         with self.assertRaises(IndexError):
-            result["data"]["users"]["edges"][2]
+            response.data["users"]["edges"][2]
 
     def test_bad_user_list_query(self):
         UserFactory()
@@ -76,8 +80,8 @@ class UserTests(GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_user_detail_query(self):
         user = UserFactory()
@@ -97,11 +101,10 @@ class UserTests(GraphQLTestCase):
         """
             % user_global_id
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_user = result["data"]["user"]
+        res_user = response.data["user"]
 
         self.assertEqual(res_user["username"], user.username)
         self.assertEqual(res_user["email"], user.email)

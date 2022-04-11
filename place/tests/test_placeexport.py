@@ -1,5 +1,5 @@
 # import json
-# from graphene_django.utils.testing import GraphQLTestCase
+# from graphql_jwt.testcases import JSONWebTokenTestCase
 # from ..models import PlaceExport
 # from graphql_relay import from_global_id, to_global_id
 # from .factories import ExportFactory, PlaceFactory, PlaceExportFactory
@@ -10,8 +10,10 @@
 # """
 
 
-# class PlaceExportTests(GraphQLTestCase):
+# class PlaceExportTests(JSONWebTokenTestCase):
 #     def setUp(self):
+#         self.user = get_user_model().objects.create(username="test")
+#         self.client.authenticate(self.user)
 #         super().setUp()
 #         self.place = PlaceFactory()
 #         self.export = ExportFactory()
@@ -49,11 +51,11 @@
 #             self.significance[0],
 #         )
 
-#         response = self.query(query)
-#         self.assertResponseNoErrors(response)
+#         response = self.client.execute(query)
+#         self.assertIsNone(response.errors)
 
-#         result = json.loads(response.content)
-#         res_placeExport = result["data"]["placeExportCreate"]["placeExport"]
+#
+#         res_placeExport = response.data["placeExportCreate"]["placeExport"]
 
 #         self.assertEqual(
 #             res_placeExport["place"]["id"], to_global_id("PlaceNode", self.place.id)
@@ -90,8 +92,8 @@
 #             to_global_id("ExportNode", self.export.pk),
 #             self.significance[0],
 #         )
-#         response = self.query(query)
-#         self.assertResponseHasErrors(response)
+#         response = self.client.execute(query)
+#         self.assertIsNotNone(response.errors)
 
 #     def test_placeExport_update_mutation(self):
 #         PlaceExportFactory(
@@ -125,11 +127,11 @@
 #             to_global_id("ExportNode", self.export.pk),
 #             PlaceExport.SIGNIFICANCE[1][0],
 #         )
-#         response = self.query(query)
-#         self.assertResponseNoErrors(response)
+#         response = self.client.execute(query)
+#         self.assertIsNone(response.errors)
 
-#         result = json.loads(response.content)
-#         res_placeExport = result["data"]["placeExportUpdate"]["placeExport"]
+#
+#         res_placeExport = response.data["placeExportUpdate"]["placeExport"]
 
 #         self.assertEqual(
 #             res_placeExport["place"]["id"], to_global_id("PlaceNode", self.place.id)
@@ -178,8 +180,8 @@
 #             to_global_id("PlaceNode", self.place.pk),
 #             self.significance[0],
 #         )
-#         response = self.query(query)
-#         self.assertResponseHasErrors(response)
+#         response = self.client.execute(query)
+#         self.assertIsNotNone(response.errors)
 
 #     def test_placeExport_patch_mutation(self):
 #         PlaceExportFactory(
@@ -213,11 +215,11 @@
 #             to_global_id("ExportNode", self.export.pk),
 #             PlaceExport.SIGNIFICANCE[1][0],
 #         )
-#         response = self.query(query)
-#         self.assertResponseNoErrors(response)
+#         response = self.client.execute(query)
+#         self.assertIsNone(response.errors)
 
-#         result = json.loads(response.content)
-#         res_placeExport = result["data"]["placeExportPatch"]["placeExport"]
+#
+#         res_placeExport = response.data["placeExportPatch"]["placeExport"]
 
 #         self.assertEqual(
 #             res_placeExport["place"]["id"], to_global_id("PlaceNode", self.place.id)
@@ -266,8 +268,8 @@
 #             to_global_id("PlaceNode", self.place.pk),
 #             self.significance[0],
 #         )
-#         response = self.query(query)
-#         self.assertResponseHasErrors(response)
+#         response = self.client.execute(query)
+#         self.assertIsNotNone(response.errors)
 
 #     def test_placeExport_delete(self):
 #         placeExport = PlaceExportFactory(place=self.place, export=self.export)
@@ -284,11 +286,11 @@
 #             to_global_id("PlaceNode", self.place.pk),
 #             to_global_id("ExportNode", self.export.pk),
 #         )
-#         response = self.query(query)
-#         self.assertResponseNoErrors(response)
+#         response = self.client.execute(query)
+#         self.assertIsNone(response.errors)
 
-#         result = json.loads(response.content)
-#         self.assertTrue(result["data"]["placeExportDelete"]["ok"])
+#
+#         self.assertTrue(response.data["placeExportDelete"]["ok"])
 
 #         with self.assertRaises(PlaceExport.DoesNotExist):
 #             PlaceExport.objects.get(pk=placeExport.id)

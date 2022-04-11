@@ -1,12 +1,17 @@
 import json
-from graphene_django.utils.testing import GraphQLTestCase
+from graphql_jwt.testcases import JSONWebTokenTestCase
 from ..models import Feature
 from graphql_relay import from_global_id, to_global_id
 from .factories import FeatureFactory
 from .utils import CompareMixin
+from django.contrib.auth import get_user_model
 
 
-class FeatureTests(CompareMixin, GraphQLTestCase):
+class FeatureTests(CompareMixin, JSONWebTokenTestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create(username="test")
+        self.client.authenticate(self.user)
+
     def test_feature_list_query(self):
         factory1 = FeatureFactory()
         factory2 = FeatureFactory()
@@ -23,18 +28,17 @@ class FeatureTests(CompareMixin, GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_1 = result["data"]["features"]["edges"][0]["node"]
-        res_2 = result["data"]["features"]["edges"][1]["node"]
+        res_1 = response.data["features"]["edges"][0]["node"]
+        res_2 = response.data["features"]["edges"][1]["node"]
 
         # Ensure exactly two results exist, have expected values, and are in the expected order
         self.compare_features(factory1, res_1)
         self.compare_features(factory2, res_2)
         with self.assertRaises(IndexError):
-            result["data"]["features"]["edges"][2]
+            response.data["features"]["edges"][2]
 
     def test_bad_feature_list_query(self):
         FeatureFactory()
@@ -52,8 +56,8 @@ class FeatureTests(CompareMixin, GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_feature_detail_query(self):
         feature = FeatureFactory()
@@ -70,11 +74,10 @@ class FeatureTests(CompareMixin, GraphQLTestCase):
         """
             % feature_global_id
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_feature = result["data"]["feature"]
+        res_feature = response.data["feature"]
 
         self.compare_features(feature, res_feature)
 
@@ -95,11 +98,10 @@ class FeatureTests(CompareMixin, GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_feature = result["data"]["featureCreate"]["feature"]
+        res_feature = response.data["featureCreate"]["feature"]
 
         self.assertEqual(res_feature["name"], "Test Feature Name")
         self.assertEqual(res_feature["description"], "Test Feature Description")
@@ -124,8 +126,8 @@ class FeatureTests(CompareMixin, GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_feature_update_mutation(self):
         feature = FeatureFactory(
@@ -150,11 +152,10 @@ class FeatureTests(CompareMixin, GraphQLTestCase):
         """
             % feature_global_id
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_feature = result["data"]["featureUpdate"]["feature"]
+        res_feature = response.data["featureUpdate"]["feature"]
 
         self.assertEqual(res_feature["name"], "Test Feature Name")
         self.assertEqual(res_feature["description"], "Test Feature Description")
@@ -180,8 +181,8 @@ class FeatureTests(CompareMixin, GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_feature_update_bad_input_no_name(self):
         feature = FeatureFactory()
@@ -203,8 +204,8 @@ class FeatureTests(CompareMixin, GraphQLTestCase):
         """
             % feature_global_id
         )
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_feature_patch(self):
         feature = FeatureFactory(
@@ -228,11 +229,10 @@ class FeatureTests(CompareMixin, GraphQLTestCase):
         """
             % feature_global_id
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_feature = result["data"]["featurePatch"]["feature"]
+        res_feature = response.data["featurePatch"]["feature"]
         self.assertEqual(res_feature["name"], "Test Feature Name")
         self.assertEqual(res_feature["description"], "Test Feature Description")
         updated_feature = Feature.objects.get(pk=feature.pk)
@@ -260,8 +260,8 @@ class FeatureTests(CompareMixin, GraphQLTestCase):
         """
             % feature_global_id
         )
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_feature_delete(self):
         feature = FeatureFactory()
@@ -278,11 +278,10 @@ class FeatureTests(CompareMixin, GraphQLTestCase):
         """
             % feature_global_id
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        self.assertTrue(result["data"]["featureDelete"]["ok"])
+        self.assertTrue(response.data["featureDelete"]["ok"])
 
         with self.assertRaises(Feature.DoesNotExist):
             Feature.objects.get(pk=feature.id)

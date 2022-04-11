@@ -1,8 +1,8 @@
-from graphene_django.utils.testing import GraphQLTestCase
+from graphql_jwt.testcases import JSONWebTokenTestCase
 from graphql_relay import from_global_id
 
 
-class CompareMixin(GraphQLTestCase):
+class CompareMixin(JSONWebTokenTestCase):
     def compare_races(
         self,
         model_race,

@@ -1,13 +1,15 @@
-import json
-from graphene_django.utils.testing import GraphQLTestCase
+from graphql_jwt.testcases import JSONWebTokenTestCase
 from ..models import Skill, ABILITIES
 from .utils import CompareMixin
 from graphql_relay import from_global_id, to_global_id
 from .factories import SkillFactory
+from django.contrib.auth import get_user_model
 
 
-class SkillTests(CompareMixin, GraphQLTestCase):
+class SkillTests(CompareMixin, JSONWebTokenTestCase):
     def setUp(self):
+        self.user = get_user_model().objects.create(username="test")
+        self.client.authenticate(self.user)
         self.name = "Test Skill Name"
         self.description = "Test Skill Description"
         self.related_ability = ABILITIES[0][0]
@@ -30,18 +32,17 @@ class SkillTests(CompareMixin, GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_1 = result["data"]["skills"]["edges"][0]["node"]
-        res_2 = result["data"]["skills"]["edges"][1]["node"]
+        res_1 = response.data["skills"]["edges"][0]["node"]
+        res_2 = response.data["skills"]["edges"][1]["node"]
 
         # Ensure exactly two results exist, have expected values, and are in the expected order
         self.compare_skills(factory1, res_1)
         self.compare_skills(factory2, res_2)
         with self.assertRaises(IndexError):
-            result["data"]["skills"]["edges"][2]
+            response.data["skills"]["edges"][2]
 
     def test_bad_skill_list_query(self):
         SkillFactory()
@@ -61,8 +62,8 @@ class SkillTests(CompareMixin, GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_skill_detail_query(self):
         skill = SkillFactory()
@@ -81,11 +82,10 @@ class SkillTests(CompareMixin, GraphQLTestCase):
         """
             % skill_global_id
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_skill = result["data"]["skill"]
+        res_skill = response.data["skill"]
 
         self.compare_skills(skill, res_skill)
 
@@ -114,11 +114,10 @@ class SkillTests(CompareMixin, GraphQLTestCase):
             self.description,
             self.related_ability,
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_skill = result["data"]["skillCreate"]["skill"]
+        res_skill = response.data["skillCreate"]["skill"]
 
         self.assertEqual(res_skill["name"], self.name)
         self.assertEqual(res_skill["description"], self.description)
@@ -151,8 +150,8 @@ class SkillTests(CompareMixin, GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_skill_update_mutation(self):
         skill = SkillFactory(
@@ -183,11 +182,10 @@ class SkillTests(CompareMixin, GraphQLTestCase):
             self.description,
             self.related_ability,
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_skill = result["data"]["skillUpdate"]["skill"]
+        res_skill = response.data["skillUpdate"]["skill"]
 
         self.assertEqual(res_skill["name"], self.name)
         self.assertEqual(res_skill["description"], self.description)
@@ -216,8 +214,8 @@ class SkillTests(CompareMixin, GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_skill_update_bad_input_no_name(self):
         skill = SkillFactory()
@@ -241,8 +239,8 @@ class SkillTests(CompareMixin, GraphQLTestCase):
         """
             % skill_global_id
         )
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_skill_patch(self):
         skill = SkillFactory(
@@ -268,11 +266,10 @@ class SkillTests(CompareMixin, GraphQLTestCase):
         """
             % skill_global_id
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_skill = result["data"]["skillPatch"]["skill"]
+        res_skill = response.data["skillPatch"]["skill"]
         self.assertEqual(res_skill["name"], "Test Skill Name")
         self.assertEqual(res_skill["description"], "Test Skill Description")
 
@@ -300,8 +297,8 @@ class SkillTests(CompareMixin, GraphQLTestCase):
         """
             % skill_global_id
         )
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_skill_delete(self):
         skill = SkillFactory()
@@ -318,11 +315,10 @@ class SkillTests(CompareMixin, GraphQLTestCase):
         """
             % skill_global_id
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        self.assertTrue(result["data"]["skillDelete"]["ok"])
+        self.assertTrue(response.data["skillDelete"]["ok"])
 
         with self.assertRaises(Skill.DoesNotExist):
             Skill.objects.get(pk=skill.id)

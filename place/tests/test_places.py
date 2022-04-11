@@ -1,5 +1,5 @@
 import json
-from graphene_django.utils.testing import GraphQLTestCase
+from graphql_jwt.testcases import JSONWebTokenTestCase
 from ..models import Place, PlaceExport
 from graphql_relay import from_global_id, to_global_id
 from .factories import (
@@ -11,9 +11,10 @@ from .factories import (
     RaceFactory,
     PlaceRaceFactory,
 )
+from django.contrib.auth import get_user_model
 
 
-class CompareMixin(GraphQLTestCase):
+class CompareMixin(JSONWebTokenTestCase):
     def compare_associations(self, model_association, node_association):
         self.assertEqual(
             str(model_association.id), from_global_id(node_association["id"])[1]
@@ -96,11 +97,15 @@ class CompareMixin(GraphQLTestCase):
             self.compare_place_race_edges(place_races, races_edges)
 
 
-class PlaceQueryTests(CompareMixin, GraphQLTestCase):
+class PlaceQueryTests(CompareMixin, JSONWebTokenTestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create(username="test")
+        self.client.authenticate(self.user)
+
     def test_basic_place_list_query(self):
         places = PlaceFactory.create_batch(2)
 
-        response = self.query(
+        response = self.client.execute(
             """
             query {
                 places {
@@ -121,9 +126,8 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
             }
             """
         )
-        self.assertResponseNoErrors(response)
-        res_places = json.loads(response.content)
-        res_places = res_places["data"]["places"]["edges"]
+        self.assertIsNone(response.errors)
+        res_places = response.data["places"]["edges"]
 
         self.assertEqual(len(res_places), 2)
         for i, place in enumerate(places):
@@ -143,7 +147,7 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
         place = PlaceFactory(parent=place_parent)
         places = Place.objects.all()
 
-        response = self.query(
+        response = self.client.execute(
             """
             query {
                 places {
@@ -186,17 +190,17 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
             }
             """
         )
-        self.assertResponseNoErrors(response)
-        result = json.loads(response.content)
-        self.assertEqual(len(result["data"]["places"]["edges"]), places.count())
+        self.assertIsNone(response.errors)
+
+        self.assertEqual(len(response.data["places"]["edges"]), places.count())
         for i, place in enumerate(places):
-            equivalent_place = result["data"]["places"]["edges"][i]["node"]
+            equivalent_place = response.data["places"]["edges"][i]["node"]
             self.compare_places(place, equivalent_place, compare_parents_to_depth=2)
 
     def test_basic_place_detail_query(self):
         place = PlaceFactory()
 
-        response = self.query(
+        response = self.client.execute(
             """
             query {
                 place(id: "%s") {
@@ -214,10 +218,9 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
             """
             % to_global_id("PlaceNode", place.id)
         )
-        self.assertResponseNoErrors(response)
+        self.assertIsNone(response.errors)
 
-        res_json = json.loads(response.content)
-        res_place = res_json["data"]["place"]
+        res_place = response.data["place"]
 
         self.compare_places(place, res_place)
 
@@ -228,7 +231,7 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
         PlaceFactory(parent=place, name="place_child1")
         PlaceFactory(parent=place, name="place_child2")
 
-        response = self.query(
+        response = self.client.execute(
             """
             query {
                 place(id: "%s") {
@@ -283,10 +286,9 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
             """
             % to_global_id("PlaceNode", place.id)
         )
-        self.assertResponseNoErrors(response)
+        self.assertIsNone(response.errors)
 
-        res_place = json.loads(response.content)
-        res_place = res_place["data"]["place"]
+        res_place = response.data["place"]
 
         self.assertEqual(res_place["parent"]["parent"]["name"], place_grandparent.name)
         self.assertEqual(len(res_place["children"]["edges"]), 2)
@@ -308,7 +310,7 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
         PlaceAssociationFactory(place=place2, association=association1)
         PlaceAssociationFactory(place=place2, association=association2)
 
-        response = self.query(
+        response = self.client.execute(
             """
             query {
                 place(id: "%s") {
@@ -336,10 +338,9 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
             """
             % to_global_id("PlaceNode", place1.id)
         )
-        self.assertResponseNoErrors(response)
+        self.assertIsNone(response.errors)
 
-        res_json = json.loads(response.content)
-        res_place = res_json["data"]["place"]
+        res_place = response.data["place"]
 
         self.assertEqual(len(res_place["associations"]["edges"]), 2)
         self.compare_places(place1, res_place, compare_associations=True)
@@ -354,7 +355,7 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
         PlaceExportFactory(place=place2, export=export1)
         PlaceExportFactory(place=place2, export=export2)
 
-        response = self.query(
+        response = self.client.execute(
             """
             query {
                 place(id: "%s") {
@@ -382,10 +383,9 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
             """
             % to_global_id("PlaceNode", place1.id)
         )
-        self.assertResponseNoErrors(response)
+        self.assertIsNone(response.errors)
 
-        res_json = json.loads(response.content)
-        res_place = res_json["data"]["place"]
+        res_place = response.data["place"]
 
         self.assertEqual(len(res_place["exports"]["edges"]), 2)
         self.compare_places(place1, res_place, compare_exports=True)
@@ -400,7 +400,7 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
         PlaceRaceFactory(place=place2, race=race1)
         PlaceRaceFactory(place=place2, race=race2)
 
-        response = self.query(
+        response = self.client.execute(
             """
             query {
                 place(id: "%s") {
@@ -428,16 +428,19 @@ class PlaceQueryTests(CompareMixin, GraphQLTestCase):
             """
             % to_global_id("PlaceNode", place1.id)
         )
-        self.assertResponseNoErrors(response)
+        self.assertIsNone(response.errors)
 
-        res_json = json.loads(response.content)
-        res_place = res_json["data"]["place"]
+        res_place = response.data["place"]
 
         self.assertEqual(len(res_place["commonRaces"]["edges"]), 2)
         self.compare_places(place1, res_place, compare_races=True)
 
 
-class PlaceMutationTests(CompareMixin, GraphQLTestCase):
+class PlaceMutationTests(CompareMixin, JSONWebTokenTestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create(username="test")
+        self.client.authenticate(self.user)
+
     def test_basic_place_create_mutation(self):
         query = """
             mutation {
@@ -465,11 +468,10 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_place = result["data"]["placeCreate"]["place"]
+        res_place = response.data["placeCreate"]["place"]
 
         self.assertEqual(res_place["name"], "Test Place Name")
         self.assertEqual(res_place["description"], "Test Place Description")
@@ -504,8 +506,8 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_place_create_with_parent(self):
         parent = PlaceFactory()
@@ -552,11 +554,10 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
             "PlaceNode", parent.id
         )
 
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_place = result["data"]["placeCreate"]["place"]
+        res_place = response.data["placeCreate"]["place"]
 
         created_place = Place.objects.get(pk=from_global_id(res_place["id"])[1])
 
@@ -613,11 +614,10 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
             to_global_id("ExportNode", export2.id),
         )
 
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_place = result["data"]["placeCreate"]["place"]
+        res_place = response.data["placeCreate"]["place"]
 
         created_place = Place.objects.get(pk=from_global_id(res_place["id"])[1])
 
@@ -672,8 +672,8 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
             to_global_id("ExportNode", 12345),
         )
 
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
         with self.assertRaises(Place.DoesNotExist):
             Place.objects.get(name="Test Place Name")
@@ -729,11 +729,10 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
             to_global_id("AssociationNode", association2.id),
         )
 
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_place = result["data"]["placeCreate"]["place"]
+        res_place = response.data["placeCreate"]["place"]
 
         created_place = Place.objects.get(pk=from_global_id(res_place["id"])[1])
 
@@ -788,206 +787,206 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
             to_global_id("AssociationNode", 12345),
         )
 
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
         with self.assertRaises(Place.DoesNotExist):
             Place.objects.get(name="Test Place Name")
 
-    # ASSOCIATIONS AND RACES REMAIN
+        # ASSOCIATIONS AND RACES REMAIN
 
-    # def test_association_create_with_common_races(self):
-    #     query = """
-    #         mutation {
-    #             placeCreate(input: {
-    #                 name: "Test Place Name"
-    #                 description: "Test Place Description"
-    #                 placeType: "TOWN"
-    #                 population: 100
-    #                 commonRaces: [{
-    #                     significance: 0
-    #                     export: {
-    #                         name: "Nitre"
-    #                         description: "Salt from the desert"
-    #                     }
-    #                 }, {
-    #                     significance: 1
-    #                     export: {
-    #                         name: "Wheat"
-    #                         description: "Good for making bread"
-    #                     }
-    #                 }]
-    #             }) {
-    #                 ok
-    #                 errors
-    #                 place {
-    #                     id
-    #                     name
-    #                     description
-    #                     created
-    #                     updated
-    #                     placeType
-    #                     population
-    #                     exports {
-    #                         edges {
-    #                             significance
-    #                             node {
-    #                                 id
-    #                                 name
-    #                                 description
-    #                             }
-    #                         }
-    #                     }
-    #                 }
-    #             }
-    #         }
-    #     """
+        # def test_association_create_with_common_races(self):
+        #     query = """
+        #         mutation {
+        #             placeCreate(input: {
+        #                 name: "Test Place Name"
+        #                 description: "Test Place Description"
+        #                 placeType: "TOWN"
+        #                 population: 100
+        #                 commonRaces: [{
+        #                     significance: 0
+        #                     export: {
+        #                         name: "Nitre"
+        #                         description: "Salt from the desert"
+        #                     }
+        #                 }, {
+        #                     significance: 1
+        #                     export: {
+        #                         name: "Wheat"
+        #                         description: "Good for making bread"
+        #                     }
+        #                 }]
+        #             }) {
+        #                 ok
+        #                 errors
+        #                 place {
+        #                     id
+        #                     name
+        #                     description
+        #                     created
+        #                     updated
+        #                     placeType
+        #                     population
+        #                     exports {
+        #                         edges {
+        #                             significance
+        #                             node {
+        #                                 id
+        #                                 name
+        #                                 description
+        #                             }
+        #                         }
+        #                     }
+        #                 }
+        #             }
+        #         }
+        #     """
 
-    #     response = self.query(query)
-    #     self.assertResponseNoErrors(response)
+        #     response = self.client.execute(query)
+        #     self.assertIsNone(response.errors)
 
-    #     result = json.loads(response.content)
-    #     res_place = result["data"]["placeCreate"]["place"]
+        #
+        #     res_place = response.data["placeCreate"]["place"]
 
-    #     created_place = Place.objects.get(pk=from_global_id(res_place["id"])[1])
+        #     created_place = Place.objects.get(pk=from_global_id(res_place["id"])[1])
 
-    #     self.assertEqual(len(created_place.exports.all()), 2)
-    #     self.compare_places(created_place, res_place, compare_exports=True)
+        #     self.assertEqual(len(created_place.exports.all()), 2)
+        #     self.compare_places(created_place, res_place, compare_exports=True)
 
-    # def test_association_update_mutation(self):
-    #     association = AssociationFactory(
-    #         name="Not Test Assoc Name", description="Not Test Assoc Description"
-    #     )
-    #     association_global_id = to_global_id("AssociationNode", association.id)
-    #     query = (
-    #         """
-    #         mutation {
-    #             associationUpdate(input: {
-    #                 id: "%s"
-    #                 name: "Test Assoc Name"
-    #                 description: "Test Assoc Description"
-    #             }) {
-    #                 association {
-    #                     id
-    #                     name
-    #                     description
-    #                 }
-    #             }
-    #         }
-    #     """
-    #         % association_global_id
-    #     )
-    #     response = self.query(query)
-    #     self.assertResponseNoErrors(response)
+        # def test_association_update_mutation(self):
+        #     association = AssociationFactory(
+        #         name="Not Test Assoc Name", description="Not Test Assoc Description"
+        #     )
+        #     association_global_id = to_global_id("AssociationNode", association.id)
+        #     query = (
+        #         """
+        #         mutation {
+        #             associationUpdate(input: {
+        #                 id: "%s"
+        #                 name: "Test Assoc Name"
+        #                 description: "Test Assoc Description"
+        #             }) {
+        #                 association {
+        #                     id
+        #                     name
+        #                     description
+        #                 }
+        #             }
+        #         }
+        #     """
+        #         % association_global_id
+        #     )
+        #     response = self.client.execute(query)
+        #     self.assertIsNone(response.errors)
 
-    #     result = json.loads(response.content)
-    #     res_association = result["data"]["associationUpdate"]["association"]
+        #
+        #     res_association = response.data["associationUpdate"]["association"]
 
-    #     self.assertEqual(res_association["name"], "Test Assoc Name")
-    #     self.assertEqual(res_association["description"], "Test Assoc Description")
+        #     self.assertEqual(res_association["name"], "Test Assoc Name")
+        #     self.assertEqual(res_association["description"], "Test Assoc Description")
 
-    #     updated_association = Association.objects.get(
-    #         pk=from_global_id(res_association["id"])[1]
-    #     )
-    #     self.assertEqual(updated_association.name, "Test Assoc Name")
-    #     self.assertEqual(updated_association.description, "Test Assoc Description")
+        #     updated_association = Association.objects.get(
+        #         pk=from_global_id(res_association["id"])[1]
+        #     )
+        #     self.assertEqual(updated_association.name, "Test Assoc Name")
+        #     self.assertEqual(updated_association.description, "Test Assoc Description")
 
-    # def test_association_update_bad_input_no_id(self):
-    #     AssociationFactory()
-    #     query = """
-    #         mutation {
-    #             associationUpdate(input: {
-    #                 name: "Test Assoc Name"
-    #                 description: "Test Assoc Description"
-    #             }) {
-    #                 association {
-    #                     id
-    #                     name
-    #                     description
-    #                 }
-    #             }
-    #         }
-    #     """
-    #     response = self.query(query)
-    #     self.assertResponseHasErrors(response)
+        # def test_association_update_bad_input_no_id(self):
+        #     AssociationFactory()
+        #     query = """
+        #         mutation {
+        #             associationUpdate(input: {
+        #                 name: "Test Assoc Name"
+        #                 description: "Test Assoc Description"
+        #             }) {
+        #                 association {
+        #                     id
+        #                     name
+        #                     description
+        #                 }
+        #             }
+        #         }
+        #     """
+        #     response = self.client.execute(query)
+        #     self.assertIsNotNone(response.errors)
 
-    # def test_association_update_bad_input_no_name(self):
-    #     association = AssociationFactory()
-    #     association_global_id = to_global_id("AssociationNode", association.id)
-    #     query = (
-    #         """
-    #         mutation {
-    #             associationUpdate(input: {
-    #                 id: "%s"
-    #                 description: "Test Assoc Description"
-    #             }) {
-    #                 association {
-    #                     id
-    #                     name
-    #                     description
-    #                 }
-    #             }
-    #         }
-    #     """
-    #         % association_global_id
-    #     )
-    #     response = self.query(query)
-    #     self.assertResponseHasErrors(response)
+        # def test_association_update_bad_input_no_name(self):
+        #     association = AssociationFactory()
+        #     association_global_id = to_global_id("AssociationNode", association.id)
+        #     query = (
+        #         """
+        #         mutation {
+        #             associationUpdate(input: {
+        #                 id: "%s"
+        #                 description: "Test Assoc Description"
+        #             }) {
+        #                 association {
+        #                     id
+        #                     name
+        #                     description
+        #                 }
+        #             }
+        #         }
+        #     """
+        #         % association_global_id
+        #     )
+        #     response = self.client.execute(query)
+        #     self.assertIsNotNone(response.errors)
 
-    # def test_association_patch(self):
-    #     association = AssociationFactory(
-    #         name="Not Test Assoc Name", description="Test Assoc Description"
-    #     )
-    #     association_global_id = to_global_id("AssociationNode", association.id)
-    #     query = (
-    #         """
-    #         mutation {
-    #             associationPatch(input: {
-    #                 id: "%s"
-    #                 name: "Test Assoc Name"
-    #             }) {
-    #                 association {
-    #                     id
-    #                     name
-    #                     description
-    #                 }
-    #             }
-    #         }
-    #     """
-    #         % association_global_id
-    #     )
-    #     response = self.query(query)
-    #     self.assertResponseNoErrors(response)
+        # def test_association_patch(self):
+        #     association = AssociationFactory(
+        #         name="Not Test Assoc Name", description="Test Assoc Description"
+        #     )
+        #     association_global_id = to_global_id("AssociationNode", association.id)
+        #     query = (
+        #         """
+        #         mutation {
+        #             associationPatch(input: {
+        #                 id: "%s"
+        #                 name: "Test Assoc Name"
+        #             }) {
+        #                 association {
+        #                     id
+        #                     name
+        #                     description
+        #                 }
+        #             }
+        #         }
+        #     """
+        #         % association_global_id
+        #     )
+        #     response = self.client.execute(query)
+        #     self.assertIsNone(response.errors)
 
-    #     result = json.loads(response.content)
-    #     res_association = result["data"]["associationPatch"]["association"]
-    #     self.assertEqual(res_association["name"], "Test Assoc Name")
-    #     self.assertEqual(res_association["description"], "Test Assoc Description")
+        #
+        #     res_association = response.data["associationPatch"]["association"]
+        #     self.assertEqual(res_association["name"], "Test Assoc Name")
+        #     self.assertEqual(res_association["description"], "Test Assoc Description")
 
-    # def test_association_patch_null_name(self):
-    #     association = AssociationFactory(
-    #         name="Not Test Assoc Name", description="Test Assoc Description"
-    #     )
-    #     association_global_id = to_global_id("AssociationNode", association.id)
-    #     query = (
-    #         """
-    #         mutation {
-    #             associationPatch(input: {
-    #                 id: "%s"
-    #                 name: null
-    #             }) {
-    #                 association {
-    #                     id
-    #                     name
-    #                     description
-    #                 }
-    #             }
-    #         }
-    #     """
-    #         % association_global_id
-    #     )
-    #     response = self.query(query)
-    #     self.assertResponseHasErrors(response)
+        # def test_association_patch_null_name(self):
+        #     association = AssociationFactory(
+        #         name="Not Test Assoc Name", description="Test Assoc Description"
+        #     )
+        #     association_global_id = to_global_id("AssociationNode", association.id)
+        #     query = (
+        #         """
+        #         mutation {
+        #             associationPatch(input: {
+        #                 id: "%s"
+        #                 name: null
+        #             }) {
+        #                 association {
+        #                     id
+        #                     name
+        #                     description
+        #                 }
+        #             }
+        #         }
+        #     """
+        #         % association_global_id
+        #     )
+        #     response = self.client.execute(query)
+        #     self.assertIsNotNone(response.errors)
 
     # def test_association_delete(self):
     #     association = AssociationFactory()
@@ -1004,11 +1003,11 @@ class PlaceMutationTests(CompareMixin, GraphQLTestCase):
     #     """
     #         % association_global_id
     #     )
-    #     response = self.query(query)
-    #     self.assertResponseNoErrors(response)
+    #     response = self.client.execute(query)
+    #     self.assertIsNone(response.errors)
 
-    #     result = json.loads(response.content)
-    #     self.assertTrue(result["data"]["associationDelete"]["ok"])
+    #
+    #     self.assertTrue(response.data["associationDelete"]["ok"])
 
     #     with self.assertRaises(Association.DoesNotExist):
     #         Association.objects.get(pk=association.id)

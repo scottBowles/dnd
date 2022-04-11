@@ -1,19 +1,24 @@
 import random
 import json
-from graphene_django.utils.testing import GraphQLTestCase
+from graphql_jwt.testcases import JSONWebTokenTestCase
 from graphql_relay import to_global_id
 from .factories import AbilityScoreIncreaseFactory
 from .utils import CompareMixin
 from character.models.models import ABILITIES
 from ..models import AbilityScoreIncrease
 from graphql_relay import from_global_id, to_global_id
+from django.contrib.auth import get_user_model
 
 
-class AbilityScoreIncreaseQueryTests(CompareMixin, GraphQLTestCase):
+class AbilityScoreIncreaseQueryTests(CompareMixin, JSONWebTokenTestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create(username="test")
+        self.client.authenticate(self.user)
+
     def test_asi_detail_query(self):
         asi = AbilityScoreIncreaseFactory()
 
-        response = self.query(
+        response = self.client.execute(
             """
             query {
                 abilityScoreIncrease(id: "%s") {
@@ -25,10 +30,9 @@ class AbilityScoreIncreaseQueryTests(CompareMixin, GraphQLTestCase):
             """
             % to_global_id("AbilityScoreIncreaseNode", asi.id)
         )
-        self.assertResponseNoErrors(response)
+        self.assertIsNone(response.errors)
 
-        res_json = json.loads(response.content)
-        res_asi = res_json["data"]["abilityScoreIncrease"]
+        res_asi = response.data["abilityScoreIncrease"]
 
         self.compare_ability_score_increases(asi, res_asi)
 
@@ -37,7 +41,7 @@ class AbilityScoreIncreaseQueryTests(CompareMixin, GraphQLTestCase):
         asis = list(set(asis))
         asis.sort(key=lambda x: x.id)
 
-        response = self.query(
+        response = self.client.execute(
             """
             query {
                 abilityScoreIncreases {
@@ -52,10 +56,9 @@ class AbilityScoreIncreaseQueryTests(CompareMixin, GraphQLTestCase):
             }
             """
         )
-        self.assertResponseNoErrors(response)
+        self.assertIsNone(response.errors)
 
-        res_json = json.loads(response.content)
-        res_asis = res_json["data"]["abilityScoreIncreases"]["edges"]
+        res_asis = response.data["abilityScoreIncreases"]["edges"]
 
         self.assertEqual(len(asis), len(res_asis))
 
@@ -63,7 +66,11 @@ class AbilityScoreIncreaseQueryTests(CompareMixin, GraphQLTestCase):
             self.compare_ability_score_increases(asi, res_asis[i]["node"])
 
 
-class AbilityScoreIncreaseMutationTests(CompareMixin, GraphQLTestCase):
+class AbilityScoreIncreaseMutationTests(CompareMixin, JSONWebTokenTestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create(username="test")
+        self.client.authenticate(self.user)
+
     def test_asi_create_mutation(self):
         ability = random.choice(ABILITIES)[0]
         increase = random.randint(1, 6)
@@ -87,11 +94,10 @@ class AbilityScoreIncreaseMutationTests(CompareMixin, GraphQLTestCase):
             increase,
         )
 
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_asi = result["data"]["abilityScoreIncreaseCreate"]["abilityScoreIncrease"]
+        res_asi = response.data["abilityScoreIncreaseCreate"]["abilityScoreIncrease"]
 
         self.assertEqual(res_asi["abilityScore"], ability)
         self.assertEqual(res_asi["increase"], increase)
@@ -120,8 +126,8 @@ class AbilityScoreIncreaseMutationTests(CompareMixin, GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_asi_update_unavailable(self):
         asi = AbilityScoreIncreaseFactory()
@@ -145,13 +151,12 @@ class AbilityScoreIncreaseMutationTests(CompareMixin, GraphQLTestCase):
             "AbilityScoreIncreaseNode", asi.id
         )
 
-        response = self.query(query)
-        result = json.loads(response.content)
+        response = self.client.execute(query)
 
-        self.assertResponseHasErrors(response)
+        self.assertIsNotNone(response.errors)
         self.assertIn(
             "Cannot query field 'abilityScoreIncreaseUpdate' on type 'Mutation'",
-            result["errors"][0]["message"],
+            response.errors[0].message,
         )
 
     def test_asi_patch_unavailable(self):
@@ -175,13 +180,12 @@ class AbilityScoreIncreaseMutationTests(CompareMixin, GraphQLTestCase):
             "AbilityScoreIncreaseNode", asi.id
         )
 
-        response = self.query(query)
-        result = json.loads(response.content)
+        response = self.client.execute(query)
 
-        self.assertResponseHasErrors(response)
+        self.assertIsNotNone(response.errors)
         self.assertIn(
             "Cannot query field 'abilityScoreIncreasePatch' on type 'Mutation'",
-            result["errors"][0]["message"],
+            response.errors[0].message,
         )
 
     def test_asi_delete_unavailable(self):
@@ -201,11 +205,10 @@ class AbilityScoreIncreaseMutationTests(CompareMixin, GraphQLTestCase):
             asi.increase,
         )
 
-        response = self.query(query)
-        result = json.loads(response.content)
+        response = self.client.execute(query)
 
-        self.assertResponseHasErrors(response)
+        self.assertIsNotNone(response.errors)
         self.assertIn(
             "Cannot query field 'abilityScoreIncreaseDelete' on type 'Mutation'",
-            result["errors"][0]["message"],
+            response.errors[0].message,
         )

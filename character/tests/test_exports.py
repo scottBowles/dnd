@@ -1,11 +1,11 @@
 # import json
-# from graphene_django.utils.testing import GraphQLTestCase
+# from graphql_jwt.testcases import JSONWebTokenTestCase
 # from ..models import Export
 # from graphql_relay import from_global_id, to_global_id
 # from .factories import ExportFactory
 
 
-# class ExportTests(GraphQLTestCase):
+# class ExportTests(JSONWebTokenTestCase):
 #     def test_export_list_query(self):
 #         factory1 = ExportFactory()
 #         factory2 = ExportFactory()
@@ -22,12 +22,12 @@
 #                 }
 #             }
 #         """
-#         response = self.query(query)
-#         self.assertResponseNoErrors(response)
+#         response = self.client.execute(query)
+#         self.assertIsNone(response.errors)
 
-#         result = json.loads(response.content)
-#         res_1 = result["data"]["exports"]["edges"][0]["node"]
-#         res_2 = result["data"]["exports"]["edges"][1]["node"]
+#
+#         res_1 = response.data["exports"]["edges"][0]["node"]
+#         res_2 = response.data["exports"]["edges"][1]["node"]
 
 #         # Ensure exactly two results exist, have expected values, and are in the expected order
 #         self.assertEqual(from_global_id(res_1["id"])[1], str(factory1.id))
@@ -37,7 +37,7 @@
 #         self.assertEqual(res_2["name"], factory2.name)
 #         self.assertEqual(res_2["description"], factory2.description)
 #         with self.assertRaises(IndexError):
-#             result["data"]["exports"]["edges"][2]
+#             response.data["exports"]["edges"][2]
 
 #     def test_bad_export_list_query(self):
 #         ExportFactory()
@@ -55,8 +55,8 @@
 #                 }
 #             }
 #         """
-#         response = self.query(query)
-#         self.assertResponseHasErrors(response)
+#         response = self.client.execute(query)
+#         self.assertIsNotNone(response.errors)
 
 #     def test_export_retrieve_query(self):
 #         export = ExportFactory()
@@ -73,11 +73,11 @@
 #         """
 #             % export_global_id
 #         )
-#         response = self.query(query)
-#         self.assertResponseNoErrors(response)
+#         response = self.client.execute(query)
+#         self.assertIsNone(response.errors)
 
-#         result = json.loads(response.content)
-#         res_export = result["data"]["export"]
+#
+#         res_export = response.data["export"]
 
 #         self.assertEqual(res_export["name"], export.name)
 #         self.assertEqual(res_export["description"], export.description)
@@ -101,11 +101,11 @@
 #                 }
 #             }
 #         """
-#         response = self.query(query)
-#         self.assertResponseNoErrors(response)
+#         response = self.client.execute(query)
+#         self.assertIsNone(response.errors)
 
-#         result = json.loads(response.content)
-#         res_export = result["data"]["exportCreate"]["export"]
+#
+#         res_export = response.data["exportCreate"]["export"]
 
 #         self.assertEqual(res_export["name"], "Test Export Name")
 #         self.assertEqual(res_export["description"], "Test Export Description")
@@ -132,8 +132,8 @@
 #                 }
 #             }
 #         """
-#         response = self.query(query)
-#         self.assertResponseHasErrors(response)
+#         response = self.client.execute(query)
+#         self.assertIsNotNone(response.errors)
 
 #     def test_export_update_mutation(self):
 #         export = ExportFactory(
@@ -158,11 +158,11 @@
 #         """
 #             % export_global_id
 #         )
-#         response = self.query(query)
-#         self.assertResponseNoErrors(response)
+#         response = self.client.execute(query)
+#         self.assertIsNone(response.errors)
 
-#         result = json.loads(response.content)
-#         res_export = result["data"]["exportUpdate"]["export"]
+#
+#         res_export = response.data["exportUpdate"]["export"]
 
 #         self.assertEqual(res_export["name"], "Test Export Name")
 #         self.assertEqual(res_export["description"], "Test Export Description")
@@ -188,8 +188,8 @@
 #                 }
 #             }
 #         """
-#         response = self.query(query)
-#         self.assertResponseHasErrors(response)
+#         response = self.client.execute(query)
+#         self.assertIsNotNone(response.errors)
 
 #     def test_export_update_bad_input_no_name(self):
 #         export = ExportFactory()
@@ -211,8 +211,8 @@
 #         """
 #             % export_global_id
 #         )
-#         response = self.query(query)
-#         self.assertResponseHasErrors(response)
+#         response = self.client.execute(query)
+#         self.assertIsNotNone(response.errors)
 
 #     def test_export_patch(self):
 #         export = ExportFactory(
@@ -236,11 +236,11 @@
 #         """
 #             % export_global_id
 #         )
-#         response = self.query(query)
-#         self.assertResponseNoErrors(response)
+#         response = self.client.execute(query)
+#         self.assertIsNone(response.errors)
 
-#         result = json.loads(response.content)
-#         res_export = result["data"]["exportPatch"]["export"]
+#
+#         res_export = response.data["exportPatch"]["export"]
 #         self.assertEqual(res_export["name"], "Test Export Name")
 #         self.assertEqual(res_export["description"], "Test Export Description")
 
@@ -266,8 +266,8 @@
 #         """
 #             % export_global_id
 #         )
-#         response = self.query(query)
-#         self.assertResponseHasErrors(response)
+#         response = self.client.execute(query)
+#         self.assertIsNotNone(response.errors)
 
 #     def test_export_delete(self):
 #         export = ExportFactory()
@@ -284,11 +284,11 @@
 #         """
 #             % export_global_id
 #         )
-#         response = self.query(query)
-#         self.assertResponseNoErrors(response)
+#         response = self.client.execute(query)
+#         self.assertIsNone(response.errors)
 
-#         result = json.loads(response.content)
-#         self.assertTrue(result["data"]["exportDelete"]["ok"])
+#
+#         self.assertTrue(response.data["exportDelete"]["ok"])
 
 #         with self.assertRaises(Export.DoesNotExist):
 #             Export.objects.get(pk=export.id)

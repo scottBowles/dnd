@@ -1,17 +1,22 @@
 import random
 import json
-from graphene_django.utils.testing import GraphQLTestCase
+from graphql_jwt.testcases import JSONWebTokenTestCase
 from graphql_relay import from_global_id, to_global_id
 from .factories import TraitFactory
 from .utils import CompareMixin
 from ..models import Trait
+from django.contrib.auth import get_user_model
 
 
-class TraitQueryTests(CompareMixin, GraphQLTestCase):
+class TraitQueryTests(CompareMixin, JSONWebTokenTestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create(username="test")
+        self.client.authenticate(self.user)
+
     def test_trait_detail_query(self):
         trait = TraitFactory()
 
-        response = self.query(
+        response = self.client.execute(
             """
             query {
                 trait(id: "%s") {
@@ -23,17 +28,15 @@ class TraitQueryTests(CompareMixin, GraphQLTestCase):
             """
             % to_global_id("TraitNode", trait.id)
         )
-        self.assertResponseNoErrors(response)
 
-        res_json = json.loads(response.content)
-        res_trait = res_json["data"]["trait"]
-
+        self.assertIsNone(response.errors)
+        res_trait = response.data["trait"]
         self.compare_traits(trait, res_trait)
 
     def test_trait_list_query(self):
         traits = TraitFactory.create_batch(random.randint(0, 3))
 
-        response = self.query(
+        response = self.client.execute(
             """
             query {
                 traits {
@@ -48,16 +51,19 @@ class TraitQueryTests(CompareMixin, GraphQLTestCase):
             }
             """
         )
-        self.assertResponseNoErrors(response)
+        self.assertIsNone(response.errors)
 
-        res_json = json.loads(response.content)
-        res_traits = res_json["data"]["traits"]["edges"]
+        res_traits = response.data["traits"]["edges"]
 
         for i, trait in enumerate(traits):
             self.compare_traits(trait, res_traits[i]["node"])
 
 
-class TraitMutationTests(CompareMixin, GraphQLTestCase):
+class TraitMutationTests(CompareMixin, JSONWebTokenTestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create(username="test")
+        self.client.authenticate(self.user)
+
     def test_trait_create_mutation(self):
         name = "Test Trait Name"
         description = "Test Trait Description"
@@ -81,11 +87,10 @@ class TraitMutationTests(CompareMixin, GraphQLTestCase):
             description,
         )
 
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_trait = result["data"]["traitCreate"]["trait"]
+        res_trait = response.data["traitCreate"]["trait"]
 
         self.assertEqual(res_trait["name"], name)
         self.assertEqual(res_trait["description"], description)
@@ -112,8 +117,8 @@ class TraitMutationTests(CompareMixin, GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_trait_update_mutation(self):
         trait = TraitFactory(
@@ -138,11 +143,10 @@ class TraitMutationTests(CompareMixin, GraphQLTestCase):
         """
             % trait_global_id
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_trait = result["data"]["traitUpdate"]["trait"]
+        res_trait = response.data["traitUpdate"]["trait"]
 
         self.assertEqual(res_trait["name"], "Test Trait Name")
         self.assertEqual(res_trait["description"], "Test Trait Description")
@@ -169,8 +173,8 @@ class TraitMutationTests(CompareMixin, GraphQLTestCase):
                 }
             }
         """
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_trait_update_bad_input_no_name(self):
         trait = TraitFactory()
@@ -192,8 +196,8 @@ class TraitMutationTests(CompareMixin, GraphQLTestCase):
         """
             % trait_global_id
         )
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_trait_patch(self):
         trait = TraitFactory(
@@ -217,11 +221,10 @@ class TraitMutationTests(CompareMixin, GraphQLTestCase):
         """
             % trait_global_id
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        res_trait = result["data"]["traitPatch"]["trait"]
+        res_trait = response.data["traitPatch"]["trait"]
         self.assertEqual(res_trait["name"], "Test Trait Name")
         self.assertEqual(res_trait["description"], "Test Trait Description")
 
@@ -250,8 +253,8 @@ class TraitMutationTests(CompareMixin, GraphQLTestCase):
         """
             % trait_global_id
         )
-        response = self.query(query)
-        self.assertResponseHasErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNotNone(response.errors)
 
     def test_trait_delete(self):
         trait = TraitFactory()
@@ -268,11 +271,10 @@ class TraitMutationTests(CompareMixin, GraphQLTestCase):
         """
             % trait_global_id
         )
-        response = self.query(query)
-        self.assertResponseNoErrors(response)
+        response = self.client.execute(query)
+        self.assertIsNone(response.errors)
 
-        result = json.loads(response.content)
-        self.assertTrue(result["data"]["traitDelete"]["ok"])
+        self.assertTrue(response.data["traitDelete"]["ok"])
 
         with self.assertRaises(Trait.DoesNotExist):
             Trait.objects.get(pk=trait.id)
