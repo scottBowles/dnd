@@ -158,7 +158,7 @@ class RelayCUD(MutationsCreatorMixin):
             and instance.lock_user != info.context.user
         ):
             raise ConcurrencyLockException(
-                f"This object is locked by another user: {instance.lock_user}."
+                f"{self.field.title()} is locked by another user: {instance.lock_user}."
             )
 
     def create(self, info, **input):
@@ -174,6 +174,8 @@ class RelayCUD(MutationsCreatorMixin):
         serializer = self.serializer_class(instance, data=input)
         serializer.is_valid(raise_exception=True)
         instance = serializer.save()
+        if self.enforce_lock:
+            instance.release_lock(info.context.user)
         return instance
 
     def partial_update(self, info, **input):
@@ -183,10 +185,14 @@ class RelayCUD(MutationsCreatorMixin):
         serializer = self.serializer_class(instance, data=input, partial=True)
         serializer.is_valid(raise_exception=True)
         instance = serializer.save()
+        if self.enforce_lock:
+            instance.release_lock(info.context.user)
         return instance
 
     def delete(self, info, **input):
         instance = self.get_instance(info, input)
+        if self.enforce_lock:
+            self._enforce_lock(info, instance)
         instance.delete()
         return instance
 
