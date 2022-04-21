@@ -44,6 +44,7 @@ class ItemCUD(RelayCUD):
 
 class ItemConcurrencyLock(ConcurrencyLockActions):
     field = "item"
+    Node = ItemNode
     model = Item
 
 
@@ -70,6 +71,7 @@ class ArtifactCUD(RelayCUD):
 
 class ArtifactConcurrencyLock(ConcurrencyLockActions):
     field = "artifact"
+    Node = ArtifactNode
     model = Artifact
 
 

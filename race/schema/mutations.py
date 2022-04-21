@@ -160,9 +160,12 @@ class RaceCUD(RelayCUD):
 #         export_id = from_global_id(input["export"])[1]
 #         return self.model.objects.get(place__id=place_id, export__id=export_id)
 
+
 class RaceConcurrencyLock(ConcurrencyLockActions):
     field = "race"
+    Node = RaceNode
     model = Race
+
 
 AbilityScoreIncreaseMutations = AbilityScoreIncreaseCUD().get_mutation_class()
 TraitMutations = TraitCUD().get_mutation_class()

@@ -77,6 +77,7 @@ class AssociationCUD(RelayCUD):
 
 class AssociationConcurrencyLock(ConcurrencyLockActions):
     field = "association"
+    Node = AssociationNode
     model = Association
 
 

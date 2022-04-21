@@ -122,11 +122,13 @@ class ExportCUD(RelayCUD):
 
 class PlaceConcurrencyLock(ConcurrencyLockActions):
     field = "place"
+    Node = PlaceNode
     model = Place
 
 
 class ExportConcurrencyLock(ConcurrencyLockActions):
     field = "export"
+    Node = ExportNode
     model = Export
 
 

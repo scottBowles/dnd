@@ -114,6 +114,7 @@ class NPCCUD(RelayCUD):
 
 class NPCConcurrencyLock(ConcurrencyLockActions):
     field = "npc"
+    Node = NPCNode
     model = NPC
 
 

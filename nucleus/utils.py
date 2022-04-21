@@ -104,7 +104,7 @@ class MutationsCreatorMixin:
 
 class ConcurrencyLockActions(MutationsCreatorMixin):
     actions = ("lock", "release_lock")
-    _required_attributes = ("field", "model")
+    _required_attributes = ("field", "Node", "model")
 
     def __init__(self, *args, **kwargs):
         for el in self._required_attributes:
@@ -123,16 +123,12 @@ class ConcurrencyLockActions(MutationsCreatorMixin):
         return instance
 
     def lock_mutation(self):
-        Mixin = self.get_mutation_base(
-            self.lock, self.IdentifyingInput, include_field=False
-        )
+        Mixin = self.get_mutation_base(self.lock, self.IdentifyingInput)
         mutation_class_name = self.field.title() + "LockMutation"
         return type(mutation_class_name, (Mixin, relay.ClientIDMutation), {})
 
     def release_lock_mutation(self):
-        Mixin = self.get_mutation_base(
-            self.release_lock, self.IdentifyingInput, include_field=False
-        )
+        Mixin = self.get_mutation_base(self.release_lock, self.IdentifyingInput)
         mutation_class_name = self.field.title() + "ReleaseLockMutation"
         return type(mutation_class_name, (Mixin, relay.ClientIDMutation), {})
 
