@@ -10,6 +10,11 @@ from nucleus.utils import login_or_queryset_none
 
 
 class AssociationNode(DjangoObjectType):
+    locked_by_self = graphene.Boolean()
+
+    def resolve_locked_by_self(self, info, **kwargs):
+        return self.lock_user == info.context.user
+
     class Meta:
         model = Association
         fields = (
