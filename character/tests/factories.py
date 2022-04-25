@@ -19,7 +19,7 @@ class NPCFactory(factory.django.DjangoModelFactory):
     name = factory.Faker("name")
     description = factory.Faker("text")
     size = fuzzy.FuzzyChoice(SIZES, getter=lambda c: c[0])
-    image_id = factory.Faker("text")
+    image_ids = factory.List([factory.Faker("text") for _ in range(3)])
     thumbnail_id = factory.Faker("text")
 
     @factory.post_generation

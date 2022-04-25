@@ -1,5 +1,4 @@
 import random
-import json
 from graphql_jwt.testcases import JSONWebTokenTestCase
 from graphql_relay import from_global_id, to_global_id
 from .factories import LanguageFactory, ScriptFactory

@@ -39,7 +39,7 @@ class RaceNode(DjangoObjectType):
             "id",
             "name",
             "description",
-            "image_id",
+            "image_ids",
             "thumbnail_id",
             "age_of_adulthood",
             "life_expectancy",

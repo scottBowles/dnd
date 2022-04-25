@@ -21,7 +21,7 @@ class NPCQueryTests(CompareMixin, JSONWebTokenTestCase):
                     id
                     name
                     description
-                    imageId
+                    imageIds
                     thumbnailId
                     size
                     race {
@@ -113,7 +113,7 @@ class NPCQueryTests(CompareMixin, JSONWebTokenTestCase):
                             id
                             name
                             description
-                            imageId
+                            imageIds
                             thumbnailId
                             size
                             race {
@@ -161,14 +161,14 @@ class NPCQueryTests(CompareMixin, JSONWebTokenTestCase):
                             id
                             name
                             description
-                            imageId
+                            imageIds
                             thumbnailId
                             size
                             race {
                                 id
                                 name
                                 description
-                                imageId
+                                imageIds
                                 thumbnailId
                                 ageOfAdulthood
                                 lifeExpectancy

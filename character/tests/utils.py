@@ -10,7 +10,7 @@ class CompareMixin(test_races.CompareMixin, JSONWebTokenTestCase):
         self.assertEqual(str(model_npc.id), from_global_id(node_npc["id"])[1])
         self.assertEqual(model_npc.name, node_npc["name"])
         self.assertEqual(model_npc.description, node_npc["description"])
-        self.assertEqual(model_npc.image_id, node_npc["imageId"])
+        self.assertEqual(model_npc.image_ids, node_npc["imageIds"])
         self.assertEqual(model_npc.thumbnail_id, node_npc["thumbnailId"])
         self.assertEqual(model_npc.size, node_npc["size"])
         self.compare_races(model_npc.race, node_npc["race"])

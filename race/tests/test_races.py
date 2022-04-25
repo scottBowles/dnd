@@ -1,5 +1,4 @@
 import random
-import json
 from graphql_jwt.testcases import JSONWebTokenTestCase
 from graphql_relay import from_global_id, to_global_id
 from django.contrib.auth import get_user_model
@@ -27,7 +26,7 @@ class RaceQueryTests(CompareMixin, JSONWebTokenTestCase):
                     id
                     name
                     description
-                    imageId
+                    imageIds
                     thumbnailId
                     ageOfAdulthood
                     lifeExpectancy
@@ -64,7 +63,7 @@ class RaceQueryTests(CompareMixin, JSONWebTokenTestCase):
                     id
                     name
                     description
-                    imageId
+                    imageIds
                     thumbnailId
                     ageOfAdulthood
                     lifeExpectancy
@@ -132,7 +131,7 @@ class RaceQueryTests(CompareMixin, JSONWebTokenTestCase):
                     id
                     name
                     description
-                    imageId
+                    imageIds
                     thumbnailId
                     ageOfAdulthood
                     lifeExpectancy
@@ -143,7 +142,7 @@ class RaceQueryTests(CompareMixin, JSONWebTokenTestCase):
                         id
                         name
                         description
-                        imageId
+                        imageIds
                         thumbnailId
                         ageOfAdulthood
                         lifeExpectancy
@@ -157,7 +156,7 @@ class RaceQueryTests(CompareMixin, JSONWebTokenTestCase):
                                 id
                                 name
                                 description
-                                imageId
+                                imageIds
                                 thumbnailId
                                 ageOfAdulthood
                                 lifeExpectancy
@@ -192,7 +191,7 @@ class RaceQueryTests(CompareMixin, JSONWebTokenTestCase):
                             id
                             name
                             description
-                            imageId
+                            imageIds
                             thumbnailId
                             ageOfAdulthood
                             lifeExpectancy
@@ -232,7 +231,7 @@ class RaceQueryTests(CompareMixin, JSONWebTokenTestCase):
                             id
                             name
                             description
-                            imageId
+                            imageIds
                             thumbnailId
                             ageOfAdulthood
                             lifeExpectancy
@@ -299,7 +298,7 @@ class RaceQueryTests(CompareMixin, JSONWebTokenTestCase):
                             id
                             name
                             description
-                            imageId
+                            imageIds
                             thumbnailId
                             ageOfAdulthood
                             lifeExpectancy
@@ -310,7 +309,7 @@ class RaceQueryTests(CompareMixin, JSONWebTokenTestCase):
                                 id
                                 name
                                 description
-                                imageId
+                                imageIds
                                 thumbnailId
                                 ageOfAdulthood
                                 lifeExpectancy
@@ -324,7 +323,7 @@ class RaceQueryTests(CompareMixin, JSONWebTokenTestCase):
                                         id
                                         name
                                         description
-                                        imageId
+                                        imageIds
                                         thumbnailId
                                         ageOfAdulthood
                                         lifeExpectancy
@@ -359,7 +358,11 @@ class RaceMutationTests(CompareMixin, JSONWebTokenTestCase):
         self.client.authenticate(self.user)
         self.name = "Test Race Name"
         self.description = "Test Race Description"
-        self.image_id = "Test Race Image Id"
+        self.image_ids = [
+            "Test Race Image Id 1",
+            "Test Race Image Id 2",
+            "Test Race Image Id 3",
+        ]
         self.thumbnail_id = "Test Race Thumbnail Id"
         self.age_of_adulthood = 18
         self.life_expectancy = 99
@@ -369,17 +372,17 @@ class RaceMutationTests(CompareMixin, JSONWebTokenTestCase):
 
     def test_basic_race_create_mutation(self):
         query = """
-            mutation {
+            mutation RaceCreate($name: String!, $description: String, $imageIds: [String], $thumbnailId: String, $ageOfAdulthood: Int,$lifeExpectancy: Int,$alignment: String,$size: String,$speed: Int) {
                 raceCreate(input: {
-                    name: "%s",
-                    description: "%s",
-                    imageId: "%s",
-                    thumbnailId: "%s",
-                    ageOfAdulthood: %s,
-                    lifeExpectancy: %s,
-                    alignment: "%s",
-                    size: "%s",
-                    speed: %s,
+                    name: $name,
+                    description: $description,
+                    imageIds: $imageIds,
+                    thumbnailId: $thumbnailId,
+                    ageOfAdulthood: $ageOfAdulthood,
+                    lifeExpectancy: $lifeExpectancy,
+                    alignment: $alignment,
+                    size: $size,
+                    speed: $speed,
                 }) {
                     ok
                     errors
@@ -387,7 +390,7 @@ class RaceMutationTests(CompareMixin, JSONWebTokenTestCase):
                         id
                         name
                         description
-                        imageId
+                        imageIds
                         thumbnailId
                         ageOfAdulthood
                         lifeExpectancy
@@ -397,25 +400,27 @@ class RaceMutationTests(CompareMixin, JSONWebTokenTestCase):
                     }
                 }
             }
-        """ % (
-            self.name,
-            self.description,
-            self.image_id,
-            self.thumbnail_id,
-            self.age_of_adulthood,
-            self.life_expectancy,
-            self.alignment,
-            self.size,
-            self.speed,
-        )
-        response = self.client.execute(query)
+        """
+        variables = {
+            "name": self.name,
+            "description": self.description,
+            "imageIds": self.image_ids,
+            "thumbnailId": self.thumbnail_id,
+            "ageOfAdulthood": self.age_of_adulthood,
+            "lifeExpectancy": self.life_expectancy,
+            "alignment": self.alignment,
+            "size": self.size,
+            "speed": self.speed,
+        }
+
+        response = self.client.execute(query, variables)
         self.assertIsNone(response.errors)
 
         res_race = response.data["raceCreate"]["race"]
 
         self.assertEqual(res_race["name"], self.name)
         self.assertEqual(res_race["description"], self.description)
-        self.assertEqual(res_race["imageId"], self.image_id)
+        self.assertEqual(res_race["imageIds"], self.image_ids)
         self.assertEqual(res_race["thumbnailId"], self.thumbnail_id)
         self.assertEqual(res_race["ageOfAdulthood"], self.age_of_adulthood)
         self.assertEqual(res_race["lifeExpectancy"], self.life_expectancy)
@@ -427,7 +432,7 @@ class RaceMutationTests(CompareMixin, JSONWebTokenTestCase):
         self.assertEqual(str(created_race.id), from_global_id(res_race["id"])[1])
         self.assertEqual(created_race.name, self.name)
         self.assertEqual(created_race.description, self.description)
-        self.assertEqual(created_race.image_id, self.image_id)
+        self.assertEqual(created_race.image_ids, self.image_ids)
         self.assertEqual(created_race.thumbnail_id, self.thumbnail_id)
         self.assertEqual(created_race.age_of_adulthood, self.age_of_adulthood)
         self.assertEqual(created_race.life_expectancy, self.life_expectancy)
@@ -441,22 +446,19 @@ class RaceMutationTests(CompareMixin, JSONWebTokenTestCase):
         base_race = RaceFactory()
         subraces = RaceFactory.create_batch(2)
         query = """
-            mutation {
+            mutation RaceCreate($name: String!, $description: String, $imageIds: [String], $thumbnailId: String, $ageOfAdulthood: Int,$lifeExpectancy: Int,$alignment: String,$size: String,$speed: Int,$baseRace: String,$subraces: [String]) {
                 raceCreate(input: {
-                    name: "%s",
-                    description: "%s",
-                    imageId: "%s",
-                    thumbnailId: "%s",
-                    ageOfAdulthood: %s,
-                    lifeExpectancy: %s,
-                    alignment: "%s",
-                    size: "%s",
-                    speed: %s,
-                    baseRace: "%s",
-                    subraces: [
-                        "%s",
-                        "%s"
-                    ]
+                    name: $name,
+                    description: $description,
+                    imageIds: $imageIds,
+                    thumbnailId: $thumbnailId,
+                    ageOfAdulthood: $ageOfAdulthood,
+                    lifeExpectancy: $lifeExpectancy,
+                    alignment: $alignment,
+                    size: $size,
+                    speed: $speed,
+                    baseRace: $baseRace,
+                    subraces: $subraces,
                 }) {
                     ok
                     errors
@@ -464,7 +466,7 @@ class RaceMutationTests(CompareMixin, JSONWebTokenTestCase):
                         id
                         name
                         description
-                        imageId
+                        imageIds
                         thumbnailId
                         ageOfAdulthood
                         lifeExpectancy
@@ -475,7 +477,7 @@ class RaceMutationTests(CompareMixin, JSONWebTokenTestCase):
                             id
                             name
                             description
-                            imageId
+                            imageIds
                             thumbnailId
                             ageOfAdulthood
                             lifeExpectancy
@@ -489,7 +491,7 @@ class RaceMutationTests(CompareMixin, JSONWebTokenTestCase):
                                     id
                                     name
                                     description
-                                    imageId
+                                    imageIds
                                     thumbnailId
                                     ageOfAdulthood
                                     lifeExpectancy
@@ -502,26 +504,28 @@ class RaceMutationTests(CompareMixin, JSONWebTokenTestCase):
                     }
                 }
             }
-        """ % (
-            self.name,
-            self.description,
-            self.image_id,
-            self.thumbnail_id,
-            self.age_of_adulthood,
-            self.life_expectancy,
-            self.alignment,
-            self.size,
-            self.speed,
-            to_global_id("RaceNode", base_race.id),
-            to_global_id("RaceNode", subraces[0].id),
-            to_global_id("RaceNode", subraces[1].id),
-        )
+        """
+        variables = {
+            "name": self.name,
+            "description": self.description,
+            "imageIds": self.image_ids,
+            "thumbnailId": self.thumbnail_id,
+            "ageOfAdulthood": self.age_of_adulthood,
+            "lifeExpectancy": self.life_expectancy,
+            "alignment": self.alignment,
+            "size": self.size,
+            "speed": self.speed,
+            "baseRace": to_global_id("RaceNode", base_race.id),
+            "subraces": [
+                to_global_id("RaceNode", subraces[0].id),
+                to_global_id("RaceNode", subraces[1].id),
+            ],
+        }
 
-        response = self.client.execute(query)
+        response = self.client.execute(query, variables)
         self.assertIsNone(response.errors)
 
         res_race = response.data["raceCreate"]["race"]
-
         created_race = Race.objects.get(pk=from_global_id(res_race["id"])[1])
 
         self.compare_races(
@@ -537,7 +541,7 @@ class RaceMutationTests(CompareMixin, JSONWebTokenTestCase):
                 raceCreate(input: {
                     name: "%s",
                     description: "%s",
-                    imageId: "%s",
+                    imageIds: "%s",
                     thumbnailId: "%s",
                     ageOfAdulthood: %s,
                     lifeExpectancy: %s,
@@ -552,7 +556,7 @@ class RaceMutationTests(CompareMixin, JSONWebTokenTestCase):
                         id
                         name
                         description
-                        imageId
+                        imageIds
                         thumbnailId
                         ageOfAdulthood
                         lifeExpectancy
@@ -577,7 +581,7 @@ class RaceMutationTests(CompareMixin, JSONWebTokenTestCase):
         """ % (
             self.name,
             self.description,
-            self.image_id,
+            self.image_ids,
             self.thumbnail_id,
             self.age_of_adulthood,
             self.life_expectancy,
@@ -604,7 +608,7 @@ class RaceMutationTests(CompareMixin, JSONWebTokenTestCase):
                 raceCreate(input: {
                     name: "%s",
                     description: "%s",
-                    imageId: "%s",
+                    imageIds: "%s",
                     thumbnailId: "%s",
                     ageOfAdulthood: %s,
                     lifeExpectancy: %s,
@@ -619,7 +623,7 @@ class RaceMutationTests(CompareMixin, JSONWebTokenTestCase):
                         id
                         name
                         description
-                        image_id
+                        image_ids
                         thumbnail_id
                         ageOfAdulthood
                         lifeExpectancy
@@ -644,7 +648,7 @@ class RaceMutationTests(CompareMixin, JSONWebTokenTestCase):
         """ % (
             self.name,
             self.description,
-            self.image_id,
+            self.image_ids,
             self.thumbnail_id,
             self.age_of_adulthood,
             self.life_expectancy,
@@ -670,7 +674,7 @@ class RaceMutationTests(CompareMixin, JSONWebTokenTestCase):
                 raceCreate(input: {
                     name: "%s",
                     description: "%s",
-                    imageId: "%s",
+                    imageIds: "%s",
                     thumbnailId: "%s",
                     ageOfAdulthood: %s,
                     lifeExpectancy: %s,
@@ -685,7 +689,7 @@ class RaceMutationTests(CompareMixin, JSONWebTokenTestCase):
                         id
                         name
                         description
-                        imageId
+                        imageIds
                         thumbnailId
                         ageOfAdulthood
                         lifeExpectancy
@@ -707,7 +711,7 @@ class RaceMutationTests(CompareMixin, JSONWebTokenTestCase):
         """ % (
             self.name,
             self.description,
-            self.image_id,
+            self.image_ids,
             self.thumbnail_id,
             self.age_of_adulthood,
             self.life_expectancy,
@@ -734,7 +738,7 @@ class RaceMutationTests(CompareMixin, JSONWebTokenTestCase):
                 raceCreate(input: {
                     name: "%s",
                     description: "%s",
-                    imageId: "%s",
+                    imageIds: "%s",
                     thumbnailId: "%s",
                     ageOfAdulthood: %s,
                     lifeExpectancy: %s,
@@ -749,7 +753,7 @@ class RaceMutationTests(CompareMixin, JSONWebTokenTestCase):
                         id
                         name
                         description
-                        image_id
+                        image_ids
                         thumbnail_id
                         ageOfAdulthood
                         lifeExpectancy
@@ -771,7 +775,7 @@ class RaceMutationTests(CompareMixin, JSONWebTokenTestCase):
         """ % (
             self.name,
             self.description,
-            self.image_id,
+            self.image_ids,
             self.thumbnail_id,
             self.age_of_adulthood,
             self.life_expectancy,

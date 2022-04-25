@@ -20,7 +20,7 @@ class CompareMixin(JSONWebTokenTestCase):
         self.assertEqual(str(model_race.id), from_global_id(node_race["id"])[1])
         self.assertEqual(model_race.name, node_race["name"])
         self.assertEqual(model_race.description, node_race["description"])
-        self.assertEqual(model_race.image_id, node_race["imageId"])
+        self.assertEqual(model_race.image_ids, node_race["imageIds"])
         self.assertEqual(model_race.thumbnail_id, node_race["thumbnailId"])
         self.assertEqual(model_race.age_of_adulthood, node_race["ageOfAdulthood"])
         self.assertEqual(model_race.life_expectancy, node_race["lifeExpectancy"])

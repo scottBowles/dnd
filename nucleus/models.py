@@ -4,6 +4,7 @@ from django.contrib.auth.models import AbstractUser
 from django_extensions.db.fields import AutoSlugField
 from django.utils.translation import gettext_lazy as _
 from django.conf import settings
+from django.contrib.postgres.fields import ArrayField
 
 
 class User(AbstractUser):
@@ -75,7 +76,7 @@ class ImageIdsModel(models.Model):
     An abstract base class model that provides image ids fields.
     """
 
-    image_id = models.CharField(max_length=255, blank=True, null=True)
+    image_ids = ArrayField(models.CharField(max_length=255), default=list)
     thumbnail_id = models.CharField(max_length=255, blank=True, null=True)
 
     class Meta:

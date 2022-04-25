@@ -50,7 +50,7 @@ class RaceCUD(RelayCUD):
     class Input:
         name = graphene.String(required=True)
         description = graphene.String()
-        image_id = graphene.String()
+        image_ids = graphene.List(graphene.String)
         thumbnail_id = graphene.String()
 
         age_of_adulthood = graphene.Int()

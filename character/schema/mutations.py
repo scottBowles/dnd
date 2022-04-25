@@ -107,7 +107,7 @@ class NPCCUD(RelayCUD):
     class Input:
         name = graphene.String()
         description = graphene.String()
-        image_id = graphene.String()
+        image_ids = graphene.List(graphene.String)
         thumbnail_id = graphene.String()
         markdown_notes = graphene.String()
 

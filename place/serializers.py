@@ -72,7 +72,7 @@ class PlaceSerializer(RelayModelSerializer):
             "id",
             "name",
             "description",
-            "image_id",
+            "image_ids",
             "thumbnail_id",
             "created",
             "updated",

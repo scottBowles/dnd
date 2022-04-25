@@ -12,7 +12,7 @@ class AssociationFactory(factory.django.DjangoModelFactory):
 
     name = factory.Faker("name")
     description = factory.Faker("text")
-    image_id = factory.Faker("text")
+    image_ids = factory.List([factory.Faker("text") for _ in range(3)])
     thumbnail_id = factory.Faker("text")
 
 
@@ -32,7 +32,7 @@ class AssociationTests(JSONWebTokenTestCase):
                             id
                             name
                             description
-                            imageId
+                            imageIds
                             thumbnailId
                         }
                     }
@@ -49,12 +49,12 @@ class AssociationTests(JSONWebTokenTestCase):
         self.assertEqual(from_global_id(res_1["id"])[1], str(factory1.id))
         self.assertEqual(res_1["name"], factory1.name)
         self.assertEqual(res_1["description"], factory1.description)
-        self.assertEqual(res_1["imageId"], factory1.image_id)
+        self.assertEqual(res_1["imageIds"], factory1.image_ids)
         self.assertEqual(res_1["thumbnailId"], factory1.thumbnail_id)
         self.assertEqual(from_global_id(res_2["id"])[1], str(factory2.id))
         self.assertEqual(res_2["name"], factory2.name)
         self.assertEqual(res_2["description"], factory2.description)
-        self.assertEqual(res_2["imageId"], factory2.image_id)
+        self.assertEqual(res_2["imageIds"], factory2.image_ids)
         self.assertEqual(res_2["thumbnailId"], factory2.thumbnail_id)
         with self.assertRaises(IndexError):
             result["associations"]["edges"][2]
@@ -89,7 +89,7 @@ class AssociationTests(JSONWebTokenTestCase):
                     id
                     name
                     description
-                    imageId
+                    imageIds
                     thumbnailId
                 }
             }
@@ -102,7 +102,7 @@ class AssociationTests(JSONWebTokenTestCase):
 
         self.assertEqual(res_association["name"], association.name)
         self.assertEqual(res_association["description"], association.description)
-        self.assertEqual(res_association["imageId"], association.image_id)
+        self.assertEqual(res_association["imageIds"], association.image_ids)
         self.assertEqual(res_association["thumbnailId"], association.thumbnail_id)
 
     def test_association_create_mutation(self):
@@ -111,7 +111,7 @@ class AssociationTests(JSONWebTokenTestCase):
                 associationCreate(input: {
                     name: "Test Assoc Name"
                     description: "Test Assoc Description"
-                    imageId: "Test Assoc Image ID"
+                    imageIds: ["Test Assoc Image ID 1", "Test Assoc Image ID 2", "Test Assoc Image ID 3"]
                     thumbnailId: "Test Assoc Thumbnail ID"
                 }) {
                     ok
@@ -120,7 +120,7 @@ class AssociationTests(JSONWebTokenTestCase):
                         id
                         name
                         description
-                        imageId
+                        imageIds
                         thumbnailId
                         created
                         updated
@@ -135,7 +135,10 @@ class AssociationTests(JSONWebTokenTestCase):
 
         self.assertEqual(res_association["name"], "Test Assoc Name")
         self.assertEqual(res_association["description"], "Test Assoc Description")
-        self.assertEqual(res_association["imageId"], "Test Assoc Image ID")
+        self.assertEqual(
+            res_association["imageIds"],
+            ["Test Assoc Image ID 1", "Test Assoc Image ID 2", "Test Assoc Image ID 3"],
+        )
         self.assertEqual(res_association["thumbnailId"], "Test Assoc Thumbnail ID")
 
         created_association = Association.objects.get(
@@ -143,7 +146,10 @@ class AssociationTests(JSONWebTokenTestCase):
         )
         self.assertEqual(created_association.name, "Test Assoc Name")
         self.assertEqual(created_association.description, "Test Assoc Description")
-        self.assertEqual(created_association.image_id, "Test Assoc Image ID")
+        self.assertEqual(
+            created_association.image_ids,
+            ["Test Assoc Image ID 1", "Test Assoc Image ID 2", "Test Assoc Image ID 3"],
+        )
         self.assertEqual(created_association.thumbnail_id, "Test Assoc Thumbnail ID")
 
     def test_association_create_bad_input(self):  # (no `name` value provided)
@@ -179,7 +185,7 @@ class AssociationTests(JSONWebTokenTestCase):
                         id
                         name
                         description
-                        imageId
+                        imageIds
                         thumbnailId
                     }
                 }
@@ -190,7 +196,11 @@ class AssociationTests(JSONWebTokenTestCase):
                 "id": association_global_id,
                 "name": "Test Assoc Name",
                 "description": "Test Assoc Description",
-                "imageId": "Test Assoc Image ID",
+                "imageIds": [
+                    "Test Assoc Image ID 1",
+                    "Test Assoc Image ID 2",
+                    "Test Assoc Image ID 3",
+                ],
                 "thumbnailId": "Test Assoc Thumbnail ID",
             }
         }
@@ -201,7 +211,10 @@ class AssociationTests(JSONWebTokenTestCase):
 
         self.assertEqual(res_association["name"], "Test Assoc Name")
         self.assertEqual(res_association["description"], "Test Assoc Description")
-        self.assertEqual(res_association["imageId"], "Test Assoc Image ID")
+        self.assertEqual(
+            res_association["imageIds"],
+            ["Test Assoc Image ID 1", "Test Assoc Image ID 2", "Test Assoc Image ID 3"],
+        )
         self.assertEqual(res_association["thumbnailId"], "Test Assoc Thumbnail ID")
 
         updated_association = Association.objects.get(
@@ -209,7 +222,10 @@ class AssociationTests(JSONWebTokenTestCase):
         )
         self.assertEqual(updated_association.name, "Test Assoc Name")
         self.assertEqual(updated_association.description, "Test Assoc Description")
-        self.assertEqual(updated_association.image_id, "Test Assoc Image ID")
+        self.assertEqual(
+            updated_association.image_ids,
+            ["Test Assoc Image ID 1", "Test Assoc Image ID 2", "Test Assoc Image ID 3"],
+        )
         self.assertEqual(updated_association.thumbnail_id, "Test Assoc Thumbnail ID")
 
     def test_association_update_bad_input_no_id(self):

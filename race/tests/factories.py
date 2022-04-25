@@ -27,7 +27,7 @@ class RaceFactory(factory.django.DjangoModelFactory):
 
     name = factory.Faker("name")
     description = factory.Faker("text")
-    image_id = factory.Faker("text")
+    image_ids = factory.List([factory.Faker("text") for _ in range(3)])
     thumbnail_id = factory.Faker("text")
     age_of_adulthood = factory.Faker("pyint")
     life_expectancy = factory.Faker("pyint")
