@@ -1,6 +1,6 @@
 import graphene
 
-from nucleus.utils import RelayCUD, ConcurrencyLockActions
+from nucleus.utils import RelayCUD, ConcurrencyLockActions, ImageMutations
 from ..models import Export, Place, PlaceExport
 from ..serializers import ExportSerializer, PlaceSerializer, PlaceExportSerializer
 from .nodes import ExportNode, PlaceNode, PlaceExportNode
@@ -132,10 +132,24 @@ class ExportConcurrencyLock(ConcurrencyLockActions):
     model = Export
 
 
+class PlaceImageMutations(ImageMutations):
+    field = "place"
+    Node = PlaceNode
+    model = Place
+
+
+class ExportImageMutations(ImageMutations):
+    field = "export"
+    Node = ExportNode
+    model = Export
+
+
 PlaceCUDMutations = PlaceCUD().get_mutation_class()
 PlaceLockMutations = PlaceConcurrencyLock().get_mutation_class()
+PlaceImageMutations = PlaceImageMutations().get_mutation_class()
 ExportCUDMutations = ExportCUD().get_mutation_class()
 ExportLockMutations = ExportConcurrencyLock().get_mutation_class()
+ExportImageMutations = ExportImageMutations().get_mutation_class()
 # PlaceExportMutations = PlaceExportCUD().get_mutation_class()
 
 

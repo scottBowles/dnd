@@ -4,7 +4,7 @@ from graphene_django import DjangoObjectType
 from .models import Association
 from rest_framework import serializers
 from graphene_django.filter import DjangoFilterConnectionField
-from nucleus.utils import RelayCUD, ConcurrencyLockActions
+from nucleus.utils import RelayCUD, ConcurrencyLockActions, ImageMutations
 
 from nucleus.utils import login_or_queryset_none
 
@@ -86,11 +86,23 @@ class AssociationConcurrencyLock(ConcurrencyLockActions):
     model = Association
 
 
+class AssociationImageMutations(ImageMutations):
+    field = "association"
+    Node = AssociationNode
+    model = Association
+
+
 AssociationCUDMutations = AssociationCUD().get_mutation_class()
 AssociationLockMutations = AssociationConcurrencyLock().get_mutation_class()
+AssociationImageMutations = AssociationImageMutations().get_mutation_class()
 
 
-class Mutation(AssociationCUDMutations, AssociationLockMutations, graphene.ObjectType):
+class Mutation(
+    AssociationCUDMutations,
+    AssociationLockMutations,
+    AssociationImageMutations,
+    graphene.ObjectType,
+):
     pass
 
 

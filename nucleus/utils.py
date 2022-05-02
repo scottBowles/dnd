@@ -133,6 +133,31 @@ class ConcurrencyLockActions(MutationsCreatorMixin):
         return type(mutation_class_name, (Mixin, relay.ClientIDMutation), {})
 
 
+class ImageMutations(MutationsCreatorMixin):
+    actions = ("add_image",)
+    _required_attributes = ("field", "Node", "model")
+
+    def __init__(self, *args, **kwargs):
+        for el in self._required_attributes:
+            if not hasattr(self, el):
+                raise ValueError("Missing required attribute: {}".format(el))
+        super().__init__(*args, **kwargs)
+
+    def add_image(self, info, **input):
+        instance = self.get_instance(info, input)
+        imageId = input["image_id"]
+        instance.add_image(imageId)
+        return instance
+
+    def add_image_mutation(self):
+        class Input(self.IdentifyingInput):
+            image_id = graphene.String()
+
+        Mixin = self.get_mutation_base(self.add_image, Input)
+        mutation_class_name = self.field.title() + "AddImageMutation"
+        return type(mutation_class_name, (Mixin, relay.ClientIDMutation), {})
+
+
 class RelayCUD(MutationsCreatorMixin):
     actions = ("create", "update", "patch", "delete")
     _required_attributes = ("field", "Node", "model", "serializer_class")

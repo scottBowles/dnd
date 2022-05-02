@@ -1,6 +1,6 @@
 import graphene
 
-from nucleus.utils import RelayCUD, ConcurrencyLockActions
+from nucleus.utils import RelayCUD, ConcurrencyLockActions, ImageMutations
 from ..models import AbilityScoreIncrease, Trait, Race
 
 from ..serializers import (
@@ -167,10 +167,17 @@ class RaceConcurrencyLock(ConcurrencyLockActions):
     model = Race
 
 
+class RaceImageMutations(ImageMutations):
+    field = "Race"
+    Node = RaceNode
+    model = Race
+
+
 AbilityScoreIncreaseMutations = AbilityScoreIncreaseCUD().get_mutation_class()
 TraitMutations = TraitCUD().get_mutation_class()
 RaceCUDMutations = RaceCUD().get_mutation_class()
 RaceLockMutations = RaceConcurrencyLock().get_mutation_class()
+RaceImageMutations = RaceImageMutations().get_mutation_class()
 
 
 class Mutation(
@@ -178,6 +185,7 @@ class Mutation(
     TraitMutations,
     RaceCUDMutations,
     RaceLockMutations,
+    RaceImageMutations,
     graphene.ObjectType,
 ):
     pass

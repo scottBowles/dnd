@@ -1,6 +1,6 @@
 import graphene
 
-from nucleus.utils import RelayCUD, ConcurrencyLockActions
+from nucleus.utils import RelayCUD, ConcurrencyLockActions, ImageMutations
 from ..models import Language, Script, Feature, Skill, Proficiency, NPC
 from ..serializers import (
     LanguageSerializer,
@@ -118,8 +118,15 @@ class NPCConcurrencyLock(ConcurrencyLockActions):
     model = NPC
 
 
+class NPCImageMutations(ImageMutations):
+    field = "npc"
+    Node = NPCNode
+    model = NPC
+
+
 NPCCUDMutations = NPCCUD().get_mutation_class()
 NPCLockMutations = NPCConcurrencyLock().get_mutation_class()
+NPCImageMutations = NPCImageMutations().get_mutation_class()
 
 
 class Mutation(
@@ -130,6 +137,7 @@ class Mutation(
     ProficiencyMutations,
     NPCCUDMutations,
     NPCLockMutations,
+    NPCImageMutations,
     graphene.ObjectType,
 ):
     pass

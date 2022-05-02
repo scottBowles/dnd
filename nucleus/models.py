@@ -79,6 +79,10 @@ class ImageIdsModel(models.Model):
     image_ids = ArrayField(models.CharField(max_length=255), default=list)
     thumbnail_id = models.CharField(max_length=255, blank=True, null=True)
 
+    def add_image(self, imageId):
+        self.image_ids.append(imageId)
+        self.save()
+
     class Meta:
         abstract = True
 
