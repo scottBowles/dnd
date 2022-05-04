@@ -168,7 +168,7 @@ class RaceConcurrencyLock(ConcurrencyLockActions):
 
 
 class RaceImageMutations(ImageMutations):
-    field = "Race"
+    field = "race"
     Node = RaceNode
     model = Race
 

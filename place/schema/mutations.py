@@ -156,8 +156,10 @@ ExportImageMutations = ExportImageMutations().get_mutation_class()
 class Mutation(
     ExportCUDMutations,
     ExportLockMutations,
+    ExportImageMutations,
     PlaceCUDMutations,
     PlaceLockMutations,
+    PlaceImageMutations,
     # PlaceExportMutations,
     graphene.ObjectType,
 ):

@@ -84,7 +84,7 @@ class ArtifactConcurrencyLock(ConcurrencyLockActions):
 
 
 class ArtifactImageMutations(ImageMutations):
-    field = "Artifact"
+    field = "artifact"
     Node = ArtifactNode
     model = Artifact
 
