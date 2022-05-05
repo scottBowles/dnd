@@ -1,3 +1,4 @@
+import graphene
 from graphene import relay
 from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
@@ -33,6 +34,11 @@ class TraitNode(DjangoObjectType):
 
 
 class RaceNode(DjangoObjectType):
+    locked_by_self = graphene.Boolean()
+
+    def resolve_locked_by_self(self, info, **kwargs):
+        return self.lock_user == info.context.user
+
     class Meta:
         model = Race
         fields = (

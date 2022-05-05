@@ -36,10 +36,10 @@ class ItemSerializer(RelayModelSerializer):
             "id",
             "name",
             "description",
-            "artifact",
             "armor",
             "weapon",
             "equipment",
+            "markdown_notes",
         ]
 
     def update_or_remove(self, instance, Model, data):
@@ -96,6 +96,7 @@ class ArtifactSerializer(RelayModelSerializer):
         fields = [
             "name",
             "description",
+            "markdown_notes",
             "items",
             "notes",
             "created",

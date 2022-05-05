@@ -1,3 +1,4 @@
+import graphene
 from graphene import relay
 from graphene_django import DjangoObjectType
 
@@ -80,12 +81,16 @@ class ProficiencyConnection(relay.Connection):
 class NPCNode(DjangoObjectType):
     features_and_traits = relay.ConnectionField(FeaturesAndTraitConnection)
     profiencies = relay.ConnectionField(ProficiencyConnection)
+    locked_by_self = graphene.Boolean()
 
     def resolve_features_and_traits(self, info, **kwargs):
         return self.features_and_traits.all()
 
     def resolve_profiencies(self, info, **kwargs):
         return self.profiencies.all()
+
+    def resolve_locked_by_self(self, info, **kwargs):
+        return self.lock_user == info.context.user
 
     class Meta:
         model = NPC

@@ -74,6 +74,7 @@ class PlaceSerializer(RelayModelSerializer):
             "description",
             "image_ids",
             "thumbnail_id",
+            "markdown_notes",
             "created",
             "updated",
             "place_type",

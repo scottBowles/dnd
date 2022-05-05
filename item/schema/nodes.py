@@ -47,6 +47,10 @@ class ItemNode(DjangoObjectType):
     armor = graphene.Field(ArmorTraitsNode)
     weapon = graphene.Field(WeaponTraitsNode)
     equipment = graphene.Field(EquipmentTraitsNode)
+    locked_by_self = graphene.Boolean()
+
+    def resolve_locked_by_self(self, info, **kwargs):
+        return self.lock_user == info.context.user
 
     class Meta:
         model = Item
@@ -80,6 +84,11 @@ class ItemNode(DjangoObjectType):
 
 
 class ArtifactNode(DjangoObjectType):
+    locked_by_self = graphene.Boolean()
+
+    def resolve_locked_by_self(self, info, **kwargs):
+        return self.lock_user == info.context.user
+
     class Meta:
         model = Artifact
         fields = (

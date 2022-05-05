@@ -11,6 +11,11 @@ from nucleus.utils import login_or_queryset_none
 
 
 class ExportNode(DjangoObjectType):
+    locked_by_self = graphene.Boolean()
+
+    def resolve_locked_by_self(self, info, **kwargs):
+        return self.lock_user == info.context.user
+
     class Meta:
         model = Export
         fields = (
@@ -54,6 +59,11 @@ class RaceNode(DjangoObjectType):
     """
     Eventually this should come from the Race app's RaceNode
     """
+
+    locked_by_self = graphene.Boolean()
+
+    def resolve_locked_by_self(self, info, **kwargs):
+        return self.lock_user == info.context.user
 
     class Meta:
         model = Race
@@ -140,6 +150,7 @@ class PlaceNode(DjangoObjectType):
     exports = relay.ConnectionField(ExportConnection)
     common_races = relay.ConnectionField(RaceConnection)
     associations = relay.ConnectionField(AssociationConnection)
+    locked_by_self = graphene.Boolean()
 
     def resolve_associations(self, info, **kwargs):
         qs = PlaceAssociation.objects.filter(place=self)
@@ -158,6 +169,9 @@ class PlaceNode(DjangoObjectType):
         return self.common_races.prefetch_related(
             Prefetch("placerace_set", queryset=qs, to_attr="place_races")
         )
+
+    def resolve_locked_by_self(self, info, **kwargs):
+        return self.lock_user == info.context.user
 
     class Meta:
         model = Place

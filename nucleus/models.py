@@ -94,7 +94,7 @@ class NotesMarkdownModel(models.Model):
     An abstract base class model that provides notes and markdown fields.
     """
 
-    markdown_notes = models.TextField(default="")
+    markdown_notes = models.TextField(default="", blank=True, null=True)
 
     class Meta:
         abstract = True
