@@ -76,7 +76,7 @@ class ImageIdsModel(models.Model):
     An abstract base class model that provides image ids fields.
     """
 
-    image_ids = ArrayField(models.CharField(max_length=255), default=list)
+    image_ids = ArrayField(models.CharField(max_length=255), default=list, blank=True)
     thumbnail_id = models.CharField(max_length=255, blank=True, null=True)
 
     def add_image(self, imageId):
