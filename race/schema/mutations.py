@@ -48,7 +48,7 @@ class RaceCUD(RelayCUD):
     enforce_lock = True
 
     class Input:
-        name = graphene.String(required=True)
+        name = graphene.String()
         description = graphene.String()
         image_ids = graphene.List(graphene.String)
         thumbnail_id = graphene.String()
