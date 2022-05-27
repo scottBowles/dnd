@@ -83,7 +83,7 @@ class RaceNode(DjangoObjectType):
         return queryset
 
 
-class AssociationConnection(relay.Connection):
+class PlaceAssociationConnection(relay.Connection):
     class Meta:
         node = AssociationNode
 
@@ -149,7 +149,7 @@ class PlaceNode(DjangoObjectType):
     parent = graphene.Field(lambda: PlaceNode)
     exports = relay.ConnectionField(ExportConnection)
     common_races = relay.ConnectionField(RaceConnection)
-    associations = relay.ConnectionField(AssociationConnection)
+    associations = relay.ConnectionField(PlaceAssociationConnection)
     locked_by_self = graphene.Boolean()
 
     def resolve_associations(self, info, **kwargs):
