@@ -4,6 +4,17 @@ from race.tests import test_races
 
 
 class CompareMixin(test_races.CompareMixin, JSONWebTokenTestCase):
+    def compare_associations(self, model_association, node_association):
+        self.assertEqual(
+            str(model_association.id), from_global_id(node_association["id"])[1]
+        )
+        self.assertEqual(model_association.name, node_association["name"])
+        self.assertEqual(model_association.description, node_association["description"])
+        self.assertEqual(model_association.image_ids, node_association["imageIds"])
+        self.assertEqual(
+            model_association.thumbnail_id, node_association["thumbnailId"]
+        )
+
     def compare_npcs(
         self, model_npc, node_npc, compare_features=False, compare_proficiencies=False
     ):

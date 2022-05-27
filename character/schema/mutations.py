@@ -110,6 +110,8 @@ class NPCCUD(RelayCUD):
         image_ids = graphene.List(graphene.String)
         thumbnail_id = graphene.String()
         markdown_notes = graphene.String()
+        race = graphene.ID()
+        associations = graphene.List(graphene.ID)
 
 
 class NPCConcurrencyLock(ConcurrencyLockActions):

@@ -5,6 +5,7 @@ from .factories import NPCFactory, FeatureFactory, ProficiencyFactory
 from race.tests.factories import RaceFactory
 from .utils import CompareMixin
 from django.contrib.auth import get_user_model
+from association.tests import AssociationFactory
 
 
 class NPCQueryTests(CompareMixin, JSONWebTokenTestCase):
@@ -213,6 +214,76 @@ class NPCQueryTests(CompareMixin, JSONWebTokenTestCase):
             self.assertGreater(len(res_npc["proficiencies"]["edges"]), 0)
             self.compare_npcs(
                 npc, res_npc, compare_features=True, compare_proficiencies=True
+            )
+
+
+class NPCQueryTests(CompareMixin, JSONWebTokenTestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create(username="test")
+        self.client.authenticate(self.user)
+
+    def test_npc_create(self):
+        race = RaceFactory()
+        associations = AssociationFactory.create_batch(3)
+        query = """
+            mutation npcCreate($name: String, $description: String, $race: ID, $associations: [ID]){
+                npcCreate(input: {name: $name, description: $description, race: $race, associations: $associations}) {
+                    ok
+                    errors
+                    npc {
+                        id
+                        name
+                        description
+                        race {
+                            id
+                            name
+                            description
+                            imageIds
+                            thumbnailId
+                            ageOfAdulthood
+                            lifeExpectancy
+                            alignment
+                            size
+                            speed
+                        }
+                        associations {
+                            edges {
+                                node {
+                                    id
+                                    name
+                                    description
+                                    markdownNotes
+                                    imageIds
+                                    thumbnailId
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            """
+        variables = {
+            "name": "RaceName",
+            "description": "RaceDescription",
+            "race": to_global_id("RaceNode", race.pk),
+            "associations": [
+                to_global_id("AssociationNode", association.pk)
+                for association in associations
+            ],
+        }
+        response = self.client.execute(query, variables)
+        self.assertIsNone(response.errors)
+
+        print("response", response)
+        print("data", response.data)
+
+        res_npc = response.data["npcCreate"]["npc"]
+        self.assertEqual(res_npc["name"], "RaceName")
+        self.assertEqual(res_npc["description"], "RaceDescription")
+        self.compare_races(race, res_npc["race"])
+        for i, association in enumerate(associations):
+            self.compare_associations(
+                association, res_npc["associations"]["edges"][i]["node"]
             )
 
         # class PlaceQueryTests(CompareMixin, JSONWebTokenTestCase):
