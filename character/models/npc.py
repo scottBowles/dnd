@@ -22,6 +22,7 @@ from .models import (
     Tool,
 )
 from nucleus.models import Entity
+from association.models import Association
 
 
 class NPCQuerySet(models.QuerySet):
@@ -51,6 +52,7 @@ class NPC(Entity):
         Feature, related_name="npcs", blank=True
     )
     proficiencies = models.ManyToManyField(Proficiency, related_name="npcs", blank=True)
+    associations = models.ManyToManyField(Association, related_name="npcs", blank=True)
 
     def is_proficient(self, name, proficiency_type=None):
         if proficiency_type:
