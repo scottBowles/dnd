@@ -90,8 +90,6 @@ class ItemSerializer(RelayModelSerializer):
 
 
 class ArtifactSerializer(RelayModelSerializer):
-    items = ItemSerializer(many=True, required=False)
-
     class Meta:
         model = Artifact
         fields = [
