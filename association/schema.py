@@ -4,7 +4,13 @@ from graphene_django import DjangoObjectType
 from .models import Association
 from rest_framework import serializers
 from graphene_django.filter import DjangoFilterConnectionField
-from nucleus.utils import RelayCUD, ConcurrencyLockActions, ImageMutations
+from nucleus.utils import (
+    RelayCUD,
+    ConcurrencyLockActions,
+    ImageMutations,
+    RelayPrimaryKeyRelatedField,
+)
+from character.models import NPC
 
 from nucleus.utils import login_or_queryset_none
 
@@ -27,6 +33,7 @@ class AssociationNode(DjangoObjectType):
             "markdown_notes",
             "lock_user",
             "lock_time",
+            "npcs",
         )
         filter_fields = [
             "name",
@@ -48,6 +55,13 @@ class Query(graphene.ObjectType):
 
 
 class AssociationSerializer(serializers.ModelSerializer):
+    npcs = RelayPrimaryKeyRelatedField(
+        many=True,
+        required=False,
+        queryset=NPC.objects.all(),
+        default=list,
+    )
+
     class Meta:
         model = Association
         fields = "__all__"
@@ -63,6 +77,7 @@ class AssociationInput(graphene.InputObjectType):
     image_ids = graphene.List(graphene.String)
     thumbnail_id = graphene.String()
     markdown_notes = graphene.String()
+    npcs = graphene.List(graphene.ID)
 
 
 class AssociationCUD(RelayCUD):
@@ -78,6 +93,7 @@ class AssociationCUD(RelayCUD):
         image_ids = graphene.List(graphene.String)
         thumbnail_id = graphene.String()
         markdown_notes = graphene.String()
+        npcs = graphene.List(graphene.ID)
 
 
 class AssociationConcurrencyLock(ConcurrencyLockActions):
