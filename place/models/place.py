@@ -55,13 +55,13 @@ class PlaceAssociation(models.Model):
 
 
 class Place(Entity):
-    STAR = "STAR"
-    PLANET = "PLANET"
-    MOON = "MOON"
-    REGION = "REGION"
-    TOWN = "TOWN"
-    DISTRICT = "DISTRICT"
-    LOCATION = "LOCATION"
+    STAR = "Star"
+    PLANET = "Planet"
+    MOON = "Moon"
+    REGION = "Region"
+    TOWN = "Town"
+    DISTRICT = "District"
+    LOCATION = "Location"
 
     PLACE_TYPES = [
         (STAR, "Star"),
@@ -72,7 +72,9 @@ class Place(Entity):
         (DISTRICT, "District"),
         (LOCATION, "Location"),
     ]
-    place_type = models.CharField(max_length=8, choices=PLACE_TYPES, default=LOCATION)
+    place_type = models.CharField(
+        max_length=8, choices=PLACE_TYPES, null=True, blank=True
+    )
 
     parent = models.ForeignKey(
         "self", on_delete=models.PROTECT, null=True, blank=True, related_name="children"

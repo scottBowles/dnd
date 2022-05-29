@@ -151,6 +151,7 @@ class PlaceNode(DjangoObjectType):
     common_races = relay.ConnectionField(RaceConnection)
     associations = relay.ConnectionField(PlaceAssociationConnection)
     locked_by_self = graphene.Boolean()
+    place_type_display = graphene.String()
 
     def resolve_associations(self, info, **kwargs):
         qs = PlaceAssociation.objects.filter(place=self)
@@ -173,6 +174,9 @@ class PlaceNode(DjangoObjectType):
     def resolve_locked_by_self(self, info, **kwargs):
         return self.lock_user == info.context.user
 
+    def resolve_place_type_display(self, info, **kwargs):
+        return self.get_place_type_display()
+
     class Meta:
         model = Place
         fields = (
@@ -184,6 +188,7 @@ class PlaceNode(DjangoObjectType):
             "created",
             "updated",
             "place_type",
+            "place_type_display",
             "parent",
             "children",
             "population",

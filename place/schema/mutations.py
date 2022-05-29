@@ -61,7 +61,8 @@ class PlaceInput:
     associations = graphene.List(PlaceAssociationInput)
     races = graphene.List(PlaceRaceInput)
     exports = graphene.List(PlaceExportInput)
-    parent = graphene.UUID()
+    parent = graphene.ID()
+    children = graphene.List(graphene.ID)
     markdown_notes = graphene.String()
 
 
@@ -82,7 +83,8 @@ class PlaceCUD(RelayCUD):
         associations = graphene.List(PlaceAssociationInput)
         races = graphene.List(PlaceRaceInput)
         exports = graphene.List(PlaceExportInput)
-        parent = graphene.UUID()
+        parent = graphene.ID()
+        children = graphene.List(graphene.ID)
         markdown_notes = graphene.String()
 
 

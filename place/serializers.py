@@ -12,6 +12,7 @@ from .models import (
     PlaceExport,
 )
 from nucleus.utils import RelayPrimaryKeyRelatedField, RelayModelSerializer
+from rest_framework import serializers
 
 """
 Places are held on one table with proxy models for different place types.
@@ -65,6 +66,12 @@ class PlaceAssociationSerializer(RelayModelSerializer):
 class PlaceSerializer(RelayModelSerializer):
     exports = PlaceExportSerializer(many=True, required=False)
     associations = PlaceAssociationSerializer(many=True, required=False)
+    children = RelayPrimaryKeyRelatedField(
+        queryset=Place.objects.all(), many=True, required=False, default=list
+    )
+    place_type_display = serializers.CharField(
+        source="get_place_type_display", required=False
+    )
 
     class Meta:
         model = Place
@@ -78,7 +85,9 @@ class PlaceSerializer(RelayModelSerializer):
             "created",
             "updated",
             "place_type",
+            "place_type_display",
             "parent",
+            "children",
             "population",
             "exports",
             "common_races",
