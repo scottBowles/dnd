@@ -12,6 +12,9 @@ djoser = "*"
 django-cors-headers = "*"
 django-extensions = "*"
 rest-framework-generic-relations = "*"
+graphene = "==3.0" # pinned due to https://github.com/graphql-python/graphene-django/pull/1320 can remove this line once fixed
+graphql-core = "==3.1.7" # pinned due to https://github.com/graphql-python/graphene-django/pull/1320 can remove this line once fixed
+graphql-relay = "==3.1.5" # pinned due to https://github.com/graphql-python/graphene-django/pull/1320 can remove this line once fixed
 graphene-django = "*"
 django-filter = "*"
 factory-boy = "*"
@@ -19,6 +22,11 @@ dj-database-url = "*"
 gunicorn = "*"
 whitenoise = {extras = ["brotli"], version = "*"}
 django-graphql-jwt = "*"
+google-cloud-storage = "*"
+google-api-python-client = "*"
+oauth2client = "*"
+google-auth-httplib2 = "*"
+google-auth-oauthlib = "*"
 
 [dev-packages]
 black = "*"
