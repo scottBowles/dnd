@@ -5,6 +5,7 @@ from graphene_django.filter import DjangoFilterConnectionField
 from django.contrib.auth import get_user_model
 
 from nucleus.utils import login_or_queryset_none
+from nucleus.models import GameLog
 
 
 class UserNode(DjangoObjectType):
@@ -28,6 +29,70 @@ class UserNode(DjangoObjectType):
         return queryset
 
 
+class GameLogNode(DjangoObjectType):
+    class Meta:
+        model = GameLog
+        fields = (
+            "id",
+            "url",
+        )
+        interfaces = (relay.Node,)
+
+    @classmethod
+    @login_or_queryset_none
+    def get_queryset(cls, queryset, info):
+        return queryset
+
+
+class AddEntityLogMutation(relay.ClientIDMutation):
+    class Input:
+        entity_id = graphene.ID()
+        log_id = graphene.ID()
+        log_url = graphene.String()
+
+    ok = graphene.Boolean()
+    errors = graphene.String()
+
+    @classmethod
+    def mutate(cls, root, info, input):
+        try:
+            entity_id = input.get("entity_id")
+            log_id = input.get("log_id", None)
+            log_url = input.get("log_url", None)
+            if log_id is not None:
+                log = relay.Node.get_node_from_global_id(info, log_id)
+            else:
+                log = GameLog.objects.get_or_create(url=log_url)[0]
+            entity = relay.Node.get_node_from_global_id(info, entity_id)
+            entity.logs.add(log)
+            entity.save()
+            return AddEntityLogMutation(ok=True)
+        except Exception as e:
+            return AddEntityLogMutation(ok=False, errors=str(e))
+
+
+class RemoveEntityLogMutation(relay.ClientIDMutation):
+    class Input:
+        log_id = graphene.ID()
+        entity_id = graphene.ID()
+
+    ok = graphene.Boolean()
+    errors = graphene.String()
+
+    @classmethod
+    def mutate(cls, root, info, input):
+        try:
+            log_id = input.get("log_id")
+            entity_id = input.get("entity_id")
+            log = relay.Node.get_node_from_global_id(info, log_id)
+            entity = relay.Node.get_node_from_global_id(info, entity_id)
+            entity.logs.remove(log)
+            entity.save()
+            return RemoveEntityLogMutation(ok=True)
+        except Exception as e:
+            return RemoveEntityLogMutation(ok=False, errors=str(e))
+
+
 class Query(graphene.ObjectType):
     user = relay.Node.Field(UserNode)
     users = DjangoFilterConnectionField(UserNode)
@@ -40,4 +105,9 @@ class Query(graphene.ObjectType):
         return user
 
 
-schema = graphene.Schema(query=Query)
+class Mutation(graphene.ObjectType):
+    add_entity_log = AddEntityLogMutation.Field()
+    remove_entity_log = RemoveEntityLogMutation.Field()
+
+
+schema = graphene.Schema(query=Query, mutation=Mutation)

@@ -1,13 +1,12 @@
+from django.db.models import Prefetch
 import graphene
 from graphene import relay
 from graphene_django import DjangoObjectType
 
-from ..models import Place, PlaceExport, Export, PlaceRace, PlaceAssociation
-from race.models import Race
 from association.schema import AssociationNode
-from django.db.models import Prefetch
-from graphene_django.filter import DjangoFilterConnectionField
 from nucleus.utils import login_or_queryset_none
+from race.schema.nodes import RaceNode
+from ..models import Place, PlaceExport, Export, PlaceRace, PlaceAssociation
 
 
 class ExportNode(DjangoObjectType):
@@ -47,34 +46,6 @@ class PlaceExportNode(DjangoObjectType):
         model = PlaceExport
         fields = ("significance", "export", "place")
         filter_fields = []
-        interfaces = (relay.Node,)
-
-    @classmethod
-    @login_or_queryset_none
-    def get_queryset(cls, queryset, info):
-        return queryset
-
-
-class RaceNode(DjangoObjectType):
-    """
-    Eventually this should come from the Race app's RaceNode
-    """
-
-    locked_by_self = graphene.Boolean()
-
-    def resolve_locked_by_self(self, info, **kwargs):
-        return self.lock_user == info.context.user
-
-    class Meta:
-        model = Race
-        fields = (
-            "id",
-            "name",
-            "markdown_notes",
-            "lock_user",
-            "lock_time",
-        )
-        filter_fields = ("name",)
         interfaces = (relay.Node,)
 
     @classmethod
@@ -198,6 +169,7 @@ class PlaceNode(DjangoObjectType):
             "markdown_notes",
             "lock_user",
             "lock_time",
+            "logs",
         )
         filter_fields = [
             "place_type",

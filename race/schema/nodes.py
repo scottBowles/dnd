@@ -60,6 +60,7 @@ class RaceNode(DjangoObjectType):
             "markdown_notes",
             "lock_user",
             "lock_time",
+            "logs",
         )
         filter_fields = []
         interfaces = (relay.Node,)

@@ -34,6 +34,7 @@ class AssociationNode(DjangoObjectType):
             "lock_user",
             "lock_time",
             "npcs",
+            "logs",
         )
         filter_fields = [
             "name",

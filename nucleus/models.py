@@ -144,6 +144,10 @@ class PessimisticConcurrencyLockModel(models.Model):
         return self
 
 
+class GameLog(models.Model):
+    url = models.CharField(max_length=255)
+
+
 class Entity(
     PessimisticConcurrencyLockModel,
     NameSlugDescriptionModel,
@@ -151,6 +155,10 @@ class Entity(
     ImageIdsModel,
     BaseModel,
 ):
+    logs = models.ManyToManyField(
+        GameLog, blank=True, related_name="%(app_label)s_%(class)ss"
+    )
+
     def __str__(self):
         return self.name
 
