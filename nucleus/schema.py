@@ -52,6 +52,7 @@ class AddEntityLogMutation(relay.ClientIDMutation):
 
     ok = graphene.Boolean()
     errors = graphene.String()
+    log = graphene.Field(GameLogNode)
 
     @classmethod
     def mutate(cls, root, info, input):
@@ -66,7 +67,7 @@ class AddEntityLogMutation(relay.ClientIDMutation):
             entity = relay.Node.get_node_from_global_id(info, entity_id)
             entity.logs.add(log)
             entity.save()
-            return AddEntityLogMutation(ok=True)
+            return AddEntityLogMutation(ok=True, log=log)
         except Exception as e:
             return AddEntityLogMutation(ok=False, errors=str(e))
 
