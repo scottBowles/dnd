@@ -274,9 +274,6 @@ class NPCQueryTests(CompareMixin, JSONWebTokenTestCase):
         response = self.client.execute(query, variables)
         self.assertIsNone(response.errors)
 
-        print("response", response)
-        print("data", response.data)
-
         res_npc = response.data["npcCreate"]["npc"]
         self.assertEqual(res_npc["name"], "RaceName")
         self.assertEqual(res_npc["description"], "RaceDescription")
