@@ -34,8 +34,10 @@ class GameLogNode(DjangoObjectType):
         model = GameLog
         fields = (
             "id",
+            "name",
             "url",
         )
+        filter_fields = ("name",)
         interfaces = (relay.Node,)
 
     @classmethod
@@ -98,6 +100,7 @@ class Query(graphene.ObjectType):
     user = relay.Node.Field(UserNode)
     users = DjangoFilterConnectionField(UserNode)
     me = graphene.Field(UserNode)
+    game_logs = DjangoFilterConnectionField(GameLogNode)
 
     def resolve_me(self, info):
         user = info.context.user
