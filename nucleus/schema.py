@@ -65,7 +65,8 @@ class AddEntityLogMutation(relay.ClientIDMutation):
             if log_id is not None:
                 log = relay.Node.get_node_from_global_id(info, log_id)
             else:
-                log = GameLog.objects.get_or_create(url=log_url)[0]
+                google_id = GameLog.get_id_from_url(log_url)
+                log = GameLog.objects.get_or_create(google_id=google_id)[0]
             entity = relay.Node.get_node_from_global_id(info, entity_id)
             entity.logs.add(log)
             entity.save()

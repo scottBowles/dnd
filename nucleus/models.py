@@ -147,7 +147,7 @@ class PessimisticConcurrencyLockModel(models.Model):
 class GameLog(models.Model):
     url = models.CharField(max_length=255)
     name = models.CharField(max_length=512, null=True, blank=True)
-    google_id = models.CharField(max_length=255, null=True, blank=True)
+    google_id = models.CharField(max_length=255, null=True, blank=True, unique=True)
 
     def __str__(self):
         return self.name or self.url
@@ -172,19 +172,23 @@ class GameLog(models.Model):
         except Exception as e:
             raise e
 
-    def set_id_from_url(self):
-        split_url = self.url.split("/")
+    @staticmethod
+    def get_id_from_url(url):
+        split_url = url.split("/")
         if len(split_url) == 1:
-            self.google_id = split_url[0]
+            return split_url[0]
         else:
             try:
                 d_index = split_url.index("d")
                 id_index = d_index + 1
-                self.google_id = split_url[id_index]
+                return split_url[id_index]
             except ValueError:
                 raise ValueError(
-                    f"Could not find id in url: {self.url}. Make sure the url is a google drive url."
+                    f"Could not find id in url: {url}. Make sure the url is a google drive url."
                 )
+
+    def set_id_from_url(self):
+        self.google_id = self.get_id_from_url()
 
 
 class Entity(
