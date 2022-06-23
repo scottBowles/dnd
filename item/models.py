@@ -13,7 +13,7 @@ class Item(Entity):
 
 
 class Artifact(Entity):
-    items = models.ManyToManyField(Item, related_name="artifacts")
+    items = models.ManyToManyField(Item, related_name="artifacts", blank=True)
     notes = models.TextField(null=True, blank=True)
 
     def __str__(self):
