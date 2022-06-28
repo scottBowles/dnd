@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+import pytz
 from .models import User
+from django.utils import timezone
 
 
 @admin.register(User)
@@ -22,7 +24,7 @@ class UserAdmin(BaseUserAdmin):
         ),
         (
             "Important dates",
-            {"fields": ("last_activity", "last_login", "date_joined")},
+            {"fields": ("last_activity_display", "last_login", "date_joined")},
         ),
     )
     add_fieldsets = (
@@ -45,10 +47,7 @@ class UserAdmin(BaseUserAdmin):
         "username",
         "first_name",
         "last_name",
-        "email",
-        "is_staff",
-        "is_superuser",
-        "last_activity",
+        "last_activity_display",
     )
     list_filter = (
         "is_staff",
@@ -59,4 +58,10 @@ class UserAdmin(BaseUserAdmin):
     search_fields = ("username", "first_name", "last_name", "email")
     ordering = ("username",)
     filter_horizontal = ()
-    readonly_fields = ("last_login", "date_joined")
+    readonly_fields = ("last_login", "date_joined", "last_activity_display")
+
+    @admin.display(description="Last activity")
+    def last_activity_display(self, obj):
+        return obj.last_activity.astimezone(pytz.timezone("US/Eastern")).strftime(
+            "%B %d, %Y %-I:%M %p %Z"
+        )
