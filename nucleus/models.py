@@ -9,6 +9,7 @@ from django.contrib.postgres.fields import ArrayField
 
 class User(AbstractUser):
     isDM = models.BooleanField(default=False)
+    last_activity = models.DateTimeField(default=timezone.now)
 
 
 class CreatableModel(models.Model):
@@ -204,6 +205,9 @@ class Entity(
 
     def __str__(self):
         return self.name
+
+    def most_recent_log_by_name(self):
+        return self.logs.order_by("-name").first()
 
     class Meta:
         abstract = True

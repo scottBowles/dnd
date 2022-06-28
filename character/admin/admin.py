@@ -163,5 +163,16 @@ class CharacterAdmin(admin.ModelAdmin):
         return obj.total_level()
 
 
+class NPCAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "lock_user",
+        "lock_time",
+        "updated",
+        "created",
+    )
+    list_filter = ("created", "updated")
+
+
 admin.site.register(CharacterClass)
-admin.site.register(NPC)
+admin.site.register(NPC, NPCAdmin)

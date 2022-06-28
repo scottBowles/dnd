@@ -3,18 +3,21 @@ from ..models import Item, Artifact
 from .inlines import ArmorTraitsInline, WeaponTraitsInline, EquipmentTraitsInline
 
 
-class ItemMixin(admin.ModelAdmin):
-    fields = [
-        "name",
-        "description",
-    ]
-
-    list_display = [
+class ItemAdmin(admin.ModelAdmin):
+    list_display = (
         "name",
         "is_armor",
         "is_weapon",
         "is_equipment",
-    ]
+        "lock_user",
+        "lock_time",
+        "updated",
+        "created",
+    )
+    list_filter = (
+        "created",
+        "updated",
+    )
 
     @admin.display(boolean=True, description="Armor")
     def is_armor(self, obj):
@@ -28,11 +31,6 @@ class ItemMixin(admin.ModelAdmin):
     def is_equipment(self, obj):
         return obj.equipment is not None
 
-    class Meta:
-        abstract = True
-
-
-class ItemAdmin(ItemMixin):
     inlines = [
         ArmorTraitsInline,
         WeaponTraitsInline,
@@ -41,7 +39,14 @@ class ItemAdmin(ItemMixin):
 
 
 class ArtifactAdmin(admin.ModelAdmin):
-    pass
+    list_display = (
+        "name",
+        "lock_user",
+        "lock_time",
+        "updated",
+        "created",
+    )
+    list_filter = ("created", "updated")
 
 
 admin.site.register(Item, ItemAdmin)
