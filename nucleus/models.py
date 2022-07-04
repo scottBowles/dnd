@@ -84,6 +84,12 @@ class ImageIdsModel(models.Model):
         self.image_ids.append(imageId)
         self.save()
 
+    def thumbnail(self):
+        try:
+            return self.thumbnail_id or self.image_ids[0]
+        except IndexError:
+            return None
+
     class Meta:
         abstract = True
 
