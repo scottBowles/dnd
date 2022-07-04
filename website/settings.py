@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework.authtoken",
     "djoser",
+    "algoliasearch_django",
     "generic_relations",
     "association",
     "character",
@@ -223,3 +224,8 @@ AUTHENTICATION_BACKENDS = [
     "graphql_jwt.backends.JSONWebTokenBackend",
     "django.contrib.auth.backends.ModelBackend",
 ]
+
+ALGOLIA = {
+    "APPLICATION_ID": os.environ.get("ALGOLIA_APPLICATION_ID"),
+    "API_KEY": os.environ.get("ALGOLIA_API_KEY"),
+}

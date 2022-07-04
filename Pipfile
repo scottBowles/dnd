@@ -27,6 +27,7 @@ google-api-python-client = "*"
 oauth2client = "*"
 google-auth-httplib2 = "*"
 google-auth-oauthlib = "*"
+algoliasearch-django = ">=2.0,<3.0"
 
 [dev-packages]
 black = "*"

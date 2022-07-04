@@ -1,4 +1,5 @@
 from django.db import models
+from graphql_relay import to_global_id
 
 from nucleus.models import Entity
 from race.models import Race
@@ -84,6 +85,9 @@ class Place(Entity):
     exports = models.ManyToManyField(Export, through="PlaceExport")
     common_races = models.ManyToManyField(Race, through="PlaceRace")
     associations = models.ManyToManyField(Association, through="PlaceAssociation")
+
+    def global_id(self):
+        return to_global_id("PlaceNode", self.id)
 
     def __str__(self):
         return self.name

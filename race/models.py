@@ -1,4 +1,5 @@
 from django.db import models
+from graphql_relay import to_global_id
 
 from character.models.models import Language, ABILITIES, ALIGNMENTS, SIZES
 from nucleus.models import Entity
@@ -36,6 +37,9 @@ class Race(Entity):
     base_race = models.ForeignKey(
         "self", null=True, blank=True, on_delete=models.CASCADE, related_name="subraces"
     )
+
+    def global_id(self):
+        return to_global_id("RaceNode", self.id)
 
     def __str__(self):
         return self.name

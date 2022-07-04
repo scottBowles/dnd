@@ -1,4 +1,5 @@
 from django.db import models
+from graphql_relay import to_global_id
 from nucleus.models import Entity
 
 """
@@ -11,10 +12,16 @@ class Item(Entity):
     def __str__(self):
         return self.name
 
+    def global_id(self):
+        return to_global_id("ItemNode", self.id)
+
 
 class Artifact(Entity):
     items = models.ManyToManyField(Item, related_name="artifacts", blank=True)
     notes = models.TextField(null=True, blank=True)
+
+    def global_id(self):
+        return to_global_id("ArtifactNode", self.id)
 
     def __str__(self):
         return self.name

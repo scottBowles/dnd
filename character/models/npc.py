@@ -5,6 +5,7 @@ from django.contrib import admin
 from django.db import models
 from django.contrib.postgres.fields import ArrayField
 from django.db.models.aggregates import Sum
+from graphql_relay import to_global_id
 from .character_class import CharacterClass
 from .mixins import HitDieMixin
 from item.models import Equipment, Weapon, Armor
@@ -106,6 +107,9 @@ class NPC(Entity):
 
     # OTHER
     size = models.CharField(max_length=10, choices=SIZES, null=True, blank=True)
+
+    def global_id(self):
+        return to_global_id("NPCNode", self.id)
 
     def __str__(self):
         return self.name or ""
