@@ -45,7 +45,9 @@ class NPC(Entity):
 
     # NAME BLOCK
     name = models.CharField(max_length=200)
-    race = models.ForeignKey(Race, null=True, blank=True, on_delete=models.SET_NULL)
+    race = models.ForeignKey(
+        Race, null=True, blank=True, on_delete=models.SET_NULL, related_name="npcs"
+    )
     description = models.TextField(null=True, blank=True)
 
     # FEATURES AND TRAITS BLOCK
