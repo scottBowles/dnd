@@ -1,4 +1,5 @@
 from typing import Annotated, Iterable, Optional, TYPE_CHECKING
+from nucleus.permissions import IsStaff, IsSuperuser
 from nucleus.types import Entity, EntityInput, GameLog, User
 from strawberry_django_plus import gql
 from strawberry_django_plus.gql import relay, auto
@@ -51,11 +52,17 @@ class ArtifactQuery:
 
 @gql.type
 class ArtifactMutation:
-    create_artifact: Artifact = gql.django.create_mutation(ArtifactInput)
-    update_artifact: Artifact = gql.django.update_mutation(ArtifactInputPartial)
-    delete_artifact: Artifact = gql.django.delete_mutation(gql.NodeInput)
+    create_artifact: Artifact = gql.django.create_mutation(
+        ArtifactInput, permission_classes=[IsStaff]
+    )
+    update_artifact: Artifact = gql.django.update_mutation(
+        ArtifactInputPartial, permission_classes=[IsStaff]
+    )
+    delete_artifact: Artifact = gql.django.delete_mutation(
+        gql.NodeInput, permission_classes=[IsSuperuser]
+    )
 
-    @gql.django.input_mutation
+    @gql.django.input_mutation(permission_classes=[IsStaff])
     def artifact_add_image(
         self, info, id: gql.relay.GlobalID, image_id: str
     ) -> Artifact:
@@ -64,14 +71,14 @@ class ArtifactMutation:
         obj.save()
         return obj
 
-    @gql.django.input_mutation
-    def artifact_lock(self, info, artifact_id: gql.relay.GlobalID) -> Artifact:
-        artifact = artifact_id.resolve_node(info)
-        artifact = artifact.lock(info.context.user)
+    @gql.django.input_mutation(permission_classes=[IsStaff])
+    def artifact_lock(self, info, id: gql.relay.GlobalID) -> Artifact:
+        artifact = id.resolve_node(info)
+        artifact = artifact.lock(info.context.request.user)
         return artifact
 
-    @gql.django.input_mutation
-    def artifact_release_lock(self, info, artifact_id: gql.relay.GlobalID) -> Artifact:
-        artifact = artifact_id.resolve_node(info)
-        artifact = artifact.release_lock(info.context.user)
+    @gql.django.input_mutation(permission_classes=[IsSuperuser])
+    def artifact_release_lock(self, info, id: gql.relay.GlobalID) -> Artifact:
+        artifact = id.resolve_node(info)
+        artifact = artifact.release_lock(info.context.request.user)
         return artifact

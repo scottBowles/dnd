@@ -2,6 +2,8 @@ from typing import Annotated, Iterable, Optional, TYPE_CHECKING
 from strawberry_django_plus import gql
 from strawberry_django_plus.gql import relay, auto
 
+from nucleus.permissions import IsStaff, IsSuperuser
+
 from .. import models
 
 if TYPE_CHECKING:
@@ -52,8 +54,12 @@ class ProficiencyQuery:
 
 @gql.type
 class ProficiencyMutation:
-    create_proficiency: Proficiency = gql.django.create_mutation(ProficiencyInput)
-    update_proficiency: Proficiency = gql.django.update_mutation(
-        ProficiencyInputPartial
+    create_proficiency: Proficiency = gql.django.create_mutation(
+        ProficiencyInput, permission_classes=[IsStaff]
     )
-    delete_proficiency: Proficiency = gql.django.delete_mutation(gql.NodeInput)
+    update_proficiency: Proficiency = gql.django.update_mutation(
+        ProficiencyInputPartial, permission_classes=[IsStaff]
+    )
+    delete_proficiency: Proficiency = gql.django.delete_mutation(
+        gql.NodeInput, permission_classes=[IsSuperuser]
+    )

@@ -2,6 +2,8 @@ from typing import Iterable, Optional
 from strawberry_django_plus import gql
 from strawberry_django_plus.gql import relay, auto
 
+from nucleus.permissions import IsStaff, IsSuperuser
+
 from .. import models
 
 
@@ -46,11 +48,11 @@ class AbilityScoreIncreaseQuery:
 @gql.type
 class AbilityScoreIncreaseMutation:
     create_ability_score_increase: AbilityScoreIncrease = gql.django.create_mutation(
-        AbilityScoreIncreaseInput
+        AbilityScoreIncreaseInput, permission_classes=[IsStaff]
     )
     update_ability_score_increase: AbilityScoreIncrease = gql.django.update_mutation(
-        AbilityScoreIncreaseInputPartial
+        AbilityScoreIncreaseInputPartial, permission_classes=[IsStaff]
     )
     delete_ability_score_increase: AbilityScoreIncrease = gql.django.delete_mutation(
-        gql.NodeInput
+        gql.NodeInput, permission_classes=[IsSuperuser]
     )

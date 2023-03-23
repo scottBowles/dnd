@@ -2,6 +2,8 @@ from typing import Annotated, Iterable, Optional, TYPE_CHECKING
 from strawberry_django_plus import gql
 from strawberry_django_plus.gql import relay, auto
 
+from nucleus.permissions import IsStaff, IsSuperuser
+
 from .. import models
 
 if TYPE_CHECKING:
@@ -47,6 +49,12 @@ class FeatureQuery:
 
 @gql.type
 class FeatureMutation:
-    create_feature: Feature = gql.django.create_mutation(FeatureInput)
-    update_feature: Feature = gql.django.update_mutation(FeatureInputPartial)
-    delete_feature: Feature = gql.django.delete_mutation(gql.NodeInput)
+    create_feature: Feature = gql.django.create_mutation(
+        FeatureInput, permission_classes=[IsStaff]
+    )
+    update_feature: Feature = gql.django.update_mutation(
+        FeatureInputPartial, permission_classes=[IsStaff]
+    )
+    delete_feature: Feature = gql.django.delete_mutation(
+        gql.NodeInput, permission_classes=[IsSuperuser]
+    )

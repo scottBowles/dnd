@@ -2,6 +2,8 @@ from typing import Annotated, Iterable, Optional, TYPE_CHECKING
 from strawberry_django_plus import gql
 from strawberry_django_plus.gql import relay, auto
 
+from nucleus.permissions import IsStaff, IsSuperuser
+
 from .. import models
 
 if TYPE_CHECKING:
@@ -45,6 +47,12 @@ class LanguageQuery:
 
 @gql.type
 class LanguageMutation:
-    create_language: Language = gql.django.create_mutation(LanguageInput)
-    update_language: Language = gql.django.update_mutation(LanguageInputPartial)
-    delete_language: Language = gql.django.delete_mutation(gql.NodeInput)
+    create_language: Language = gql.django.create_mutation(
+        LanguageInput, permission_classes=[IsStaff]
+    )
+    update_language: Language = gql.django.update_mutation(
+        LanguageInputPartial, permission_classes=[IsStaff]
+    )
+    delete_language: Language = gql.django.delete_mutation(
+        gql.NodeInput, permission_classes=[IsSuperuser]
+    )

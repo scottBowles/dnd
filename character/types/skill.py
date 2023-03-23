@@ -2,6 +2,8 @@ from typing import Iterable, Optional
 from strawberry_django_plus import gql
 from strawberry_django_plus.gql import relay, auto
 
+from nucleus.permissions import IsStaff, IsSuperuser
+
 from .. import models
 
 
@@ -45,6 +47,12 @@ class SkillQuery:
 
 @gql.type
 class SkillMutation:
-    create_skill: Skill = gql.django.create_mutation(SkillInput)
-    update_skill: Skill = gql.django.update_mutation(SkillInputPartial)
-    delete_skill: Skill = gql.django.delete_mutation(gql.NodeInput)
+    create_skill: Skill = gql.django.create_mutation(
+        SkillInput, permission_classes=[IsStaff]
+    )
+    update_skill: Skill = gql.django.update_mutation(
+        SkillInputPartial, permission_classes=[IsStaff]
+    )
+    delete_skill: Skill = gql.django.delete_mutation(
+        gql.NodeInput, permission_classes=[IsSuperuser]
+    )

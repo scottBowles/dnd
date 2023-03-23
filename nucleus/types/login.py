@@ -2,7 +2,6 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 from strawberry_django_plus import gql
 from django.conf import settings
-from gqlauth.settings_type import create_token_type
 from asgiref.sync import sync_to_async
 from django.contrib.auth import get_user_model
 from gqlauth.jwt.types_ import ObtainJSONWebTokenType

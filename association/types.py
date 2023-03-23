@@ -3,6 +3,7 @@ from association import models
 from nucleus.types import Entity, EntityInput, GameLog, User
 from strawberry_django_plus import gql
 from strawberry_django_plus.gql import relay, auto
+from nucleus.permissions import IsStaff, IsSuperuser
 
 if TYPE_CHECKING:
     from character.types.npc import Npc
@@ -46,22 +47,31 @@ class AssociationQuery:
 
 @gql.type
 class AssociationMutation:
-    create_association: Association = gql.django.create_mutation(AssociationInput)
-    update_association: Association = gql.django.update_mutation(
-        AssociationInputPartial
+    create_association: Association = gql.django.create_mutation(
+        AssociationInput,
+        permission_classes=[IsStaff],
     )
-    delete_association: Association = gql.django.delete_mutation(gql.NodeInput)
+    update_association: Association = gql.django.update_mutation(
+        AssociationInputPartial,
+        permission_classes=[IsStaff],
+    )
+    delete_association: Association = gql.django.delete_mutation(
+        gql.NodeInput,
+        permission_classes=[IsSuperuser],
+    )
 
-    @gql.django.input_mutation
-    def association_lock(self, info, association_id: gql.relay.GlobalID) -> Association:
-        association = association_id.resolve_node(info)
-        association = association.lock(info.context.user)
+    @gql.django.input_mutation(permission_classes=[IsStaff])
+    def association_lock(
+        self,
+        info,
+        id: gql.relay.GlobalID,
+    ) -> Association:
+        association = id.resolve_node(info)
+        association = association.lock(info.context.request.user)
         return association
 
-    @gql.django.input_mutation
-    def association_release_lock(
-        self, info, association_id: gql.relay.GlobalID
-    ) -> Association:
-        association = association_id.resolve_node(info)
-        association = association.release_lock(info.context.user)
+    @gql.django.input_mutation(permission_classes=[IsSuperuser])
+    def association_release_lock(self, info, id: gql.relay.GlobalID) -> Association:
+        association = id.resolve_node(info)
+        association = association.release_lock(info.context.request.user)
         return association

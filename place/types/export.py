@@ -1,5 +1,6 @@
 from typing import Iterable, Optional
 from association import models
+from nucleus.permissions import IsStaff, IsSuperuser
 from nucleus.types import Entity, EntityInput, GameLog, User
 from strawberry_django_plus import gql
 from strawberry_django_plus.gql import relay, auto
@@ -40,6 +41,12 @@ class ExportQuery:
 
 @gql.type
 class ExportMutation:
-    create_export: Export = gql.django.create_mutation(ExportInput)
-    update_export: Export = gql.django.update_mutation(ExportInputPartial)
-    delete_export: Export = gql.django.delete_mutation(gql.NodeInput)
+    create_export: Export = gql.django.create_mutation(
+        ExportInput, permission_classes=[IsStaff]
+    )
+    update_export: Export = gql.django.update_mutation(
+        ExportInputPartial, permission_classes=[IsStaff]
+    )
+    delete_export: Export = gql.django.delete_mutation(
+        gql.NodeInput, permission_classes=[IsSuperuser]
+    )

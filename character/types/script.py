@@ -2,6 +2,8 @@ from typing import Iterable, Optional
 from strawberry_django_plus import gql
 from strawberry_django_plus.gql import relay, auto
 
+from nucleus.permissions import IsStaff, IsSuperuser
+
 from .. import models
 from .language import Language
 
@@ -40,6 +42,12 @@ class ScriptQuery:
 
 @gql.type
 class ScriptMutation:
-    create_script: Script = gql.django.create_mutation(ScriptInput)
-    update_script: Script = gql.django.update_mutation(ScriptInputPartial)
-    delete_script: Script = gql.django.delete_mutation(gql.NodeInput)
+    create_script: Script = gql.django.create_mutation(
+        ScriptInput, permission_classes=[IsStaff]
+    )
+    update_script: Script = gql.django.update_mutation(
+        ScriptInputPartial, permission_classes=[IsStaff]
+    )
+    delete_script: Script = gql.django.delete_mutation(
+        gql.NodeInput, permission_classes=[IsSuperuser]
+    )

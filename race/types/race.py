@@ -1,4 +1,5 @@
 from typing import Annotated, Iterable, Optional, TYPE_CHECKING
+from nucleus.permissions import IsStaff, IsSuperuser
 from nucleus.types import Entity, EntityInput, GameLog, User
 from strawberry_django_plus import gql
 from strawberry_django_plus.gql import relay, auto
@@ -45,25 +46,31 @@ class RaceQuery:
 
 @gql.type
 class RaceMutation:
-    create_race: Race = gql.django.create_mutation(RaceInput)
-    update_race: Race = gql.django.update_mutation(RaceInputPartial)
-    delete_race: Race = gql.django.delete_mutation(gql.NodeInput)
+    create_race: Race = gql.django.create_mutation(
+        RaceInput, permission_classes=[IsStaff]
+    )
+    update_race: Race = gql.django.update_mutation(
+        RaceInputPartial, permission_classes=[IsStaff]
+    )
+    delete_race: Race = gql.django.delete_mutation(
+        gql.NodeInput, permission_classes=[IsSuperuser]
+    )
 
-    @gql.django.input_mutation
+    @gql.django.input_mutation(permission_classes=[IsStaff])
     def race_add_image(self, info, id: gql.relay.GlobalID, image_id: str) -> Race:
         obj = id.resolve_node(info)
         obj.image_ids = obj.image_ids + [image_id]
         obj.save()
         return obj
 
-    @gql.django.input_mutation
-    def race_lock(self, info, race_id: gql.relay.GlobalID) -> Race:
-        race = race_id.resolve_node(info)
-        race = race.lock(info.context.user)
+    @gql.django.input_mutation(permission_classes=[IsStaff])
+    def race_lock(self, info, id: gql.relay.GlobalID) -> Race:
+        race = id.resolve_node(info)
+        race = race.lock(info.context.request.user)
         return race
 
-    @gql.django.input_mutation
-    def race_release_lock(self, info, race_id: gql.relay.GlobalID) -> Race:
-        race = race_id.resolve_node(info)
-        race = race.release_lock(info.context.user)
+    @gql.django.input_mutation(permission_classes=[IsSuperuser])
+    def race_release_lock(self, info, id: gql.relay.GlobalID) -> Race:
+        race = id.resolve_node(info)
+        race = race.release_lock(info.context.request.user)
         return race

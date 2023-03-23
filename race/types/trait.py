@@ -2,6 +2,8 @@ from typing import Iterable, Optional
 from strawberry_django_plus import gql
 from strawberry_django_plus.gql import relay, auto
 
+from nucleus.permissions import IsStaff, IsSuperuser
+
 from .. import models
 
 
@@ -39,6 +41,12 @@ class TraitQuery:
 
 @gql.type
 class TraitMutation:
-    create_trait: Trait = gql.django.create_mutation(TraitInput)
-    update_trait: Trait = gql.django.update_mutation(TraitInputPartial)
-    delete_trait: Trait = gql.django.delete_mutation(gql.NodeInput)
+    create_trait: Trait = gql.django.create_mutation(
+        TraitInput, permission_classes=[IsStaff]
+    )
+    update_trait: Trait = gql.django.update_mutation(
+        TraitInputPartial, permission_classes=[IsStaff]
+    )
+    delete_trait: Trait = gql.django.delete_mutation(
+        gql.NodeInput, permission_classes=[IsSuperuser]
+    )

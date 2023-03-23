@@ -1,4 +1,6 @@
 from typing import Optional
+
+from nucleus.permissions import IsStaff, IsSuperuser
 from .. import models
 from strawberry_django_plus import gql
 from strawberry_django_plus.gql import relay, auto
@@ -35,11 +37,17 @@ class GameLogQuery:
 
 @gql.type
 class GameLogMutation:
-    create_game_log: GameLog = gql.django.create_mutation(GameLogInput)
-    update_game_log: GameLog = gql.django.update_mutation(GameLogInputPartial)
-    delete_game_log: GameLog = gql.django.delete_mutation(gql.NodeInput)
+    create_game_log: GameLog = gql.django.create_mutation(
+        GameLogInput, permission_classes=[IsStaff]
+    )
+    update_game_log: GameLog = gql.django.update_mutation(
+        GameLogInputPartial, permission_classes=[IsStaff]
+    )
+    delete_game_log: GameLog = gql.django.delete_mutation(
+        gql.NodeInput, permission_classes=[IsSuperuser]
+    )
 
-    @gql.django.input_mutation
+    @gql.django.input_mutation(permission_classes=[IsStaff])
     def add_entity_log(
         self,
         info,
@@ -59,7 +67,7 @@ class GameLogMutation:
         entity.save()
         return log
 
-    @gql.mutation
+    @gql.mutation(permission_classes=[IsStaff])
     def remove_entity_log(self, info, input: RemoveEntityLogInput) -> GameLog:
         log = input.log_id.resolve_node(info)
         entity = input.entity_id.resolve_node(info)
