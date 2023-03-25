@@ -3,7 +3,8 @@ from association import models
 from nucleus.types import Entity, EntityInput, GameLog, User
 from strawberry_django_plus import gql
 from strawberry_django_plus.gql import relay, auto
-from nucleus.permissions import IsStaff, IsSuperuser
+from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
+from strawberry_django_plus.mutations import resolvers
 
 if TYPE_CHECKING:
     from character.types.npc import Npc
@@ -51,13 +52,25 @@ class AssociationMutation:
         AssociationInput,
         permission_classes=[IsStaff],
     )
-    update_association: Association = gql.django.update_mutation(
-        AssociationInputPartial,
-        permission_classes=[IsStaff],
-    )
+
+    @gql.django.mutation(permission_classes=[IsStaff, IsLockUserOrSuperuserIfLocked])
+    def update_association(
+        self,
+        info,
+        input: AssociationInputPartial,
+    ) -> Association:
+        data = vars(input)
+        node_id = data.pop("id")
+        association: models.Association = node_id.resolve_node(
+            info, ensure_type=models.Association
+        )
+        resolvers.update(info, association, resolvers.parse_input(info, data))
+        association.release_lock(info.context.request.user)
+        return association
+
     delete_association: Association = gql.django.delete_mutation(
         gql.NodeInput,
-        permission_classes=[IsSuperuser],
+        permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked],
     )
 
     @gql.django.input_mutation(permission_classes=[IsStaff])
@@ -70,7 +83,7 @@ class AssociationMutation:
         association = association.lock(info.context.request.user)
         return association
 
-    @gql.django.input_mutation(permission_classes=[IsSuperuser])
+    @gql.django.input_mutation(permission_classes=[IsLockUserOrSuperuserIfLocked])
     def association_release_lock(self, info, id: gql.relay.GlobalID) -> Association:
         association = id.resolve_node(info)
         association = association.release_lock(info.context.request.user)

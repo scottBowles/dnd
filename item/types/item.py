@@ -1,5 +1,5 @@
 from typing import Annotated, Iterable, Optional, TYPE_CHECKING
-from nucleus.permissions import IsStaff, IsSuperuser
+from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
 from nucleus.types import Entity, EntityInput, GameLog, User
 from strawberry_django_plus import gql
 from strawberry_django_plus.gql import relay, auto
@@ -125,7 +125,7 @@ class ItemMutation:
         # Return the item
         return item
 
-    @gql.django.mutation(permission_classes=[IsStaff])
+    @gql.django.mutation(permission_classes=[IsStaff, IsLockUserOrSuperuserIfLocked])
     def update_item(self, info, input: ItemInputPartial) -> Item:
         # Collect data from input
         data = vars(input)
@@ -183,11 +183,14 @@ class ItemMutation:
                 )
                 item.equipment = equipment
 
+        # Release lock if user is the lock user
+        item.release_lock(info.context.request.user)
+
         # Return the item
         return item
 
     delete_item: Item = gql.django.delete_mutation(
-        gql.NodeInput, permission_classes=[IsSuperuser]
+        gql.NodeInput, permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked]
     )
 
     @gql.django.input_mutation(permission_classes=[IsStaff])
@@ -203,7 +206,7 @@ class ItemMutation:
         item = item.lock(info.context.request.user)
         return item
 
-    @gql.django.input_mutation(permission_classes=[IsSuperuser])
+    @gql.django.input_mutation(permission_classes=[IsLockUserOrSuperuserIfLocked])
     def item_release_lock(self, info, id: gql.relay.GlobalID) -> Item:
         item = id.resolve_node(info)
         item = item.release_lock(info.context.request.user)

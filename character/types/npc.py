@@ -1,8 +1,9 @@
 from typing import Iterable, Optional
-from nucleus.permissions import IsStaff, IsSuperuser
+from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
 from nucleus.types import Entity, EntityInput, GameLog, User
 from strawberry_django_plus import gql
 from strawberry_django_plus.gql import relay, auto
+from strawberry_django_plus.mutations import resolvers
 
 from .. import models
 from .feature import Feature
@@ -58,11 +59,22 @@ class NpcQuery:
 @gql.type
 class NpcMutation:
     create_npc: Npc = gql.django.create_mutation(NpcInput, permission_classes=[IsStaff])
-    update_npc: Npc = gql.django.update_mutation(
-        NpcInputPartial, permission_classes=[IsStaff]
-    )
+
+    @gql.django.mutation(permission_classes=[IsStaff, IsLockUserOrSuperuserIfLocked])
+    def update_npc(
+        self,
+        info,
+        input: NpcInputPartial,
+    ) -> Npc:
+        data = vars(input)
+        node_id = data.pop("id")
+        npc: models.Npc = node_id.resolve_node(info, ensure_type=models.Npc)
+        resolvers.update(info, npc, resolvers.parse_input(info, data))
+        npc.release_lock(info.context.request.user)
+        return npc
+
     delete_npc: Npc = gql.django.delete_mutation(
-        gql.NodeInput, permission_classes=[IsSuperuser]
+        gql.NodeInput, permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked]
     )
 
     @gql.django.input_mutation(permission_classes=[IsStaff])
@@ -71,7 +83,7 @@ class NpcMutation:
         npc = npc.lock(info.context.request.user)
         return npc
 
-    @gql.django.input_mutation(permission_classes=[IsSuperuser])
+    @gql.django.input_mutation(permission_classes=[IsLockUserOrSuperuserIfLocked])
     def npc_release_lock(self, info, id: gql.relay.GlobalID) -> Npc:
         npc = id.resolve_node(info)
         npc = npc.release_lock(info.context.request.user)

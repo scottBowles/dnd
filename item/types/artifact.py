@@ -1,9 +1,9 @@
 from typing import Annotated, Iterable, Optional, TYPE_CHECKING
-from nucleus.permissions import IsStaff, IsSuperuser
+from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
 from nucleus.types import Entity, EntityInput, GameLog, User
 from strawberry_django_plus import gql
 from strawberry_django_plus.gql import relay, auto
-from django.utils import timezone
+from strawberry_django_plus.mutations import resolvers
 
 from .. import models
 
@@ -55,11 +55,24 @@ class ArtifactMutation:
     create_artifact: Artifact = gql.django.create_mutation(
         ArtifactInput, permission_classes=[IsStaff]
     )
-    update_artifact: Artifact = gql.django.update_mutation(
-        ArtifactInputPartial, permission_classes=[IsStaff]
-    )
+
+    @gql.django.mutation(permission_classes=[IsStaff, IsLockUserOrSuperuserIfLocked])
+    def update_artifact(
+        self,
+        info,
+        input: ArtifactInputPartial,
+    ) -> Artifact:
+        data = vars(input)
+        node_id = data.pop("id")
+        artifact: models.Artifact = node_id.resolve_node(
+            info, ensure_type=models.Artifact
+        )
+        resolvers.update(info, artifact, resolvers.parse_input(info, data))
+        artifact.release_lock(info.context.request.user)
+        return artifact
+
     delete_artifact: Artifact = gql.django.delete_mutation(
-        gql.NodeInput, permission_classes=[IsSuperuser]
+        gql.NodeInput, permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked]
     )
 
     @gql.django.input_mutation(permission_classes=[IsStaff])
@@ -77,7 +90,7 @@ class ArtifactMutation:
         artifact = artifact.lock(info.context.request.user)
         return artifact
 
-    @gql.django.input_mutation(permission_classes=[IsSuperuser])
+    @gql.django.input_mutation(permission_classes=[IsLockUserOrSuperuserIfLocked])
     def artifact_release_lock(self, info, id: gql.relay.GlobalID) -> Artifact:
         artifact = id.resolve_node(info)
         artifact = artifact.release_lock(info.context.request.user)
