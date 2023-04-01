@@ -1,10 +1,10 @@
 from typing import Annotated, Iterable, Optional, TYPE_CHECKING
 from association import models
-from nucleus.types import Entity, EntityInput, GameLog, User
 from strawberry_django_plus import gql
+from strawberry_django_plus.mutations import resolvers
 from strawberry_django_plus.gql import relay, auto
 from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
-from strawberry_django_plus.mutations import resolvers
+from nucleus.types import Entity, EntityInput, GameLog, User, locked_by_self
 
 if TYPE_CHECKING:
     from character.types.npc import Npc
@@ -15,6 +15,7 @@ class Association(Entity, relay.Node):
     logs: relay.Connection[GameLog] = gql.django.connection()
     lock_user: Optional[User]
     lock_time: auto
+    locked_by_self: bool = gql.field(resolver=locked_by_self)
     npcs: relay.Connection[
         Annotated["Npc", gql.lazy("character.types.npc")]
     ] = gql.django.connection()

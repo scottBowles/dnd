@@ -1,7 +1,7 @@
 from typing import Iterable, Optional
 from association import models
 from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
-from nucleus.types import Entity, EntityInput, GameLog, User
+from nucleus.types import Entity, EntityInput, GameLog, User, locked_by_self
 from strawberry_django_plus import gql
 from strawberry_django_plus.gql import relay, auto
 from strawberry_django_plus.mutations import resolvers
@@ -14,6 +14,7 @@ class Place(Entity, relay.Node):
     logs: relay.Connection[GameLog] = gql.django.connection()
     lock_user: Optional[User]
     lock_time: auto
+    locked_by_self: bool = gql.field(resolver=locked_by_self)
     place_type: auto
     parent: auto
     population: auto
