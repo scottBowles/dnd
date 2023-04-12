@@ -2,7 +2,7 @@ from strawberry.tools import merge_types
 
 from .feature import *
 from .language import *
-from .npc import *
+from .character import *
 from .proficiency import *
 from .script import *
 from .skill import *
@@ -10,7 +10,7 @@ from .skill import *
 queries = (
     FeatureQuery,
     LanguageQuery,
-    NpcQuery,
+    CharacterQuery,
     ProficiencyQuery,
     ScriptQuery,
     SkillQuery,
@@ -18,7 +18,7 @@ queries = (
 mutations = (
     FeatureMutation,
     LanguageMutation,
-    NpcMutation,
+    CharacterMutation,
     ProficiencyMutation,
     ScriptMutation,
     SkillMutation,

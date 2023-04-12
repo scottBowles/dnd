@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from character.models import Character, CharacterClass, NPC
+from character.models import PlayerCharacter, CharacterClass, Character
 from .inlines import (
     ClassAndLevelInline,
     AttackInline,
@@ -15,8 +15,8 @@ from .inlines import (
 )
 
 
-@admin.register(Character)
-class CharacterAdmin(admin.ModelAdmin):
+@admin.register(PlayerCharacter)
+class PlayerCharacterAdmin(admin.ModelAdmin):
     fieldsets = (
         (
             "Character",
@@ -163,7 +163,7 @@ class CharacterAdmin(admin.ModelAdmin):
         return obj.total_level()
 
 
-class NPCAdmin(admin.ModelAdmin):
+class CharacterAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "lock_user",
@@ -175,4 +175,4 @@ class NPCAdmin(admin.ModelAdmin):
 
 
 admin.site.register(CharacterClass)
-admin.site.register(NPC, NPCAdmin)
+admin.site.register(Character, CharacterAdmin)

@@ -7,7 +7,7 @@ from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperu
 from nucleus.types import Entity, EntityInput, GameLog, User, locked_by_self
 
 if TYPE_CHECKING:
-    from character.types.npc import Npc
+    from character.types.character import Character
 
 
 @gql.django.type(models.Association)
@@ -16,19 +16,19 @@ class Association(Entity, relay.Node):
     lock_user: Optional[User]
     lock_time: auto
     locked_by_self: bool = gql.field(resolver=locked_by_self)
-    npcs: relay.Connection[
-        Annotated["Npc", gql.lazy("character.types.npc")]
+    characters: relay.Connection[
+        Annotated["Character", gql.lazy("character.types.character")]
     ] = gql.django.connection()
 
 
 @gql.django.input(models.Association)
 class AssociationInput(EntityInput):
-    npcs: auto
+    characters: auto
 
 
 @gql.django.partial(models.Association)
 class AssociationInputPartial(EntityInput, gql.NodeInput):
-    npcs: auto
+    characters: auto
 
 
 @gql.type

@@ -10,7 +10,7 @@ from nucleus.utils import (
     ImageMutations,
     RelayPrimaryKeyRelatedField,
 )
-from character.models import NPC
+from character.models import Character
 
 from nucleus.utils import login_or_queryset_none
 
@@ -59,7 +59,7 @@ class AssociationSerializer(serializers.ModelSerializer):
     npcs = RelayPrimaryKeyRelatedField(
         many=True,
         required=False,
-        queryset=NPC.objects.all(),
+        queryset=Character.objects.all(),
         default=list,
     )
 

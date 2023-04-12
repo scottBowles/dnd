@@ -2,7 +2,7 @@ import graphene
 from graphene import relay
 from graphene_django import DjangoObjectType
 
-from ..models import NPC, Feature, Skill, Script, Language, Proficiency
+from ..models import Character, Feature, Skill, Script, Language, Proficiency
 from nucleus.utils import login_or_queryset_none
 
 
@@ -93,7 +93,7 @@ class NPCNode(DjangoObjectType):
         return self.lock_user == info.context.user
 
     class Meta:
-        model = NPC
+        model = Character
         filter_fields = ["name"]
         interfaces = (relay.Node,)
 

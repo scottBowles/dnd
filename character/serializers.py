@@ -1,10 +1,18 @@
-from .models import Character, Language, Script, Feature, Skill, Proficiency, NPC
+from .models import (
+    PlayerCharacter,
+    Language,
+    Script,
+    Feature,
+    Skill,
+    Proficiency,
+    Character,
+)
 from nucleus.utils import RelayModelSerializer
 
 
 class CharacterSerializer(RelayModelSerializer):
     class Meta:
-        model = Character
+        model = PlayerCharacter
         fields = "__all__"
 
 
@@ -48,5 +56,5 @@ class ProficiencySerializer(RelayModelSerializer):
 
 class NPCSerializer(RelayModelSerializer):
     class Meta:
-        model = NPC
+        model = Character
         fields = "__all__"

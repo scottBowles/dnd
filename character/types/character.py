@@ -12,8 +12,8 @@ from association.types import Association
 from race.types import Race
 
 
-@gql.django.type(models.NPC)
-class Npc(Entity, relay.Node):
+@gql.django.type(models.Character)
+class Character(Entity, relay.Node):
     logs: relay.Connection[GameLog] = gql.django.connection()
     lock_user: Optional[User]
     lock_time: auto
@@ -25,8 +25,8 @@ class Npc(Entity, relay.Node):
     associations: relay.Connection[Association] = gql.django.connection()
 
 
-@gql.django.input(models.NPC)
-class NpcInput(EntityInput):
+@gql.django.input(models.Character)
+class CharacterInput(EntityInput):
     size: auto
     race: auto
     features_and_traits: auto
@@ -34,8 +34,8 @@ class NpcInput(EntityInput):
     associations: auto
 
 
-@gql.django.partial(models.NPC)
-class NpcInputPartial(EntityInput, gql.NodeInput):
+@gql.django.partial(models.Character)
+class CharacterInputPartial(EntityInput, gql.NodeInput):
     size: auto
     race: auto
     features_and_traits: auto
@@ -44,48 +44,54 @@ class NpcInputPartial(EntityInput, gql.NodeInput):
 
 
 @gql.type
-class NpcQuery:
-    npc: Optional[Npc] = gql.django.field()
-    npcs: relay.Connection[Npc] = gql.django.connection()
+class CharacterQuery:
+    character: Optional[Character] = gql.django.field()
+    characters: relay.Connection[Character] = gql.django.connection()
 
     @gql.django.connection
-    def Npcs_connection_filtered(self, name_startswith: str) -> Iterable[Npc]:
+    def Characters_connection_filtered(
+        self, name_startswith: str
+    ) -> Iterable[Character]:
         # Note that this resolver is special. It should not resolve the connection, but
         # the iterable of nodes itself. Thus, any arguments defined here will be appended
         # to the query, and the pagination of the iterable returned here will be
         # automatically handled.
-        return models.NPC.objects.filter(name__startswith=name_startswith)
+        return models.Character.objects.filter(name__startswith=name_startswith)
 
 
 @gql.type
-class NpcMutation:
-    create_npc: Npc = gql.django.create_mutation(NpcInput, permission_classes=[IsStaff])
+class CharacterMutation:
+    create_character: Character = gql.django.create_mutation(
+        CharacterInput, permission_classes=[IsStaff]
+    )
 
     @gql.django.mutation(permission_classes=[IsStaff, IsLockUserOrSuperuserIfLocked])
-    def update_npc(
+    def update_character(
         self,
         info,
-        input: NpcInputPartial,
-    ) -> Npc:
+        input: CharacterInputPartial,
+    ) -> Character:
         data = vars(input)
         node_id = data.pop("id")
-        npc: models.Npc = node_id.resolve_node(info, ensure_type=models.Npc)
-        resolvers.update(info, npc, resolvers.parse_input(info, data))
-        npc.release_lock(info.context.request.user)
-        return npc
+        character: models.Character = node_id.resolve_node(
+            info, ensure_type=models.Character
+        )
+        resolvers.update(info, character, resolvers.parse_input(info, data))
+        character.release_lock(info.context.request.user)
+        return character
 
-    delete_npc: Npc = gql.django.delete_mutation(
+    delete_character: Character = gql.django.delete_mutation(
         gql.NodeInput, permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked]
     )
 
     @gql.django.input_mutation(permission_classes=[IsStaff])
-    def npc_lock(self, info, id: gql.relay.GlobalID) -> Npc:
-        npc = id.resolve_node(info)
-        npc = npc.lock(info.context.request.user)
-        return npc
+    def character_lock(self, info, id: gql.relay.GlobalID) -> Character:
+        character = id.resolve_node(info)
+        character = character.lock(info.context.request.user)
+        return character
 
     @gql.django.input_mutation(permission_classes=[IsLockUserOrSuperuserIfLocked])
-    def npc_release_lock(self, info, id: gql.relay.GlobalID) -> Npc:
-        npc = id.resolve_node(info)
-        npc = npc.release_lock(info.context.request.user)
-        return npc
+    def character_release_lock(self, info, id: gql.relay.GlobalID) -> Character:
+        character = id.resolve_node(info)
+        character = character.release_lock(info.context.request.user)
+        return character

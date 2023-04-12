@@ -7,7 +7,7 @@ from nucleus.permissions import IsStaff, IsSuperuser
 from .. import models
 
 if TYPE_CHECKING:
-    from character.types.npc import Npc
+    from character.types.character import Character
 
 
 @gql.django.type(models.Proficiency)
@@ -15,8 +15,8 @@ class Proficiency(relay.Node):
     name: auto
     proficiency_type: auto
     description: auto
-    npcs: relay.Connection[
-        Annotated["Npc", gql.lazy("character.types.npc")]
+    characters: relay.Connection[
+        Annotated["Character", gql.lazy("character.types.character")]
     ] = gql.django.connection()
 
 
@@ -25,7 +25,7 @@ class ProficiencyInput:
     name: auto
     proficiency_type: auto
     description: auto
-    npcs: auto
+    characters: auto
 
 
 @gql.django.partial(models.Proficiency)
@@ -33,7 +33,7 @@ class ProficiencyInputPartial(gql.NodeInput):
     name: auto
     proficiency_type: auto
     description: auto
-    npcs: auto
+    characters: auto
 
 
 @gql.type

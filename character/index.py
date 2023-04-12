@@ -1,11 +1,11 @@
 from algoliasearch_django import AlgoliaIndex
 from algoliasearch_django.decorators import register
 
-from .models import NPC
+from .models import Character
 
 
-@register(NPC)
-class NPCIndex(AlgoliaIndex):
+@register(Character)
+class CharacterIndex(AlgoliaIndex):
     fields = ("global_id", "name", "description", "thumbnail")
     settings = {
         "searchableAttributes": ["name"],

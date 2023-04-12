@@ -7,15 +7,15 @@ from nucleus.permissions import IsStaff, IsSuperuser
 from .. import models
 
 if TYPE_CHECKING:
-    from character.types.npc import Npc
+    from character.types.character import Character
 
 
 @gql.django.type(models.Feature)
 class Feature(relay.Node):
     name: auto
     description: auto
-    npcs: relay.Connection[
-        Annotated["Npc", gql.lazy("character.types.npc")]
+    characters: relay.Connection[
+        Annotated["Character", gql.lazy("character.types.character")]
     ] = gql.django.connection()
 
 
@@ -23,14 +23,14 @@ class Feature(relay.Node):
 class FeatureInput:
     name: auto
     description: auto
-    npcs: auto
+    characters: auto
 
 
 @gql.django.partial(models.Feature)
 class FeatureInputPartial(gql.NodeInput):
     name: auto
     description: auto
-    npcs: auto
+    characters: auto
 
 
 @gql.type
