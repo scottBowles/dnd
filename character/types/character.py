@@ -81,6 +81,15 @@ class CharacterMutation:
     )
 
     @gql.django.input_mutation(permission_classes=[IsStaff])
+    def character_add_image(
+        self, info, id: gql.relay.GlobalID, image_id: str
+    ) -> Character:
+        obj = id.resolve_node(info)
+        obj.image_ids = obj.image_ids + [image_id]
+        obj.save()
+        return obj
+
+    @gql.django.input_mutation(permission_classes=[IsStaff])
     def character_lock(self, info, id: gql.relay.GlobalID) -> Character:
         character = id.resolve_node(info)
         character = character.lock(info.context.request.user)

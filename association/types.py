@@ -71,6 +71,15 @@ class AssociationMutation:
     )
 
     @gql.django.input_mutation(permission_classes=[IsStaff])
+    def association_add_image(
+        self, info, id: gql.relay.GlobalID, image_id: str
+    ) -> Association:
+        obj = id.resolve_node(info)
+        obj.image_ids = obj.image_ids + [image_id]
+        obj.save()
+        return obj
+
+    @gql.django.input_mutation(permission_classes=[IsStaff])
     def association_lock(
         self,
         info,
