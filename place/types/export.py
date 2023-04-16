@@ -1,7 +1,7 @@
 from typing import Iterable, Optional
 from association import models
 from nucleus.permissions import IsStaff, IsSuperuser
-from nucleus.types import Entity, EntityInput, GameLog, User, locked_by_self
+from nucleus.types import Entity, EntityInput, EntityInputPartial
 from strawberry_django_plus import gql
 from strawberry_django_plus.gql import relay, auto
 
@@ -10,10 +10,7 @@ from place import models
 
 @gql.django.type(models.Export)
 class Export(Entity, relay.Node):
-    logs: relay.Connection[GameLog] = gql.django.connection()
-    lock_user: Optional[User]
-    lock_time: auto
-    locked_by_self: bool = gql.field(resolver=locked_by_self)
+    pass
 
 
 @gql.django.input(models.Export)
@@ -22,7 +19,7 @@ class ExportInput(EntityInput):
 
 
 @gql.django.partial(models.Export)
-class ExportInputPartial(EntityInput, gql.NodeInput):
+class ExportInputPartial(EntityInputPartial, gql.NodeInput):
     pass
 
 

@@ -152,7 +152,7 @@ class PessimisticConcurrencyLockModel(models.Model):
 
 
 class GameLog(models.Model):
-    url = models.CharField(max_length=255)
+    url = models.CharField(max_length=255, unique=True)
     name = models.CharField(max_length=512, null=True, blank=True)
     google_id = models.CharField(max_length=255, null=True, blank=True, unique=True)
 

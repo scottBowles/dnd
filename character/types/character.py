@@ -1,6 +1,6 @@
 from typing import Iterable, Optional
 from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
-from nucleus.types import Entity, EntityInput, GameLog, User, locked_by_self
+from nucleus.types import Entity, EntityInput, EntityInputPartial
 from strawberry_django_plus import gql
 from strawberry_django_plus.gql import relay, auto
 from strawberry_django_plus.mutations import resolvers
@@ -14,10 +14,6 @@ from race.types import Race
 
 @gql.django.type(models.Character)
 class Character(Entity, relay.Node):
-    logs: relay.Connection[GameLog] = gql.django.connection()
-    lock_user: Optional[User]
-    lock_time: auto
-    locked_by_self: bool = gql.field(resolver=locked_by_self)
     size: auto
     race: Optional[Race]
     features_and_traits: relay.Connection[Feature] = gql.django.connection()
@@ -35,7 +31,7 @@ class CharacterInput(EntityInput):
 
 
 @gql.django.partial(models.Character)
-class CharacterInputPartial(EntityInput, gql.NodeInput):
+class CharacterInputPartial(EntityInputPartial, gql.NodeInput):
     size: auto
     race: auto
     features_and_traits: auto

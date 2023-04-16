@@ -4,7 +4,7 @@ from strawberry_django_plus import gql
 from strawberry_django_plus.mutations import resolvers
 from strawberry_django_plus.gql import relay, auto
 from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
-from nucleus.types import Entity, EntityInput, GameLog, User, locked_by_self
+from nucleus.types import Entity, EntityInput, EntityInputPartial
 
 if TYPE_CHECKING:
     from character.types.character import Character
@@ -12,10 +12,6 @@ if TYPE_CHECKING:
 
 @gql.django.type(models.Association)
 class Association(Entity, relay.Node):
-    logs: relay.Connection[GameLog] = gql.django.connection()
-    lock_user: Optional[User]
-    lock_time: auto
-    locked_by_self: bool = gql.field(resolver=locked_by_self)
     characters: relay.Connection[
         Annotated["Character", gql.lazy("character.types.character")]
     ] = gql.django.connection()
@@ -27,7 +23,7 @@ class AssociationInput(EntityInput):
 
 
 @gql.django.partial(models.Association)
-class AssociationInputPartial(EntityInput, gql.NodeInput):
+class AssociationInputPartial(EntityInputPartial, gql.NodeInput):
     characters: auto
 
 

@@ -1,6 +1,6 @@
 from typing import Annotated, Iterable, Optional, TYPE_CHECKING
 from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
-from nucleus.types import Entity, EntityInput, GameLog, User, locked_by_self
+from nucleus.types import Entity, EntityInput, EntityInputPartial
 from strawberry_django_plus import gql
 from strawberry_django_plus.gql import relay, auto
 from strawberry_django_plus.mutations import resolvers
@@ -13,10 +13,6 @@ if TYPE_CHECKING:
 
 @gql.django.type(models.Artifact)
 class Artifact(Entity, relay.Node):
-    logs: relay.Connection[GameLog] = gql.django.connection()
-    lock_user: Optional[User]
-    lock_time: auto
-    locked_by_self: bool = gql.field(resolver=locked_by_self)
     items: relay.Connection[
         Annotated["Item", gql.lazy("item.types")]
     ] = gql.django.connection()
@@ -25,14 +21,12 @@ class Artifact(Entity, relay.Node):
 
 @gql.django.input(models.Artifact)
 class ArtifactInput(EntityInput):
-    logs: auto
     items: auto
     notes: auto
 
 
 @gql.django.partial(models.Artifact)
-class ArtifactInputPartial(EntityInput, gql.NodeInput):
-    logs: auto
+class ArtifactInputPartial(EntityInputPartial, gql.NodeInput):
     items: auto
     notes: auto
 

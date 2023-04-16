@@ -18,9 +18,11 @@ class GameLogInput:
     url: auto
 
 
-@gql.django.partial(models.GameLog)
-class GameLogInputPartial(gql.NodeInput):
-    url: auto
+@gql.input
+class AddEntityLogInput:
+    entity_id: gql.relay.GlobalID
+    log_url: Optional[str] = gql.UNSET
+    log_id: Optional[gql.relay.GlobalID] = gql.UNSET
 
 
 @gql.input
@@ -46,31 +48,3 @@ class GameLogMutation:
     delete_game_log: GameLog = gql.django.delete_mutation(
         gql.NodeInput, permission_classes=[IsSuperuser]
     )
-
-    @gql.django.input_mutation(permission_classes=[IsStaff])
-    def add_entity_log(
-        self,
-        info,
-        entity_id: gql.relay.GlobalID,
-        log_url: Optional[str],
-        log_id: Optional[gql.relay.GlobalID],
-    ) -> GameLog:
-        entity = entity_id.resolve_node(info)
-
-        if log_id is not None:
-            log = log_id.resolve_node(info)
-        else:
-            google_id = models.GameLog.get_id_from_url(log_url)
-            log = models.GameLog.objects.get_or_create(google_id=google_id)[0]
-
-        entity.logs.add(log)
-        entity.save()
-        return log
-
-    @gql.mutation(permission_classes=[IsStaff])
-    def remove_entity_log(self, info, input: RemoveEntityLogInput) -> GameLog:
-        log = input.log_id.resolve_node(info)
-        entity = input.entity_id.resolve_node(info)
-        entity.logs.remove(log)
-        entity.save()
-        return log

@@ -1,6 +1,5 @@
 from strawberry.tools import merge_types
 from strawberry_django_plus import gql
-import strawberry
 from gqlauth.user.queries import UserQueries
 from gqlauth.user import relay as mutations
 
@@ -23,7 +22,9 @@ from character.types import (
 from item.types import ArtifactQuery, ItemQuery, ArtifactMutation, ItemMutation
 from nucleus.types import (
     GameLogQuery,
+    NodeQuery,
     UserQuery,
+    EntityMutation,
     GameLogMutation,
     LoginMutation,
     UserMutation,
@@ -39,7 +40,7 @@ from race.types import (
 )
 
 
-@strawberry.type
+@gql.type
 class GqlAuthMutation:
     # include what-ever mutations you want.
     verify_token = mutations.VerifyToken.field
@@ -79,12 +80,14 @@ queries = (
     TraitQuery,
     UserQuery,
     UserQueries,  # new from gqlauth
+    NodeQuery,
 )
 
 mutations = (
     AbilityScoreIncreaseMutation,
     ArtifactMutation,
     AssociationMutation,
+    EntityMutation,
     ExportMutation,
     FeatureMutation,
     GameLogMutation,
