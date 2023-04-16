@@ -39,12 +39,12 @@ class GameLogQuery:
 
 @gql.type
 class GameLogMutation:
-    create_game_log: GameLog = gql.django.create_mutation(
-        GameLogInput, permission_classes=[IsStaff]
-    )
-    update_game_log: GameLog = gql.django.update_mutation(
-        GameLogInputPartial, permission_classes=[IsStaff]
-    )
+    @gql.django.mutation(permission_classes=[IsStaff])
+    def get_or_create_game_log(self, info, input: GameLogInput) -> GameLog:
+        google_id = models.GameLog.get_id_from_url(input.url)
+        log = models.GameLog.objects.get_or_create(google_id=google_id)[0]
+        return log
+
     delete_game_log: GameLog = gql.django.delete_mutation(
         gql.NodeInput, permission_classes=[IsSuperuser]
     )
