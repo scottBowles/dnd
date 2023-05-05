@@ -12,21 +12,26 @@ from place import models
 @gql.django.type(models.Place)
 class Place(Entity, relay.Node):
     place_type: auto
-    parent: auto
+    parent: Optional["Place"]
     population: auto
     exports: auto
     common_races: auto
     associations: auto
+    children: relay.Connection["Place"] = gql.django.connection()
 
 
 @gql.django.input(models.Place)
 class PlaceInput(EntityInput):
-    pass
+    place_type: auto
+    children: auto
+    parent: auto
 
 
 @gql.django.partial(models.Place)
 class PlaceInputPartial(EntityInputPartial, gql.NodeInput):
-    pass
+    place_type: auto
+    children: auto
+    parent: auto
 
 
 @gql.type
