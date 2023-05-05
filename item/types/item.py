@@ -49,9 +49,15 @@ class Item(Entity, relay.Node):
     artifacts: relay.Connection[
         Annotated["Artifact", gql.lazy("item.types")]
     ] = gql.django.connection()
-    armor: Optional[ArmorTraits]
-    weapon: Optional[WeaponTraits]
-    equipment: Optional[EquipmentTraits]
+    armor: Optional[ArmorTraits] = gql.django.field(
+        resolver=lambda self, info: getattr(self, "armor", None)
+    )
+    weapon: Optional[WeaponTraits] = gql.django.field(
+        resolver=lambda self, info: getattr(self, "weapon", None)
+    )
+    equipment: Optional[EquipmentTraits] = gql.django.field(
+        resolver=lambda self, info: getattr(self, "equipment", None)
+    )
 
 
 @gql.django.input(models.Item)
@@ -131,9 +137,6 @@ class ItemMutation:
         equipment_data = data.pop("equipment", None)
         item: models.Item = node_id.resolve_node(info, ensure_type=models.Item)
 
-        # Update item
-        resolvers.update(info, item, resolvers.parse_input(info, data))
-
         # Create or update traits if present and assign to the item
         if armor_data:
             armor_data = vars(armor_data)
@@ -179,10 +182,12 @@ class ItemMutation:
                 )
                 item.equipment = equipment
 
+        # Update and return the item
+        item = resolvers.update(info, item, resolvers.parse_input(info, data))
+
         # Release lock if user is the lock user
         item.release_lock(info.context.request.user)
 
-        # Return the item
         return item
 
     delete_item: Item = gql.django.delete_mutation(
