@@ -1,4 +1,5 @@
 from django.db import models
+from django_choices_field import TextChoicesField
 from graphql_relay import to_global_id
 
 from nucleus.models import Entity
@@ -56,25 +57,17 @@ class PlaceAssociation(models.Model):
 
 
 class Place(Entity):
-    STAR = "Star"
-    PLANET = "Planet"
-    MOON = "Moon"
-    REGION = "Region"
-    TOWN = "Town"
-    DISTRICT = "District"
-    LOCATION = "Location"
+    class PlaceType(models.TextChoices):
+        STAR = "Star", "Star"
+        PLANET = "Planet", "Planet"
+        MOON = "Moon", "Moon"
+        REGION = "Region", "Region"
+        TOWN = "Town", "Town"
+        DISTRICT = "District", "District"
+        LOCATION = "Location", "Location"
 
-    PLACE_TYPES = [
-        (STAR, "Star"),
-        (PLANET, "Planet"),
-        (MOON, "Moon"),
-        (REGION, "Region"),
-        (TOWN, "Town"),
-        (DISTRICT, "District"),
-        (LOCATION, "Location"),
-    ]
-    place_type = models.CharField(
-        max_length=8, choices=PLACE_TYPES, null=True, blank=True
+    place_type = TextChoicesField(
+        max_length=8, choices_enum=PlaceType, null=True, blank=True
     )
 
     parent = models.ForeignKey(
@@ -95,7 +88,7 @@ class Place(Entity):
 
 class StarManager(models.Manager):
     def get_queryset(self):
-        return super().get_queryset().filter(place_type=Place.STAR)
+        return super().get_queryset().filter(place_type=Place.PlaceType.STAR)
 
 
 class Star(Place):
@@ -107,7 +100,7 @@ class Star(Place):
 
 class PlanetManager(models.Manager):
     def get_queryset(self):
-        return super().get_queryset().filter(place_type=Place.PLANET)
+        return super().get_queryset().filter(place_type=Place.PlaceType.PLANET)
 
 
 class Planet(Place):
@@ -119,7 +112,7 @@ class Planet(Place):
 
 class MoonManager(models.Manager):
     def get_queryset(self):
-        return super().get_queryset().filter(place_type=Place.MOON)
+        return super().get_queryset().filter(place_type=Place.PlaceType.MOON)
 
 
 class Moon(Place):
@@ -131,7 +124,7 @@ class Moon(Place):
 
 class RegionManager(models.Manager):
     def get_queryset(self):
-        return super().get_queryset().filter(place_type=Place.REGION)
+        return super().get_queryset().filter(place_type=Place.PlaceType.REGION)
 
 
 class Region(Place):
@@ -143,7 +136,7 @@ class Region(Place):
 
 class TownManager(models.Manager):
     def get_queryset(self):
-        return super().get_queryset().filter(place_type=Place.TOWN)
+        return super().get_queryset().filter(place_type=Place.PlaceType.TOWN)
 
 
 class Town(Place):
@@ -155,7 +148,7 @@ class Town(Place):
 
 class DistrictManager(models.Manager):
     def get_queryset(self):
-        return super().get_queryset().filter(place_type=Place.DISTRICT)
+        return super().get_queryset().filter(place_type=Place.PlaceType.DISTRICT)
 
 
 class District(Place):
@@ -167,7 +160,7 @@ class District(Place):
 
 class LocationManager(models.Manager):
     def get_queryset(self):
-        return super().get_queryset().filter(place_type=Place.LOCATION)
+        return super().get_queryset().filter(place_type=Place.PlaceType.LOCATION)
 
 
 class Location(Place):
