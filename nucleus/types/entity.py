@@ -21,6 +21,7 @@ def locked_by_self(root, info: Info) -> bool:
 
 @gql.interface
 class Entity:
+    id: gql.relay.GlobalID
     name: str
     description: Optional[str]
     markdown_notes: Optional[str]
