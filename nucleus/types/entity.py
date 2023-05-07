@@ -20,7 +20,15 @@ def locked_by_self(root, info: Info) -> bool:
 
 
 @gql.interface
-class Entity:
+class Lockable:
+    id: gql.relay.GlobalID
+    lock_user: Optional[User]
+    lock_time: Optional[datetime.datetime]
+    locked_by_self: bool = gql.field(resolver=locked_by_self)
+
+
+@gql.interface
+class Entity(Lockable):
     id: gql.relay.GlobalID
     name: str
     description: Optional[str]
@@ -102,4 +110,18 @@ class EntityMutation:
         obj = input.id.resolve_node(info)
         obj.image_ids = obj.image_ids + [input.image_id]
         obj.save()
+        return obj
+
+    @gql.mutation(permission_classes=[IsStaff])
+    @sync_to_async
+    def lock(self, info, input: gql.NodeInput) -> Lockable:
+        obj = input.id.resolve_node(info)
+        obj.lock(info.context.request.user)
+        return obj
+
+    @gql.mutation(permission_classes=[IsStaff])
+    @sync_to_async
+    def unlock(self, info, input: gql.NodeInput) -> Lockable:
+        obj = input.id.resolve_node(info)
+        obj.release_lock(info.context.request.user)
         return obj
