@@ -1,8 +1,8 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-import pytz
 from .models import User
 from django.utils import timezone
+import zoneinfo
 
 
 @admin.register(User)
@@ -62,6 +62,12 @@ class UserAdmin(BaseUserAdmin):
 
     @admin.display(description="Last activity")
     def last_activity_display(self, obj):
-        return obj.last_activity.astimezone(pytz.timezone("US/Eastern")).strftime(
+        # this was formerly the below before pytz was deprecated
+        # return obj.last_activity.astimezone(pytz.timezone("US/Eastern")).strftime(
+        #     "%B %d, %Y %-I:%M %p %Z"
+        # )
+        tz = zoneinfo.ZoneInfo("US/Eastern")
+        formatted_date = obj.last_activity.astimezone(tz).strftime(
             "%B %d, %Y %-I:%M %p %Z"
         )
+        return formatted_date

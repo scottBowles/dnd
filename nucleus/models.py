@@ -152,7 +152,7 @@ class PessimisticConcurrencyLockModel(models.Model):
 
 
 class GameLog(models.Model):
-    url = models.CharField(max_length=255)
+    url = models.CharField(max_length=255, unique=True)
     name = models.CharField(max_length=512, null=True, blank=True)
     google_id = models.CharField(max_length=255, null=True, blank=True, unique=True)
 
@@ -195,7 +195,7 @@ class GameLog(models.Model):
                 )
 
     def set_id_from_url(self):
-        self.google_id = self.get_id_from_url()
+        self.google_id = self.get_id_from_url(self.url)
 
 
 class Entity(

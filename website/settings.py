@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import dj_database_url
 from dotenv import load_dotenv
+from gqlauth.settings_type import GqlAuthSettings
 
 load_dotenv()
 
@@ -28,6 +29,8 @@ BASE_DIR = Path(__file__).resolve(strict=True).parent.parent
 SECRET_KEY = os.environ.get("SECRET_KEY", default="DjangoSettingsNotGettingSecretKey")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 AIREL_FOLDER_ID = os.environ.get("AIREL_FOLDER_ID")
+GOOGLE_SSO_CLIENT_ID = os.environ.get("GOOGLE_SSO_CLIENT_ID")
+GOOGLE_SSO_CLIENT_SECRET = os.environ.get("GOOGLE_SSO_CLIENT_SECRET")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # DEBUG = True
@@ -40,6 +43,7 @@ RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 # Application definition
 
@@ -52,13 +56,18 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "corsheaders",
+    "strawberry_django_plus",
+    # "strawberry_django",
+    "gqlauth",
     "django_extensions",
-    "graphene_django",
-    "rest_framework",
-    "rest_framework.authtoken",
-    "djoser",
+    "debug_toolbar",
+    # "graphiql_debug_toolbar",
+    # "graphene_django",
+    # "rest_framework",
+    # "rest_framework.authtoken",
+    # "djoser",
     "algoliasearch_django",
-    "generic_relations",
+    # "generic_relations",
     "association",
     "character",
     "item",
@@ -70,6 +79,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # "debug_toolbar.middleware.DebugToolbarMiddleware",
+    # "graphiql_debug_toolbar.middleware.DebugToolbarMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -80,7 +91,9 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "website.middleware.UpdateLastActivityMiddleware",
-    # "website.middleware.PrintRequestsMiddleware",
+    "strawberry_django_plus.middlewares.debug_toolbar.DebugToolbarMiddleware",
+    "gqlauth.core.middlewares.django_jwt_middleware",
+    "website.middleware.PrintRequestsMiddleware",
 ]
 
 ROOT_URLCONF = "website.urls"
@@ -180,21 +193,28 @@ if not DEBUG:
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-REST_FRAMEWORK = {
-    # Use Django's standard `django.contrib.auth` permissions,
-    # or allow read-only access for unauthenticated users.
-    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
-    "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework.authentication.TokenAuthentication",
-    ),
-    # The below disables the browsable api, which isn't useful for the current
-    # graphql api and can only slow things down. Remove this if we want it back.
-    "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
-}
+# REST_FRAMEWORK = {
+#     # Use Django's standard `django.contrib.auth` permissions,
+#     # or allow read-only access for unauthenticated users.
+#     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+#     "DEFAULT_AUTHENTICATION_CLASSES": (
+#         "rest_framework.authentication.TokenAuthentication",
+#     ),
+#     # The below disables the browsable api, which isn't useful for the current
+#     # graphql api and can only slow things down. Remove this if we want it back.
+#     "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
+# }
 
 CORS_ALLOWED_ORIGINS = (
     [
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
         "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
         "https://airel.onrender.com",
     ]
     if DEBUG
@@ -203,25 +223,29 @@ CORS_ALLOWED_ORIGINS = (
 
 AUTH_USER_MODEL = "nucleus.User"
 
-DJOSER = {
-    "USER_CREATE_PASSWORD_RETYPE": True,
-    "SERIALIZERS": {
-        "user_create": "nucleus.serializers.UserCreateSerializer",
-        "current_user": "nucleus.serializers.UserSerializer",
-        "user": "nucleus.serializers.UserSerializer",
-    },
-}
+INTERNAL_IPS = [
+    "127.0.0.1",
+]
 
-GRAPHENE = {
-    "SCHEMA": "website.schema.schema",
-    "ATOMIC_MUTATIONS": True,
-    "MIDDLEWARE": [
-        "graphql_jwt.middleware.JSONWebTokenMiddleware",
-    ],
-}
+# DJOSER = {
+#     "USER_CREATE_PASSWORD_RETYPE": True,
+#     "SERIALIZERS": {
+#         "user_create": "nucleus.serializers.UserCreateSerializer",
+#         "current_user": "nucleus.serializers.UserSerializer",
+#         "user": "nucleus.serializers.UserSerializer",
+#     },
+# }
+
+# GRAPHENE = {
+#     "SCHEMA": "website.schema.schema",
+#     "ATOMIC_MUTATIONS": True,
+#     "MIDDLEWARE": [
+#         "graphql_jwt.middleware.JSONWebTokenMiddleware",
+#     ],
+# }
 
 AUTHENTICATION_BACKENDS = [
-    "graphql_jwt.backends.JSONWebTokenBackend",
+    # "graphql_jwt.backends.JSONWebTokenBackend",
     "django.contrib.auth.backends.ModelBackend",
 ]
 
@@ -229,3 +253,13 @@ ALGOLIA = {
     "APPLICATION_ID": os.environ.get("ALGOLIA_APPLICATION_ID"),
     "API_KEY": os.environ.get("ALGOLIA_API_KEY"),
 }
+
+STRAWBERRY_DJANGO = {
+    "FIELD_DESCRIPTION_FROM_HELP_TEXT": True,
+    "TYPE_DESCRIPTION_FROM_MODEL_DOCSTRING": True,
+}
+
+GQL_AUTH = GqlAuthSettings(
+    LOGIN_REQUIRE_CAPTCHA=False,
+    REGISTER_REQUIRE_CAPTCHA=False,
+)

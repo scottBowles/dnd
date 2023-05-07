@@ -62,7 +62,7 @@ class CompareMixin(JSONWebTokenTestCase):
         self.assertEqual(model_place.description, node_place["description"])
         self.assertEqual(model_place.image_ids, node_place["imageIds"])
         self.assertEqual(model_place.thumbnail_id, node_place["thumbnailId"])
-        self.assertEqual(model_place.place_type, node_place["placeType"])
+        self.assertEqual(model_place.place_type.upper(), node_place["placeType"])
         self.assertEqual(model_place.population, node_place["population"])
 
         if compare_parents_to_depth > 0 and model_place.parent:
@@ -136,7 +136,7 @@ class PlaceQueryTests(CompareMixin, JSONWebTokenTestCase):
             self.assertEqual(place.description, equivalent_place["description"])
             self.assertEqual(place.image_ids, equivalent_place["imageIds"])
             self.assertEqual(place.thumbnail_id, equivalent_place["thumbnailId"])
-            self.assertEqual(place.place_type, equivalent_place["placeType"])
+            self.assertEqual(place.place_type.upper(), equivalent_place["placeType"])
             self.assertEqual(place.population, equivalent_place["population"])
 
     def test_place_list_query(self):

@@ -1,7 +1,7 @@
 import factory
 from factory import fuzzy
 from ..models import (
-    NPC,
+    Character,
     SIZES,
     ABILITIES,
     Feature,
@@ -14,7 +14,7 @@ from ..models import (
 
 class NPCFactory(factory.django.DjangoModelFactory):
     class Meta:
-        model = NPC
+        model = Character
 
     name = factory.Faker("name")
     description = factory.Faker("text")

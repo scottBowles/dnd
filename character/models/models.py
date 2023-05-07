@@ -73,7 +73,13 @@ class Language(models.Model):
     name = models.CharField(max_length=255, unique=True)
     description = models.TextField(blank=True)
     # typical_speakers = models.ManyToManyField(Race, blank=True)
-    script = models.ForeignKey(Script, null=True, blank=True, on_delete=models.SET_NULL)
+    script = models.ForeignKey(
+        Script,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="languages",
+    )
 
 
 class Background(models.Model):

@@ -12,10 +12,6 @@ djoser = "*"
 django-cors-headers = "*"
 django-extensions = "*"
 rest-framework-generic-relations = "*"
-graphene = "==3.0" # pinned due to https://github.com/graphql-python/graphene-django/pull/1320 can remove this line once fixed
-graphql-core = "==3.1.7" # pinned due to https://github.com/graphql-python/graphene-django/pull/1320 can remove this line once fixed
-graphql-relay = "==3.1.5" # pinned due to https://github.com/graphql-python/graphene-django/pull/1320 can remove this line once fixed
-graphene-django = "*"
 django-filter = "*"
 factory-boy = "*"
 dj-database-url = "*"
@@ -28,6 +24,12 @@ oauth2client = "*"
 google-auth-httplib2 = "*"
 google-auth-oauthlib = "*"
 algoliasearch-django = ">=2.0,<3.0"
+django-debug-toolbar = "*"
+django-graphiql-debug-toolbar = "*"
+strawberry-django-plus = "*"
+google-auth = "*"
+strawberry-django-auth = "*"
+strawberry-graphql = {extras = ["debug-server"], version = "*"}
 
 [dev-packages]
 black = "*"

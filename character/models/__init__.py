@@ -1,4 +1,4 @@
-from .character import *
+from .player_character import *
 from .character_class import *
 from .models import *
-from .npc import *
+from .character import *
