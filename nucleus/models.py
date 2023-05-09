@@ -1,3 +1,4 @@
+import datetime
 from django.utils import timezone
 from django.db import models
 from django.contrib.auth.models import AbstractUser
@@ -155,6 +156,9 @@ class GameLog(models.Model):
     url = models.CharField(max_length=255, unique=True)
     name = models.CharField(max_length=512, null=True, blank=True)
     google_id = models.CharField(max_length=255, null=True, blank=True, unique=True)
+    google_created_time = models.DateTimeField(null=True, blank=True)
+    game_date = models.DateTimeField(null=True, blank=True)
+    summary = models.TextField(null=True, blank=True)
 
     def __str__(self):
         return self.name or self.url
@@ -164,7 +168,7 @@ class GameLog(models.Model):
             self.update_from_google()
         super().save(*args, **kwargs)
 
-    def update_from_google(self):
+    def update_from_google(self, overwrite=False):
         """
         Updates the model from google drive — Does NOT save the model
         """
@@ -174,10 +178,27 @@ class GameLog(models.Model):
             self.set_id_from_url()
         try:
             file_info = fetch_airel_file(self.google_id)
-            self.name = file_info["name"]
-            self.url = file_info["webViewLink"]
+            if overwrite or self.name is None:
+                self.name = file_info["name"]
+            if overwrite or self.url is None:
+                self.url = file_info["webViewLink"]
+            if overwrite or self.google_created_time is None:
+                self.google_created_time = file_info["createdTime"]
+            if overwrite or self.game_date is None:
+                try:
+                    self.game_date = self.get_game_date_from_name()
+                except ValueError:
+                    self.game_date = file_info["createdTime"]
+
         except Exception as e:
             raise e
+
+    def get_game_date_from_name(self):
+        """
+        Tries to parse the game date from the name of the log
+        Throws ValueError if it can't parse the date
+        """
+        return datetime.datetime.strptime(self.name[0:10], "%Y-%m-%d").date()
 
     @staticmethod
     def get_id_from_url(url):
