@@ -1,5 +1,5 @@
-algoliasearch==2.6.3
-algoliasearch-django==2.0.0
+algoliasearch>=3.0,<4.0
+algoliasearch-django==3.0.0
 anyio==3.6.2
 asgiref==3.6.0
 black==23.1.0
