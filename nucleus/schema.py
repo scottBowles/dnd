@@ -34,10 +34,10 @@ class GameLogNode(DjangoObjectType):
         model = GameLog
         fields = (
             "id",
-            "name",
+            "title",
             "url",
         )
-        filter_fields = ("name",)
+        filter_fields = ("title",)
         interfaces = (relay.Node,)
 
     @classmethod

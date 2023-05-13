@@ -9,5 +9,5 @@ class RaceIndex(AlgoliaIndex):
     fields = ("global_id", "name", "description", "thumbnail")
     settings = {
         "searchableAttributes": ["name"],
-        "customRanking": ["desc(most_recent_log_by_name)", "asc(name)"],
+        "customRanking": ["desc(most_recent_log_by_title)", "asc(name)"],
     }

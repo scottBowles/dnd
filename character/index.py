@@ -9,7 +9,7 @@ class CharacterIndex(AlgoliaIndex):
     fields = ("global_id", "name", "description", "thumbnail")
     settings = {
         "searchableAttributes": ["name"],
-        "customRanking": ["desc(most_recent_log_by_name)", "asc(name)"],
+        "customRanking": ["desc(most_recent_log_by_title)", "asc(name)"],
     }
     # on the frontend we changed to using the npc class for all characters.
     # this hasn't been updated on the backend yet (and there's still a chance

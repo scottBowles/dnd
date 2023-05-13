@@ -152,16 +152,20 @@ class PessimisticConcurrencyLockModel(models.Model):
         return self
 
 
-class GameLog(models.Model):
+class GameLog(PessimisticConcurrencyLockModel, models.Model):
     url = models.CharField(max_length=255, unique=True)
-    name = models.CharField(max_length=512, null=True, blank=True)
+    title = models.CharField(max_length=512, null=True, blank=True)
     google_id = models.CharField(max_length=255, null=True, blank=True, unique=True)
     google_created_time = models.DateTimeField(null=True, blank=True)
     game_date = models.DateTimeField(null=True, blank=True)
-    summary = models.TextField(null=True, blank=True)
+    brief = models.TextField(null=True, blank=True)
+    synopsis = models.TextField(null=True, blank=True)
+    places_set_in = models.ManyToManyField(
+        "place.Place", blank=True, related_name="logs_set_in"
+    )
 
     def __str__(self):
-        return self.name or self.url
+        return self.title or self.url
 
     def save(self, *args, **kwargs):
         if self._state.adding:
@@ -178,27 +182,27 @@ class GameLog(models.Model):
             self.set_id_from_url()
         try:
             file_info = fetch_airel_file(self.google_id)
-            if overwrite or self.name is None:
-                self.name = file_info["name"]
+            if overwrite or self.title is None:
+                self.title = file_info["name"]
             if overwrite or self.url is None:
                 self.url = file_info["webViewLink"]
             if overwrite or self.google_created_time is None:
                 self.google_created_time = file_info["createdTime"]
             if overwrite or self.game_date is None:
                 try:
-                    self.game_date = self.get_game_date_from_name()
+                    self.game_date = self.get_game_date_from_title()
                 except ValueError:
                     self.game_date = file_info["createdTime"]
 
         except Exception as e:
             raise e
 
-    def get_game_date_from_name(self):
+    def get_game_date_from_title(self):
         """
-        Tries to parse the game date from the name of the log
+        Tries to parse the game date from the title of the log
         Throws ValueError if it can't parse the date
         """
-        return datetime.datetime.strptime(self.name[0:10], "%Y-%m-%d").date()
+        return datetime.datetime.strptime(self.title[0:10], "%Y-%m-%d").date()
 
     @staticmethod
     def get_id_from_url(url):
@@ -233,8 +237,8 @@ class Entity(
     def __str__(self):
         return self.name
 
-    def most_recent_log_by_name(self):
-        return self.logs.order_by("-name").first()
+    def most_recent_log_by_title(self):
+        return self.logs.order_by("-title").first()
 
     class Meta:
         abstract = True

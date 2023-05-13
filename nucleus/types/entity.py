@@ -1,13 +1,15 @@
-from typing import List, Optional
+from typing import TYPE_CHECKING, Annotated, List, Optional
 from nucleus import models
 from nucleus.permissions import IsStaff
 from strawberry.types import Info
 from strawberry_django_plus import gql
 from strawberry_django_plus.gql import relay
 import datetime
-from .gamelog import AddEntityLogInput, GameLog, RemoveEntityLogInput
 from .user import User
 from asgiref.sync import sync_to_async
+
+if TYPE_CHECKING:
+    from nucleus.types.gamelog import GameLog, AddEntityLogInput, RemoveEntityLogInput
 
 
 def locked_by_self(root, info: Info) -> bool:
@@ -37,7 +39,9 @@ class Entity(Lockable):
     thumbnail_id: Optional[str]
     created: datetime.datetime
     updated: datetime.datetime
-    logs: relay.Connection[GameLog] = gql.django.connection()
+    logs: relay.Connection[
+        Annotated["GameLog", gql.lazy("nucleus.types.gamelog")]
+    ] = gql.django.connection()
     lock_user: Optional[User]
     lock_time: Optional[datetime.datetime]
     locked_by_self: bool = gql.field(resolver=locked_by_self)
@@ -81,7 +85,7 @@ class EntityMutation:
     def add_entity_log(
         self,
         info,
-        input: AddEntityLogInput,
+        input: Annotated["AddEntityLogInput", gql.lazy("nucleus.types.gamelog")],
     ) -> relay.Node:
         entity = input.entity_id.resolve_node(info)
 
@@ -97,7 +101,11 @@ class EntityMutation:
 
     @gql.mutation(permission_classes=[IsStaff])
     @sync_to_async
-    def remove_entity_log(self, info, input: RemoveEntityLogInput) -> relay.Node:
+    def remove_entity_log(
+        self,
+        info,
+        input: Annotated["RemoveEntityLogInput", gql.lazy("nucleus.types.gamelog")],
+    ) -> relay.Node:
         log = input.log_id.resolve_node(info)
         entity = input.entity_id.resolve_node(info)
         entity.logs.remove(log)
