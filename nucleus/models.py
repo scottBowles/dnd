@@ -223,6 +223,14 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
         self.google_id = self.get_id_from_url(self.url)
 
 
+class Alias(models.Model):
+    name = models.CharField(max_length=255)
+    is_primary = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.name
+
+
 class Entity(
     PessimisticConcurrencyLockModel,
     NameSlugDescriptionModel,
@@ -232,6 +240,9 @@ class Entity(
 ):
     logs = models.ManyToManyField(
         GameLog, blank=True, related_name="%(app_label)s_%(class)ss"
+    )
+    aliases = models.ManyToManyField(
+        Alias, blank=True, related_name="%(app_label)s_%(class)ss"
     )
 
     def __str__(self):

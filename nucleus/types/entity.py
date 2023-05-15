@@ -21,6 +21,12 @@ def locked_by_self(root, info: Info) -> bool:
     return root.lock_user == info.context.request.user
 
 
+@gql.django.type(models.Alias)
+class Alias(relay.Node):
+    name: str
+    is_primary: bool
+
+
 @gql.interface
 class Lockable:
     id: gql.relay.GlobalID
@@ -45,6 +51,7 @@ class Entity(Lockable):
     lock_user: Optional[User]
     lock_time: Optional[datetime.datetime]
     locked_by_self: bool = gql.field(resolver=locked_by_self)
+    aliases: relay.Connection[Alias] = gql.django.connection()
 
 
 class EntityInput:
