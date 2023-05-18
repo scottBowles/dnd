@@ -30,8 +30,9 @@ class GameLog(Lockable, relay.Node):
 
 
 @gql.django.input(models.GameLog)
-class GameLogInput:
+class GetOrCreateGameLogInput:
     url: auto
+    lock: bool = False
 
 
 @gql.input
@@ -65,9 +66,11 @@ class GameLogQuery:
 @gql.type
 class GameLogMutation:
     @gql.django.mutation(permission_classes=[IsStaff])
-    def get_or_create_game_log(self, info, input: GameLogInput) -> GameLog:
+    def get_or_create_game_log(self, info, input: GetOrCreateGameLogInput) -> GameLog:
         google_id = models.GameLog.get_id_from_url(input.url)
         log = models.GameLog.objects.get_or_create(google_id=google_id)[0]
+        if input.lock:
+            log.lock(info.context.request.user)
         return log
 
     @gql.django.mutation(permission_classes=[IsStaff, IsLockUserOrSuperuserIfLocked])
