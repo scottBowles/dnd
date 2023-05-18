@@ -202,7 +202,8 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
         Tries to parse the game date from the title of the log
         Throws ValueError if it can't parse the date
         """
-        return datetime.datetime.strptime(self.title[0:10], "%Y-%m-%d").date()
+        date = datetime.datetime.strptime(self.title[0:10], "%Y-%m-%d")
+        return timezone.make_aware(date, timezone.utc)
 
     @staticmethod
     def get_id_from_url(url):
