@@ -240,10 +240,10 @@ class Entity(
     BaseModel,
 ):
     logs = models.ManyToManyField(
-        GameLog, blank=True, related_name="%(app_label)s_%(class)ss"
+        GameLog, blank=True, related_name="%(class)ss"
     )
     aliases = models.ManyToManyField(
-        Alias, blank=True, related_name="%(app_label)s_%(class)ss"
+        Alias, blank=True, related_name="base_%(class)ss"
     )
 
     def __str__(self):
