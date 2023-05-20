@@ -73,6 +73,12 @@ class GameLogInputPartial(gql.NodeInput):
     brief: auto
     synopsis: auto
     places_set_in: auto
+    artifacts: auto
+    associations: auto
+    characters: auto
+    items: auto
+    places: auto
+    races: auto
 
 
 @gql.input
