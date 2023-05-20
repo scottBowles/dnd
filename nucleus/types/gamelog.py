@@ -10,7 +10,12 @@ from strawberry_django_plus.mutations import resolvers
 from strawberry_django_plus.gql import relay, auto
 
 if TYPE_CHECKING:
+    from association.types import Association
+    from character.types.character import Character
     from place.types.place import Place
+    from race.types.race import Race
+    from item.types.artifact import Artifact
+    from item.types.item import Item
 
 
 @gql.django.type(models.GameLog)
@@ -27,6 +32,25 @@ class GameLog(Lockable, relay.Node):
     lock_user: Optional[User]
     lock_time: Optional[datetime.datetime]
     locked_by_self: bool = gql.field(resolver=locked_by_self)
+
+    artifacts: relay.Connection[
+        Annotated["Artifact", gql.lazy("item.types.artifact")]
+    ] = gql.django.connection()
+    associations: relay.Connection[
+        Annotated["Association", gql.lazy("association.types")]
+    ] = gql.django.connection()
+    characters: relay.Connection[
+        Annotated["Character", gql.lazy("character.types.character")]
+    ] = gql.django.connection()
+    items: relay.Connection[
+        Annotated["Item", gql.lazy("item.types.item")]
+    ] = gql.django.connection()
+    places: relay.Connection[
+        Annotated["Place", gql.lazy("place.types.place")]
+    ] = gql.django.connection()
+    races: relay.Connection[
+        Annotated["Race", gql.lazy("race.types.race")]
+    ] = gql.django.connection()
 
 
 @gql.django.input(models.GameLog)
