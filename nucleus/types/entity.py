@@ -78,6 +78,12 @@ class EntityAddImageInput:
     image_id: str
 
 
+@gql.input
+class EntityAddAliasInput:
+    id: gql.relay.GlobalID
+    alias: str
+
+
 @gql.type
 class NodeQuery:
     @gql.field
@@ -126,6 +132,18 @@ class EntityMutation:
         obj.image_ids = obj.image_ids + [input.image_id]
         obj.save()
         return obj
+
+    @gql.mutation(permission_classes=[IsStaff])
+    @sync_to_async
+    def entity_add_alias(self, info, input: EntityAddAliasInput) -> relay.Node:
+        obj = input.id.resolve_node(info)
+        try:
+            obj.aliases.get(name=input.alias)
+            return obj
+        except models.Alias.DoesNotExist:
+            obj.aliases.create(name=input.alias)
+            obj.save()
+            return obj
 
     @gql.mutation(permission_classes=[IsStaff])
     @sync_to_async
