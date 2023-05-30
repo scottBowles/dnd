@@ -6,6 +6,7 @@ from django_extensions.db.fields import AutoSlugField
 from django.utils.translation import gettext_lazy as _
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
+from django.db.models import Q
 
 
 class User(AbstractUser):
@@ -222,6 +223,49 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
 
     def set_id_from_url(self):
         self.google_id = self.get_id_from_url(self.url)
+
+    def get_text(self):
+        from nucleus.gdrive import fetch_airel_file_text
+
+        text = fetch_airel_file_text(self.google_id)
+        return text
+
+    def get_ai_log_suggestions(self):
+        from nucleus.ai_helpers import openai_summarize_text
+        import json
+
+        print("enter get_ai_log_suggestions")
+        if self.ailogsuggestion_set.count() > 0:
+            print("HERE")
+            return self.ailogsuggestion_set.first()
+        print("NOT HERE")
+
+        text = self.get_text()
+        response = openai_summarize_text(text)
+        # response = {"choices": [{"text": '{"title": f'}]}
+        print(response)
+        json_res: str = response["choices"][0]["text"]
+        print(json_res)
+
+        try:
+            data = json.loads(json_res)
+
+            ret = {
+                "title": data["title"],
+                "brief": data["brief"],
+                "synopsis": data["synopsis"],
+                "places": data["places"].split(", "),
+                "characters": data["characters"].split(", "),
+                "associations": data["associations"].split(", "),
+                "items": data["items"].split(", "),
+                "races": data["races"].split(", "),
+            }
+            aiLogSuggestion = AiLogSuggestion.objects.create(**ret)
+            return aiLogSuggestion
+        except Exception as e:
+            print(e)
+            raise Exception(f"Could not parse json: {json_res}")
+
 
 class AiLogSuggestion(models.Model):
     log = models.ForeignKey(GameLog, on_delete=models.CASCADE)

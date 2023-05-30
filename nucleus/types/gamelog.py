@@ -1,5 +1,5 @@
 import datetime
-from typing import TYPE_CHECKING, Annotated, Optional
+from typing import TYPE_CHECKING, Annotated, List, Optional
 
 from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
 from nucleus.types.entity import Lockable, locked_by_self
@@ -88,9 +88,36 @@ class RemoveEntityLogInput:
 
 
 @gql.type
+class GameLogAiSummary:
+    title: str
+    brief: str
+    synopsis: str
+    places: List[str]
+    found_places: List[Annotated["Place", gql.lazy("place.types.place")]]
+    characters: List[str]
+    found_characters: List[
+        Annotated["Character", gql.lazy("character.types.character")]
+    ]
+    races: List[str]
+    found_races: List[Annotated["Race", gql.lazy("race.types.race")]]
+    associations: List[str]
+    found_associations: List[Annotated["Association", gql.lazy("association.types")]]
+    items: List[str]
+    found_items: List[Annotated["Item", gql.lazy("item.types.item")]]
+    artifacts: List[str]
+    found_artifacts: List[Annotated["Artifact", gql.lazy("item.types.artifact")]]
+
+
+@gql.type
 class GameLogQuery:
     game_log: Optional[GameLog] = gql.django.field()
     game_logs: relay.Connection[GameLog] = gql.django.connection()
+
+    @gql.field(permission_classes=[IsSuperuser])
+    def ai_log_suggestions(self, info, id: gql.relay.GlobalID) -> GameLogAiSummary:
+        gamelog = id.resolve_node(info, ensure_type=models.GameLog)
+        aiLogSummary = gamelog.get_ai_log_suggestions()
+        return aiLogSummary
 
 
 @gql.type
