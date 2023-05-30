@@ -223,6 +223,75 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
     def set_id_from_url(self):
         self.google_id = self.get_id_from_url(self.url)
 
+class AiLogSuggestion(models.Model):
+    log = models.ForeignKey(GameLog, on_delete=models.CASCADE)
+    title = models.CharField(max_length=512, null=True, blank=True)
+    brief = models.TextField(null=True, blank=True)
+    synopsis = models.TextField(null=True, blank=True)
+    associations = ArrayField(models.CharField(max_length=512), null=True, blank=True)
+    characters = ArrayField(models.CharField(max_length=512), null=True, blank=True)
+    items = ArrayField(models.CharField(max_length=512), null=True, blank=True)
+    places = ArrayField(models.CharField(max_length=512), null=True, blank=True)
+    races = ArrayField(models.CharField(max_length=512), null=True, blank=True)
+
+    @property
+    def all_suggested_entity_names(self):
+        entity_lists = [
+            self.associations,
+            self.characters,
+            self.items,
+            self.places,
+            self.races,
+        ]
+        return [
+            name
+            for entity_list in entity_lists
+            for name in entity_list
+            if name is not None
+        ]
+
+    def found_suggested_for_model(self, model):
+        return model.objects.filter(
+            Q(name__in=self.all_suggested_entity_names)
+            | Q(aliases__name__in=self.all_suggested_entity_names)
+        ).distinct()
+
+    @property
+    def found_artifacts(self):
+        from item.models import Artifact
+
+        return self.found_suggested_for_model(Artifact)
+
+    @property
+    def found_associations(self):
+        from association.models import Association
+
+        return self.found_suggested_for_model(Association)
+
+    @property
+    def found_characters(self):
+        from character.models import Character
+
+        return self.found_suggested_for_model(Character)
+
+    @property
+    def found_items(self):
+        from item.models import Item
+
+        return self.found_suggested_for_model(Item)
+
+    @property
+    def found_places(self):
+        from place.models import Place
+
+        return self.found_suggested_for_model(Place)
+
+    @property
+    def found_races(self):
+        from race.models import Race
+
+        return self.found_suggested_for_model(Race)
+
 
 class Alias(models.Model):
     name = models.CharField(max_length=255)
@@ -239,12 +308,8 @@ class Entity(
     ImageIdsModel,
     BaseModel,
 ):
-    logs = models.ManyToManyField(
-        GameLog, blank=True, related_name="%(class)ss"
-    )
-    aliases = models.ManyToManyField(
-        Alias, blank=True, related_name="base_%(class)ss"
-    )
+    logs = models.ManyToManyField(GameLog, blank=True, related_name="%(class)ss")
+    aliases = models.ManyToManyField(Alias, blank=True, related_name="base_%(class)ss")
 
     def __str__(self):
         return self.name
