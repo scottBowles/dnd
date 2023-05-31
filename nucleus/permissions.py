@@ -1,7 +1,6 @@
 from typing import Any
 from strawberry_django_plus.gql import BasePermission
 from strawberry.types import Info
-from asgiref.sync import sync_to_async
 
 
 class IsStaff(BasePermission):
@@ -31,7 +30,6 @@ class IsLockUserOrSuperuserIfLocked(BasePermission):
 
     message = "This object is locked and you are not the owner or a superuser."
 
-    @sync_to_async
     def has_permission(self, source: Any, info: Info, input, **kwargs) -> bool:
         try:
             global_id = input.get("id")

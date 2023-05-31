@@ -6,7 +6,6 @@ from strawberry_django_plus import gql
 from strawberry_django_plus.gql import relay
 import datetime
 from .user import User
-from asgiref.sync import sync_to_async
 
 if TYPE_CHECKING:
     from nucleus.types.gamelog import GameLog, AddEntityLogInput, RemoveEntityLogInput
@@ -94,7 +93,6 @@ class NodeQuery:
 @gql.type
 class EntityMutation:
     @gql.mutation(permission_classes=[IsStaff])
-    @sync_to_async
     def add_entity_log(
         self,
         info,
@@ -113,7 +111,6 @@ class EntityMutation:
         return entity
 
     @gql.mutation(permission_classes=[IsStaff])
-    @sync_to_async
     def remove_entity_log(
         self,
         info,
@@ -126,7 +123,6 @@ class EntityMutation:
         return entity
 
     @gql.mutation(permission_classes=[IsStaff])
-    @sync_to_async
     def entity_add_image(self, info, input: EntityAddImageInput) -> relay.Node:
         obj = input.id.resolve_node(info)
         obj.image_ids = obj.image_ids + [input.image_id]
@@ -134,7 +130,6 @@ class EntityMutation:
         return obj
 
     @gql.mutation(permission_classes=[IsStaff])
-    @sync_to_async
     def entity_add_alias(self, info, input: EntityAddAliasInput) -> relay.Node:
         obj = input.id.resolve_node(info)
         try:
@@ -146,14 +141,12 @@ class EntityMutation:
             return obj
 
     @gql.mutation(permission_classes=[IsStaff])
-    @sync_to_async
     def lock(self, info, input: gql.NodeInput) -> Lockable:
         obj = input.id.resolve_node(info)
         obj.lock(info.context.request.user)
         return obj
 
     @gql.mutation(permission_classes=[IsStaff])
-    @sync_to_async
     def unlock(self, info, input: gql.NodeInput) -> Lockable:
         obj = input.id.resolve_node(info)
         obj.release_lock(info.context.request.user)

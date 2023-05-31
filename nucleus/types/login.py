@@ -2,7 +2,6 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 from strawberry_django_plus import gql
 from django.conf import settings
-from asgiref.sync import sync_to_async
 from django.contrib.auth import get_user_model
 from gqlauth.jwt.types_ import ObtainJSONWebTokenType
 
@@ -12,7 +11,6 @@ user_model = get_user_model()
 @gql.type
 class LoginMutation:
     @gql.mutation
-    @sync_to_async
     def google_login(self, google_token: str) -> ObtainJSONWebTokenType:
         print("google_login start")
         # take in the google_token
