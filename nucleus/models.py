@@ -267,7 +267,7 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
             raise Exception(f"Could not parse json: {json_res}")
 
 
-class AiLogSuggestion(models.Model):
+class AiLogSuggestion(CreatableModel, models.Model):
     log = models.ForeignKey(GameLog, on_delete=models.CASCADE)
     title = models.CharField(max_length=512, null=True, blank=True)
     brief = models.TextField(null=True, blank=True)
