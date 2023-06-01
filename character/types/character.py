@@ -1,4 +1,4 @@
-from typing import Iterable, Optional
+from typing import TYPE_CHECKING, Annotated, Iterable, Optional
 from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
 from nucleus.types import Entity, EntityInput, EntityInputPartial
 from strawberry_django_plus import gql
@@ -8,8 +8,10 @@ from strawberry_django_plus.mutations import resolvers
 from .. import models
 from .feature import Feature
 from .proficiency import Proficiency
-from association.types import Association
 from race.types import Race
+
+if TYPE_CHECKING:
+    from association.types import Association
 
 
 @gql.django.type(models.Character)
@@ -18,7 +20,9 @@ class Character(Entity, relay.Node):
     race: Optional[Race]
     features_and_traits: relay.Connection[Feature] = gql.django.connection()
     proficiencies: relay.Connection[Proficiency] = gql.django.connection()
-    associations: relay.Connection[Association] = gql.django.connection()
+    associations: relay.Connection[
+        Annotated["Association", gql.lazy("association.types")]
+    ] = gql.django.connection()
 
 
 @gql.django.input(models.Character)

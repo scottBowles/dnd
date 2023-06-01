@@ -31,6 +31,7 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 AIREL_FOLDER_ID = os.environ.get("AIREL_FOLDER_ID")
 GOOGLE_SSO_CLIENT_ID = os.environ.get("GOOGLE_SSO_CLIENT_ID")
 GOOGLE_SSO_CLIENT_SECRET = os.environ.get("GOOGLE_SSO_CLIENT_SECRET")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # DEBUG = True

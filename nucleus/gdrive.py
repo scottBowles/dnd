@@ -11,7 +11,7 @@ def fetch_airel_folder():
             service.files()
             .list(
                 q=f"'{AIREL_FOLDER_ID}' in parents and trashed = false",
-                fields="nextPageToken, files(id, name, webViewLink)",
+                fields="nextPageToken, files(id, name, webViewLink, createdTime)",
             )
             .execute()
         )
@@ -21,9 +21,17 @@ def fetch_airel_folder():
 def fetch_airel_file(id):
     with build("drive", "v3", developerKey=GOOGLE_API_KEY) as service:
         results = (
-            service.files().get(fileId=id, fields="id, name, webViewLink").execute()
+            service.files().get(fileId=id, fields="id, name, webViewLink, createdTime")
+            # .get(fileId=id, fields="*") # use this to see all available fields
+            .execute()
         )
         return results
 
 
-# might need to access the files.export(?) API to get the actual file contents
+def fetch_airel_file_text(id):
+    """
+    Fetches the text of a file from google drive
+    """
+    with build("drive", "v3", developerKey=GOOGLE_API_KEY) as service:
+        results = service.files().export(fileId=id, mimeType="text/plain").execute()
+        return results.decode("utf-8")

@@ -1,8 +1,18 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User
+from .models import User, GameLog, AiLogSuggestion
 from django.utils import timezone
 import zoneinfo
+
+
+@admin.register(GameLog)
+class GameLogAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(AiLogSuggestion)
+class AiLogSuggestionAdmin(admin.ModelAdmin):
+    pass
 
 
 @admin.register(User)

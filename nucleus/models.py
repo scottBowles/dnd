@@ -1,3 +1,4 @@
+import datetime
 from django.utils import timezone
 from django.db import models
 from django.contrib.auth.models import AbstractUser
@@ -5,6 +6,7 @@ from django_extensions.db.fields import AutoSlugField
 from django.utils.translation import gettext_lazy as _
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
+from django.db.models import Q
 
 
 class User(AbstractUser):
@@ -151,20 +153,27 @@ class PessimisticConcurrencyLockModel(models.Model):
         return self
 
 
-class GameLog(models.Model):
+class GameLog(PessimisticConcurrencyLockModel, models.Model):
     url = models.CharField(max_length=255, unique=True)
-    name = models.CharField(max_length=512, null=True, blank=True)
+    title = models.CharField(max_length=512, null=True, blank=True)
     google_id = models.CharField(max_length=255, null=True, blank=True, unique=True)
+    google_created_time = models.DateTimeField(null=True, blank=True)
+    game_date = models.DateTimeField(null=True, blank=True)
+    brief = models.TextField(null=True, blank=True)
+    synopsis = models.TextField(null=True, blank=True)
+    places_set_in = models.ManyToManyField(
+        "place.Place", blank=True, related_name="logs_set_in"
+    )
 
     def __str__(self):
-        return self.name or self.url
+        return self.title or self.url
 
     def save(self, *args, **kwargs):
         if self._state.adding:
             self.update_from_google()
         super().save(*args, **kwargs)
 
-    def update_from_google(self):
+    def update_from_google(self, overwrite=False):
         """
         Updates the model from google drive — Does NOT save the model
         """
@@ -174,10 +183,28 @@ class GameLog(models.Model):
             self.set_id_from_url()
         try:
             file_info = fetch_airel_file(self.google_id)
-            self.name = file_info["name"]
-            self.url = file_info["webViewLink"]
+            if overwrite or self.title is None:
+                self.title = file_info["name"]
+            if overwrite or self.url is None:
+                self.url = file_info["webViewLink"]
+            if overwrite or self.google_created_time is None:
+                self.google_created_time = file_info["createdTime"]
+            if overwrite or self.game_date is None:
+                try:
+                    self.game_date = self.get_game_date_from_title()
+                except ValueError:
+                    self.game_date = file_info["createdTime"]
+
         except Exception as e:
             raise e
+
+    def get_game_date_from_title(self):
+        """
+        Tries to parse the game date from the title of the log
+        Throws ValueError if it can't parse the date
+        """
+        date = datetime.datetime.strptime(self.title[0:10], "%Y-%m-%d")
+        return timezone.make_aware(date, timezone.utc)
 
     @staticmethod
     def get_id_from_url(url):
@@ -197,6 +224,246 @@ class GameLog(models.Model):
     def set_id_from_url(self):
         self.google_id = self.get_id_from_url(self.url)
 
+    def get_text(self):
+        from nucleus.gdrive import fetch_airel_file_text
+
+        text = fetch_airel_file_text(self.google_id)
+        return text
+
+    def get_ai_log_suggestions(self):
+        from nucleus.ai_helpers import openai_summarize_text
+        import json
+
+        print("enter get_ai_log_suggestions")
+        if self.ailogsuggestion_set.count() > 0:
+            print("HERE")
+            return self.ailogsuggestion_set.first()
+        print("NOT HERE")
+
+        text = self.get_text()
+        response = openai_summarize_text(text)
+        # response = {"choices": [{"text": '{"title": f'}]}
+        print(response)
+        json_res: str = response["choices"][0]["text"]
+        print(json_res)
+
+        try:
+            data = json.loads(json_res)
+
+            ret = {
+                "title": data["title"],
+                "brief": data["brief"],
+                "synopsis": data["synopsis"],
+                "places": data["places"].split(", "),
+                "characters": data["characters"].split(", "),
+                "associations": data["associations"].split(", "),
+                "items": data["items"].split(", "),
+                "races": data["races"].split(", "),
+            }
+            aiLogSuggestion = AiLogSuggestion.objects.create(**ret)
+            return aiLogSuggestion
+        except Exception as e:
+            print(e)
+            raise Exception(f"Could not parse json: {json_res}")
+
+
+class CombinedAiLogSuggestion:
+    def __init__(self, log):
+        self.log = log
+        self.suggestions = log.ailogsuggestion_set.all()
+
+    def consolidated_str_field(self, prop):
+        return [
+            getattr(s, prop, None)
+            for s in self.suggestions
+            if getattr(s, prop, None) is not None
+        ]
+
+    @property
+    def titles(self):
+        return self.consolidated_str_field("title")
+
+    @property
+    def briefs(self):
+        return self.consolidated_str_field("brief")
+
+    @property
+    def synopses(self):
+        return self.consolidated_str_field("synopsis")
+
+    def consolidated_suggested_names_for_prop(self, prop):
+        return list(
+            set(
+                [
+                    el
+                    for suggestion in self.suggestions
+                    for el in getattr(suggestion, prop, [])
+                ]
+            )
+        )
+
+    @property
+    def places(self):
+        return self.consolidated_suggested_names_for_prop("places")
+
+    @property
+    def characters(self):
+        return self.consolidated_suggested_names_for_prop("characters")
+
+    @property
+    def races(self):
+        return self.consolidated_suggested_names_for_prop("races")
+
+    @property
+    def associations(self):
+        return self.consolidated_suggested_names_for_prop("associations")
+
+    @property
+    def items(self):
+        return self.consolidated_suggested_names_for_prop("items")
+
+    @property
+    def all_suggested_names(self):
+        all_names = [
+            name
+            for entity_list in [
+                self.associations,
+                self.characters,
+                self.items,
+                self.places,
+                self.races,
+            ]
+            for name in entity_list
+            if name is not None
+        ]
+        return list(set(all_names))
+
+    def found_suggested_for_model(self, model):
+        return model.objects.filter(
+            Q(name__in=self.all_suggested_names)
+            | Q(aliases__name__in=self.all_suggested_names)
+        ).distinct()
+
+    @property
+    def found_places(self):
+        from place.models import Place
+
+        return self.found_suggested_for_model(Place)
+
+    @property
+    def found_characters(self):
+        from character.models import Character
+
+        return self.found_suggested_for_model(Character)
+
+    @property
+    def found_items(self):
+        from item.models import Item
+
+        return self.found_suggested_for_model(Item)
+
+    @property
+    def found_artifacts(self):
+        from item.models import Artifact
+
+        return self.found_suggested_for_model(Artifact)
+
+    @property
+    def found_races(self):
+        from race.models import Race
+
+        return self.found_suggested_for_model(Race)
+
+    @property
+    def found_associations(self):
+        from association.models import Association
+
+        return self.found_suggested_for_model(Association)
+
+
+class AiLogSuggestion(CreatableModel, models.Model):
+    log = models.ForeignKey(GameLog, on_delete=models.CASCADE)
+    title = models.CharField(max_length=512, null=True, blank=True)
+    brief = models.TextField(null=True, blank=True)
+    synopsis = models.TextField(null=True, blank=True)
+    associations = ArrayField(models.CharField(max_length=512), null=True, blank=True)
+    characters = ArrayField(models.CharField(max_length=512), null=True, blank=True)
+    items = ArrayField(models.CharField(max_length=512), null=True, blank=True)
+    places = ArrayField(models.CharField(max_length=512), null=True, blank=True)
+    races = ArrayField(models.CharField(max_length=512), null=True, blank=True)
+
+    @property
+    def all_suggested_entity_names(self):
+        entity_lists = [
+            self.associations,
+            self.characters,
+            self.items,
+            self.places,
+            self.races,
+        ]
+        return [
+            name
+            for entity_list in entity_lists
+            for name in entity_list
+            if name is not None
+        ]
+
+    def found_suggested_for_model(self, model):
+        return model.objects.filter(
+            Q(name__in=self.all_suggested_entity_names)
+            | Q(aliases__name__in=self.all_suggested_entity_names)
+        ).distinct()
+
+    @staticmethod
+    def found_suggested_for_model_and_suggested_names(model, suggested_names):
+        return model.objects.filter(
+            Q(name__in=suggested_names) | Q(aliases__name__in=suggested_names)
+        ).distinct()
+
+    @property
+    def found_artifacts(self):
+        from item.models import Artifact
+
+        return self.found_suggested_for_model(Artifact)
+
+    @property
+    def found_associations(self):
+        from association.models import Association
+
+        return self.found_suggested_for_model(Association)
+
+    @property
+    def found_characters(self):
+        from character.models import Character
+
+        return self.found_suggested_for_model(Character)
+
+    @property
+    def found_items(self):
+        from item.models import Item
+
+        return self.found_suggested_for_model(Item)
+
+    @property
+    def found_places(self):
+        from place.models import Place
+
+        return self.found_suggested_for_model(Place)
+
+    @property
+    def found_races(self):
+        from race.models import Race
+
+        return self.found_suggested_for_model(Race)
+
+
+class Alias(models.Model):
+    name = models.CharField(max_length=255)
+    is_primary = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.name
+
 
 class Entity(
     PessimisticConcurrencyLockModel,
@@ -205,15 +472,14 @@ class Entity(
     ImageIdsModel,
     BaseModel,
 ):
-    logs = models.ManyToManyField(
-        GameLog, blank=True, related_name="%(app_label)s_%(class)ss"
-    )
+    logs = models.ManyToManyField(GameLog, blank=True, related_name="%(class)ss")
+    aliases = models.ManyToManyField(Alias, blank=True, related_name="base_%(class)ss")
 
     def __str__(self):
         return self.name
 
-    def most_recent_log_by_name(self):
-        return self.logs.order_by("-name").first()
+    def most_recent_log_by_title(self):
+        return self.logs.order_by("-title").first()
 
     class Meta:
         abstract = True
