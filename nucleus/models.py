@@ -161,6 +161,7 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
     game_date = models.DateTimeField(null=True, blank=True)
     brief = models.TextField(null=True, blank=True)
     synopsis = models.TextField(null=True, blank=True)
+    summary = models.TextField(null=True, blank=True)
     places_set_in = models.ManyToManyField(
         "place.Place", blank=True, related_name="logs_set_in"
     )
