@@ -267,6 +267,120 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
             raise Exception(f"Could not parse json: {json_res}")
 
 
+class CombinedAiLogSuggestion:
+    def __init__(self, log):
+        self.log = log
+        self.suggestions = log.ailogsuggestion_set.all()
+
+    def consolidated_str_field(self, prop):
+        return [
+            getattr(s, prop, None)
+            for s in self.suggestions
+            if getattr(s, prop, None) is not None
+        ]
+
+    @property
+    def titles(self):
+        return self.consolidated_str_field("title")
+
+    @property
+    def briefs(self):
+        return self.consolidated_str_field("brief")
+
+    @property
+    def synopses(self):
+        return self.consolidated_str_field("synopsis")
+
+    def consolidated_suggested_names_for_prop(self, prop):
+        return list(
+            set(
+                [
+                    el
+                    for suggestion in self.suggestions
+                    for el in getattr(suggestion, prop, [])
+                ]
+            )
+        )
+
+    @property
+    def places(self):
+        return self.consolidated_suggested_names_for_prop("places")
+
+    @property
+    def characters(self):
+        return self.consolidated_suggested_names_for_prop("characters")
+
+    @property
+    def races(self):
+        return self.consolidated_suggested_names_for_prop("races")
+
+    @property
+    def associations(self):
+        return self.consolidated_suggested_names_for_prop("associations")
+
+    @property
+    def items(self):
+        return self.consolidated_suggested_names_for_prop("items")
+
+    @property
+    def all_suggested_names(self):
+        all_names = [
+            name
+            for entity_list in [
+                self.associations,
+                self.characters,
+                self.items,
+                self.places,
+                self.races,
+            ]
+            for name in entity_list
+            if name is not None
+        ]
+        return list(set(all_names))
+
+    def found_suggested_for_model(self, model):
+        return model.objects.filter(
+            Q(name__in=self.all_suggested_names)
+            | Q(aliases__name__in=self.all_suggested_names)
+        ).distinct()
+
+    @property
+    def found_places(self):
+        from place.models import Place
+
+        return self.found_suggested_for_model(Place)
+
+    @property
+    def found_characters(self):
+        from character.models import Character
+
+        return self.found_suggested_for_model(Character)
+
+    @property
+    def found_items(self):
+        from item.models import Item
+
+        return self.found_suggested_for_model(Item)
+
+    @property
+    def found_artifacts(self):
+        from item.models import Artifact
+
+        return self.found_suggested_for_model(Artifact)
+
+    @property
+    def found_races(self):
+        from race.models import Race
+
+        return self.found_suggested_for_model(Race)
+
+    @property
+    def found_associations(self):
+        from association.models import Association
+
+        return self.found_suggested_for_model(Association)
+
+
 class AiLogSuggestion(CreatableModel, models.Model):
     log = models.ForeignKey(GameLog, on_delete=models.CASCADE)
     title = models.CharField(max_length=512, null=True, blank=True)
@@ -298,6 +412,12 @@ class AiLogSuggestion(CreatableModel, models.Model):
         return model.objects.filter(
             Q(name__in=self.all_suggested_entity_names)
             | Q(aliases__name__in=self.all_suggested_entity_names)
+        ).distinct()
+
+    @staticmethod
+    def found_suggested_for_model_and_suggested_names(model, suggested_names):
+        return model.objects.filter(
+            Q(name__in=suggested_names) | Q(aliases__name__in=suggested_names)
         ).distinct()
 
     @property
