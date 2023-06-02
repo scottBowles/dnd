@@ -32,7 +32,7 @@ class GameLogAdmin(admin.ModelAdmin):
         return mark_safe(
             f"""
             <textarea id="{btn_id}" style="position: absolute; top: -10000px">{obj.copy_text_for_summary()}</textarea>
-            <a href="#" onclick="document.querySelector(\'#{btn_id}\').select(); document.execCommand(\'copy\');" class="addlink">Copy media url to clipboard</a>
+            <a href="#" onclick="document.querySelector(\'#{btn_id}\').select(); document.execCommand(\'copy\');" class="addlink">Copy text for ai summary to clipboard</a>
             """
         )
 
