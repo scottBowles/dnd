@@ -67,6 +67,7 @@ class GameLog(Lockable, relay.Node):
     game_date: auto
     brief: auto
     synopsis: auto
+    summary: auto
     places_set_in: relay.Connection[
         Annotated["Place", gql.lazy("place.types.place")]
     ] = gql.django.connection()
@@ -116,6 +117,7 @@ class GameLogInputPartial(gql.NodeInput):
     game_date: auto
     brief: auto
     synopsis: auto
+    summary: auto
     places_set_in: auto
     artifacts: auto
     associations: auto
