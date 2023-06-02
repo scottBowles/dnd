@@ -12,22 +12,132 @@ def openai_summarize_text(text):
 
     openai.api_key = OPENAI_API_KEY
 
+    # text = (
+    #     "Given the following game log from a game of dungeons and dragons, "
+    #     "give it an episode title that is a few words long, "
+    #     "a brief description that is a few sentences long, "
+    #     "and a synopsis that is a few paragraphs long. "
+    #     "Also list any places, characters, races, associations, or items. "
+    #     "The response should be in the form of a json object with the following keys: "
+    #     '"title", "brief", "synopsis", "places", "characters", "races", "associations",'
+    #     ' "items". "places", "characters", "races", "associations", and "items" should be arrays.'
+    #     " \n\n The game log is as follows:\n\n" + text + "\n\nResponse:\n\n"
+    # )
+    # text = (
+    #     'Give a synopsis of the following text in a few paragraphs. Be especially sure to retain all events, characters, places, items, and essential details that are mentioned in the log.\n\nText: """\n\n'
+    #     + text
+    #     + '\n\n""" Response:\n\n'
+    # )
+
     text = (
-        "Given the following game log from a game of dungeons and dragons, "
-        "give it an episode title that is a few words long, "
-        "a brief description that is a few sentences long, "
-        "and a synopsis that is a few paragraphs long. "
-        "Also list any places, characters, races, associations, or items. "
-        "The response should be in the form of a json object with the following keys: "
-        '"title", "brief", "synopsis", "places", "characters", "races", "associations",'
-        ' "items". \n\n The game log is as follows:\n\n' + text + "\n\nResponse:\n\n"
+        '''
+        Given the following game log from a role playing game, give it an episode title of a few words and a brief description of a few sentences. Also list all places, characters, races, associations, and items that are mentioned. If you are not sure which something is, include it in both. The response should be in the form of a json object with the following keys: "title", "brief", "places", "characters", "races", "associations", "items". For example:
+        '{"title":"My Title","brief":"The Branch, lead by Ego, invents AI using the ReDream. On their way to Hielo, they have to fight off void spiders. They make it to Hielo, and leave the nascent AI to mature.","places":["Hielo"],"characters":["Ego","Void Spiders","AI"],"races":["Void Spiders","AI"],"associations":["The Branch"],"items":["ReDream"]}'
+        Text:
+        """
+    '''
+        + text
+        + '''
+        """
+        Response:
+        '''
     )
 
     response = openai.Completion.create(
-        engine="text-davinci-003",
+        engine="text-davinci-002",
         prompt=text,
+        temperature=0,
+        max_tokens=357,
+        top_p=1.0,
+        frequency_penalty=0.0,
+        presence_penalty=0.0,
+        n=1,
+    )
+    return response
+    # return response["choices"][0]["text"]
+
+
+def openai_summarize_text_chat(text):
+    """
+    Summary the given text using an openai chat model
+    This is first to be used for summarizing long game logs (~13000 character) into a short summary
+    """
+    import openai
+
+    openai.api_key = OPENAI_API_KEY
+
+    # text = (
+    #     "Given the following game log from a role playing game, "
+    #     "give it an episode title that is a few words long, "
+    #     "a brief description that is a few sentences long, "
+    #     "and a synopsis that is a few paragraphs long. "
+    #     "Also list any places, characters, races, associations, or items that are mentioned. "
+    #     "The response should be in the form of a json object with the following keys: "
+    #     '"title", "brief", "synopsis", "places", "characters", "races", "associations",'
+    #     ' "items". "places", "characters", "races", "associations", and "items" should be arrays.'
+    #     " \n\n The game log is as follows:\n\n" + text + "\n\nResponse:\n\n"
+    # )
+    text = (
+        '''
+        Given the following game log from a role playing game, give it an episode title of a few words and a brief description of a few sentences. Also list all places, characters, races, associations, and items that are mentioned. If you are not sure which something is, include it in both. The response should be in the form of a json object with the following keys: "title", "brief", "places", "characters", "races", "associations", "items". For example:
+        '{"title":"My Title","brief":"The Branch, lead by Ego, invents AI using the ReDream. On their way to Hielo, they have to fight off void spiders. They make it to Hielo, and leave the nascent AI to mature.","places":["Hielo"],"characters":["Ego","Void Spiders","AI"],"races":["Void Spiders","AI"],"associations":["The Branch"],"items":["ReDream"]}'
+        Text:
+        """
+    '''
+        + text
+        + '''
+        """
+        Response:
+        '''
+    )
+    messages = [{"role": "user", "content": text}]
+
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=messages,
+        # prompt=text,
         temperature=0.3,
         max_tokens=357,
+        top_p=1.0,
+        frequency_penalty=0.0,
+        presence_penalty=0.0,
+        n=1,
+    )
+    return response
+    # return response["choices"][0]["text"]
+
+
+# from nucleus.ai_helpers import test_helper
+def test_helper():
+    from nucleus.gdrive import fetch_airel_file_text
+    from nucleus.models import GameLog
+
+    log = GameLog.objects.first()
+    text = fetch_airel_file_text(log.google_id)
+    response = openai_summarize_text_chat(text)
+    return response
+
+
+def openai_shorten_text(text, percent=70, max_tokens=2000):
+    """
+    Summary the given text using openai
+    This is first to be used for summarizing long game logs (~13000 character) into a short summary
+    """
+    import openai
+
+    openai.api_key = OPENAI_API_KEY
+
+    text = (
+        f"Make the following text {percent}% shorter without losing any content. Especially be sure not to leave out any characters, places, items, etc. Text: "
+        + text
+        + " Response:"
+    )
+
+    response = openai.Completion.create(
+        engine="code-davinci-002",
+        prompt=text,
+        temperature=0.3,
+        max_tokens=max_tokens,
         top_p=1.0,
         frequency_penalty=0.0,
         presence_penalty=0.0,
