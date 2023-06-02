@@ -3,11 +3,40 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import User, GameLog, AiLogSuggestion
 from django.utils import timezone
 import zoneinfo
+from django.utils.safestring import mark_safe
 
 
 @admin.register(GameLog)
 class GameLogAdmin(admin.ModelAdmin):
-    pass
+    fields = (
+        "url",
+        "copy_text_for_summary",
+        "title",
+        "google_id",
+        "google_created_time",
+        "game_date",
+        "brief",
+        "synopsis",
+        "summary",
+        "places_set_in",
+    )
+    readonly_fields = (
+        "url",
+        "copy_text_for_summary",
+        "google_id",
+        "google_created_time",
+    )
+
+    def copy_text_for_summary(self, obj):
+        btn_id = "copy-helper"
+        return mark_safe(
+            f"""
+            <textarea id="{btn_id}" style="position: absolute; top: -10000px">{obj.copy_text_for_summary()}</textarea>
+            <a href="#" onclick="document.querySelector(\'#{btn_id}\').select(); document.execCommand(\'copy\');" class="addlink">Copy text for ai summary to clipboard</a>
+            """
+        )
+
+    copy_text_for_summary.short_description = "Copy text for summary"
 
 
 @admin.register(AiLogSuggestion)

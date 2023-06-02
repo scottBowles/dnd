@@ -7,6 +7,7 @@ from django.utils.translation import gettext_lazy as _
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.db.models import Q
+from django.contrib import admin
 
 
 class User(AbstractUser):
@@ -220,6 +221,17 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
 
         except Exception as e:
             raise e
+
+    def copy_text_for_summary(self):
+        from nucleus.gdrive import fetch_airel_file_text
+
+        log_text = fetch_airel_file_text(self.google_id)
+        prompt = (
+            'Make the following text 70% shorter without losing any content. Be sure especially not to lose any events, characters, places, items, or essential details that are mentioned in the log.\n\nText: """\n\n'
+            + log_text
+            + '\n"""\n\nSummary:\n'
+        )
+        return prompt
 
     def get_game_date_from_title(self):
         """
