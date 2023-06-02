@@ -199,6 +199,28 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
         except Exception as e:
             raise e
 
+    def update_from_google_file_info(self, file_info, overwrite=False):
+        """
+        Updates the model from google drive file info — Does NOT save the model
+        """
+        if self.google_id is None:
+            self.set_id_from_url()
+        try:
+            if overwrite or self.title is None:
+                self.title = file_info["name"]
+            if overwrite or self.url is None:
+                self.url = file_info["webViewLink"]
+            if overwrite or self.google_created_time is None:
+                self.google_created_time = file_info["createdTime"]
+            if overwrite or self.game_date is None:
+                try:
+                    self.game_date = self.get_game_date_from_title()
+                except ValueError:
+                    self.game_date = file_info["createdTime"]
+
+        except Exception as e:
+            raise e
+
     def get_game_date_from_title(self):
         """
         Tries to parse the game date from the title of the log
@@ -232,7 +254,7 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
         return text
 
     def get_ai_log_suggestions(self):
-        from nucleus.ai_helpers import openai_summarize_text
+        from nucleus.ai_helpers import openai_summarize_text_chat
         import json
 
         print("enter get_ai_log_suggestions")
@@ -242,7 +264,7 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
         print("NOT HERE")
 
         text = self.get_text()
-        response = openai_summarize_text(text)
+        response = openai_summarize_text_chat(text)
         # response = {"choices": [{"text": '{"title": f'}]}
         print(response)
         json_res: str = response["choices"][0]["text"]
