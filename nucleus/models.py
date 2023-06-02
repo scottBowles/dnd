@@ -227,7 +227,7 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
 
         log_text = fetch_airel_file_text(self.google_id)
         prompt = (
-            'Make the following text 70% shorter without losing any content. Be sure especially not to lose any events, characters, places, items, or essential details that are mentioned in the log.\n\nText: """\n\n'
+            'Make the following text 70% shorter without losing any content. Be especially sure to retain all events, characters, places, items, and essential details that are mentioned in the log.\n\nText: """\n\n'
             + log_text
             + '\n"""\n\nSummary:\n'
         )
