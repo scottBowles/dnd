@@ -12,7 +12,7 @@ class Command(BaseCommand):
     )
 
     def handle(self, *args, **options):
-        logs = [GameLog.objects.last()]
+        logs = GameLog.objects.all()
         for log in tqdm(logs):
             num_suggestions = log.ailogsuggestion_set.count()
             log_text = fetch_airel_file_text(log.google_id)
