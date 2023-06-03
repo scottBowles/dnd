@@ -50,9 +50,9 @@ class Command(BaseCommand):
                         print(
                             "Created AI suggestion from summary with id", suggestion.id
                         )
-                    except Exception as e:
+                    except Exception as err:
                         print(
-                            f"Error creating AI suggestion from summary for {log}: {e}"
+                            f"Error creating AI suggestion from summary for {log}: {err}"
                         )
                     print(f"Error creating AI suggestion for {log}: {e}")
                     continue
