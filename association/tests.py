@@ -2,7 +2,8 @@ import factory
 from .models import Association
 from graphql_relay import from_global_id, to_global_id
 from django.contrib.auth import get_user_model
-
+from website.types import schema
+from django.test import TestCase
 from graphql_jwt.testcases import JSONWebTokenTestCase
 
 
@@ -14,6 +15,91 @@ class AssociationFactory(factory.django.DjangoModelFactory):
     description = factory.Faker("text")
     image_ids = factory.List([factory.Faker("text") for _ in range(3)])
     thumbnail_id = factory.Faker("text")
+
+
+class STRAssociationTests(TestCase):
+    def test_association_list_query(self):
+        factory1 = AssociationFactory()
+        factory2 = AssociationFactory()
+        query = """
+            query {
+                associations {
+                    edges {
+                        node {
+                            id
+                            name
+                            description
+                            imageIds
+                            thumbnailId
+                        }
+                    }
+                }
+            }
+        """
+        response = schema.execute_sync(query)
+        result = response.data
+
+        res_1 = result["associations"]["edges"][0]["node"]
+        res_2 = result["associations"]["edges"][1]["node"]
+
+        # Ensure exactly two results exist, have expected values, and are in the expected order
+        self.assertEqual(from_global_id(res_1["id"])[1], str(factory1.id))
+        self.assertEqual(res_1["name"], factory1.name)
+        self.assertEqual(res_1["description"], factory1.description)
+        self.assertEqual(res_1["imageIds"], factory1.image_ids)
+        self.assertEqual(res_1["thumbnailId"], factory1.thumbnail_id)
+        self.assertEqual(from_global_id(res_2["id"])[1], str(factory2.id))
+        self.assertEqual(res_2["name"], factory2.name)
+        self.assertEqual(res_2["description"], factory2.description)
+        self.assertEqual(res_2["imageIds"], factory2.image_ids)
+        self.assertEqual(res_2["thumbnailId"], factory2.thumbnail_id)
+        with self.assertRaises(IndexError):
+            result["associations"]["edges"][2]
+
+    def test_bad_association_list_query(self):
+        AssociationFactory()
+        query = """
+            query {
+                associations {
+                    edges {
+                        node {
+                            id
+                            name
+                            description
+                            not_a_field
+                        }
+                    }
+                }
+            }
+        """
+        response = schema.execute_sync(query)
+
+        self.assertIsNotNone(response.errors)
+        self.assertIsNone(response.data)
+
+    def test_association_detail_query(self):
+        association = AssociationFactory()
+        association_global_id = to_global_id("AssociationNode", association.id)
+        query = """
+            query GetAssociation($pk: ID!) {
+                association(pk: $pk) {
+                    id
+                    name
+                    description
+                    imageIds
+                    thumbnailId
+                }
+            }
+        """
+        response = schema.execute_sync(query, variable_values={"pk": association.id})
+        self.assertIsNone(response.errors)
+
+        res_association = response.data["association"]
+
+        self.assertEqual(res_association["name"], association.name)
+        self.assertEqual(res_association["description"], association.description)
+        self.assertEqual(res_association["imageIds"], association.image_ids)
+        self.assertEqual(res_association["thumbnailId"], association.thumbnail_id)
 
 
 class AssociationTests(JSONWebTokenTestCase):
