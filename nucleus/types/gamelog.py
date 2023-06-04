@@ -133,10 +133,15 @@ class RemoveEntityLogInput:
     log_id: gql.relay.GlobalID
 
 
+@gql.django.ordering.order(models.GameLog)
+class GameLogOrder:
+    game_date: auto
+
+
 @gql.type
 class GameLogQuery:
     game_log: Optional[GameLog] = gql.django.field()
-    game_logs: relay.Connection[GameLog] = gql.django.connection()
+    game_logs: relay.Connection[GameLog] = gql.django.connection(order=GameLogOrder)
 
     @gql.field(permission_classes=[IsSuperuser])
     def ai_log_suggestions(self, info, id: gql.relay.GlobalID) -> GameLogAiSummary:
