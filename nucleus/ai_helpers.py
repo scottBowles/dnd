@@ -107,15 +107,62 @@ def openai_summarize_text_chat(text):
     # return response["choices"][0]["text"]
 
 
+def openai_titles_from_text_chat(text):
+    """
+    Summary the given text using an openai chat model
+    This is first to be used for summarizing long game logs (~13000 character) into a short summary
+    """
+    import openai
+
+    openai.api_key = OPENAI_API_KEY
+
+    text = (
+        '''
+        Given the following game log from a role playing game, provide five possible one-phrase episode titles. One title should be descriptive, one evocative, one pithy, one funny, and one entertaining. The response should be a json object with the key "titles" and the value as an array of five strings. For example:
+        '{"titles":["My Title","My Title","My Title","My Title","My Title"]}'
+        Text:
+        """
+    '''
+        + text
+        + '''
+        """
+        Response:
+        '''
+    )
+    messages = [{"role": "user", "content": text}]
+
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=messages,
+        # prompt=text,
+        temperature=0.5,
+        max_tokens=357,
+        top_p=1.0,
+        frequency_penalty=0.0,
+        presence_penalty=0.0,
+        n=1,
+    )
+    return response
+    # return response["choices"][0]["text"]
+
+
 # from nucleus.ai_helpers import test_helper
 def test_helper():
     from nucleus.gdrive import fetch_airel_file_text
     from nucleus.models import GameLog
+    import json
 
     log = GameLog.objects.first()
     text = fetch_airel_file_text(log.google_id)
-    response = openai_summarize_text_chat(text)
-    return response
+    response = openai_titles_from_text_chat(text)
+    res_json = response["choices"][0]["message"]["content"]
+    try:
+        obj = json.loads(res_json)
+        return obj
+    except:
+        print("bad json")
+        print(res_json)
+        return res_json
 
 
 def openai_shorten_text(text, percent=70, max_tokens=2000):
