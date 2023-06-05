@@ -26,6 +26,7 @@ class GameLogAdmin(admin.ModelAdmin):
         "google_id",
         "google_created_time",
     )
+    list_display = ("title", "google_created_time", "game_date")
 
     def copy_text_for_summary(self, obj):
         btn_id = "copy-helper"
