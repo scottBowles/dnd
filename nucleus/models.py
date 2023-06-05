@@ -332,7 +332,7 @@ class CombinedAiLogSuggestion:
                 [
                     el
                     for suggestion in self.suggestions
-                    for el in getattr(suggestion, prop, [])
+                    for el in getattr(suggestion, prop, []) or []
                     if el is not None
                 ]
             )
