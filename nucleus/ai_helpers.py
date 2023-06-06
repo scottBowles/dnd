@@ -79,7 +79,7 @@ def openai_summarize_text_chat(text):
     # )
     text = (
         '''
-        Given the following game log from a role playing game, give it an episode title of a few words and a brief description of a few sentences. Also list all places, characters, races, associations, and items that are mentioned. If you are not sure which something is, include it in both. The response should be in the form of a json object with the following keys: "title", "brief", "places", "characters", "races", "associations", "items". For example:
+        Given the following game log from a role playing game, give it a creative episode title of a few words and a brief description of a few sentences. Also list all places, characters, races, associations, and items that are mentioned. If you are not sure which something is, include it in both. The response should be in the form of a json object with the following keys: "title", "brief", "places", "characters", "races", "associations", "items". For example:
         '{"title":"My Title","brief":"The Branch, lead by Ego, invents AI using the ReDream. On their way to Hielo, they have to fight off void spiders. They make it to Hielo, and leave the nascent AI to mature.","places":["Hielo"],"characters":["Ego","Void Spiders","AI"],"races":["Void Spiders","AI"],"associations":["The Branch"],"items":["ReDream"]}'
         Text:
         """
