@@ -209,7 +209,7 @@ class GameLogMutation:
         id: gql.relay.GlobalID,
         title: str,
         brief: str,
-        synopsis: str,
+        synopsis: Optional[str],
         associations: List[str],
         characters: List[str],
         items: List[str],
