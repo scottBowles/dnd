@@ -2,6 +2,7 @@ from strawberry.tools import merge_types
 from strawberry_django_plus import gql
 from gqlauth.user.queries import UserQueries
 from gqlauth.user import relay as mutations
+from strawberry_django_plus.optimizer import DjangoOptimizerExtension
 
 
 from association.types import AssociationQuery, AssociationMutation
@@ -108,4 +109,6 @@ mutations = (
 Query = merge_types("Query", queries)
 Mutation = merge_types("Mutation", mutations)
 
-schema = gql.Schema(query=Query, mutation=Mutation)
+schema = gql.Schema(
+    query=Query, mutation=Mutation, extensions=[DjangoOptimizerExtension]
+)
