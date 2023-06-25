@@ -181,17 +181,17 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
         """
         from nucleus.gdrive import fetch_airel_file
 
-        if self.google_id is None:
+        if not self.google_id:
             self.set_id_from_url()
         try:
             file_info = fetch_airel_file(self.google_id)
-            if overwrite or self.title is None:
+            if overwrite or not self.title:
                 self.title = file_info["name"]
-            if overwrite or self.url is None:
+            if overwrite or not self.url:
                 self.url = file_info["webViewLink"]
-            if overwrite or self.google_created_time is None:
+            if overwrite or not self.google_created_time:
                 self.google_created_time = file_info["createdTime"]
-            if overwrite or self.game_date is None:
+            if overwrite or not self.game_date:
                 try:
                     self.game_date = self.get_game_date_from_title()
                 except ValueError:
