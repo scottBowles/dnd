@@ -62,6 +62,26 @@ class Character(Entity):
     associations = models.ManyToManyField(
         Association, related_name="characters", blank=True
     )
+    related_characters = models.ManyToManyField(
+        "self",
+        blank=True,
+        symmetrical=True,
+    )
+    related_items = models.ManyToManyField(
+        "item.Item",
+        blank=True,
+        related_name="related_characters",
+    )
+    related_places = models.ManyToManyField(
+        "place.Place",
+        blank=True,
+        related_name="related_characters",
+    )
+    related_races = models.ManyToManyField(
+        "race.Race",
+        blank=True,
+        related_name="related_characters",
+    )
 
     def is_proficient(self, name, proficiency_type=None):
         if proficiency_type:

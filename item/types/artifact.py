@@ -8,7 +8,11 @@ from strawberry_django_plus.mutations import resolvers
 from .. import models
 
 if TYPE_CHECKING:
-    from item.types import Item
+    from item.types import Artifact, Item
+    from character.types.character import Character
+    from association.types import Association
+    from place.types.place import Place
+    from race.types.race import Race
 
 
 @gql.django.type(models.Artifact)
@@ -17,18 +21,48 @@ class Artifact(Entity, relay.Node):
         Annotated["Item", gql.lazy("item.types")]
     ] = gql.django.connection()
     notes: auto
+    related_artifacts: relay.Connection[
+        Annotated["Artifact", gql.lazy("item.types.artifact")]
+    ] = gql.django.connection()
+    related_associations: relay.Connection[
+        Annotated["Association", gql.lazy("association.types")]
+    ] = gql.django.connection()
+    related_characters: relay.Connection[
+        Annotated["Character", gql.lazy("character.types.character")]
+    ] = gql.django.connection()
+    related_items: relay.Connection[
+        Annotated["Item", gql.lazy("item.types.item")]
+    ] = gql.django.connection()
+    related_places: relay.Connection[
+        Annotated["Place", gql.lazy("place.types.place")]
+    ] = gql.django.connection()
+    related_races: relay.Connection[
+        Annotated["Race", gql.lazy("race.types.race")]
+    ] = gql.django.connection()
 
 
 @gql.django.input(models.Artifact)
 class ArtifactInput(EntityInput):
     items: auto
     notes: auto
+    related_artifacts: auto
+    related_associations: auto
+    related_characters: auto
+    related_items: auto
+    related_places: auto
+    related_races: auto
 
 
 @gql.django.partial(models.Artifact)
 class ArtifactInputPartial(EntityInputPartial, gql.NodeInput):
     items: auto
     notes: auto
+    related_artifacts: auto
+    related_associations: auto
+    related_characters: auto
+    related_items: auto
+    related_places: auto
+    related_races: auto
 
 
 @gql.type

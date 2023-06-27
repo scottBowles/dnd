@@ -37,6 +37,11 @@ class Race(Entity):
     base_race = models.ForeignKey(
         "self", null=True, blank=True, on_delete=models.CASCADE, related_name="subraces"
     )
+    related_races = models.ManyToManyField(
+        "self",
+        blank=True,
+        symmetrical=True,
+    )
 
     def global_id(self):
         return to_global_id("RaceNode", self.id)

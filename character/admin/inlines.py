@@ -1,4 +1,5 @@
 from django.contrib import admin
+from association.models import Association
 
 from character.models import (
     Attack,
@@ -12,6 +13,7 @@ from character.models import (
     InventoryWeapon,
     PersonalityTrait,
 )
+from item.models import Artifact
 
 
 class AttackInline(admin.StackedInline):
@@ -93,6 +95,22 @@ class InventoryWeaponInline(admin.TabularInline):
 
 class PersonalityTraitInline(admin.TabularInline):
     model = PersonalityTrait
+    extra = 1
+    classes = [
+        "collapse",
+    ]
+
+
+class CharacterRelatedArtifactsInline(admin.TabularInline):
+    model = Artifact.related_characters.through
+    extra = 1
+    classes = [
+        "collapse",
+    ]
+
+
+class CharacterRelatedAssociationsInline(admin.TabularInline):
+    model = Association.related_characters.through
     extra = 1
     classes = [
         "collapse",

@@ -1,4 +1,4 @@
-from typing import Iterable, Optional
+from typing import TYPE_CHECKING, Annotated, Iterable, Optional
 from association import models
 from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
 from nucleus.types import Entity, EntityInput, EntityInputPartial
@@ -7,6 +7,13 @@ from strawberry_django_plus.gql import relay, auto
 from strawberry_django_plus.mutations import resolvers
 
 from place import models
+
+if TYPE_CHECKING:
+    from character.types.character import Character
+    from item.types import Artifact, Item
+    from association.types import Association
+    from place.types.place import Place
+    from race.types.race import Race
 
 
 @gql.django.type(models.Place)
@@ -18,6 +25,24 @@ class Place(Entity, relay.Node):
     common_races: auto
     associations: auto
     children: relay.Connection["Place"] = gql.django.connection()
+    related_artifacts: relay.Connection[
+        Annotated["Artifact", gql.lazy("item.types.artifact")]
+    ] = gql.django.connection()
+    related_associations: relay.Connection[
+        Annotated["Association", gql.lazy("association.types")]
+    ] = gql.django.connection()
+    related_characters: relay.Connection[
+        Annotated["Character", gql.lazy("character.types.character")]
+    ] = gql.django.connection()
+    related_items: relay.Connection[
+        Annotated["Item", gql.lazy("item.types.item")]
+    ] = gql.django.connection()
+    related_places: relay.Connection[
+        Annotated["Place", gql.lazy("place.types.place")]
+    ] = gql.django.connection()
+    related_races: relay.Connection[
+        Annotated["Race", gql.lazy("race.types.race")]
+    ] = gql.django.connection()
 
 
 @gql.django.input(models.Place)
@@ -25,6 +50,12 @@ class PlaceInput(EntityInput):
     place_type: auto
     children: auto
     parent: auto
+    related_artifacts: auto
+    related_associations: auto
+    related_characters: auto
+    related_items: auto
+    related_places: auto
+    related_races: auto
 
 
 @gql.django.partial(models.Place)
@@ -32,6 +63,12 @@ class PlaceInputPartial(EntityInputPartial, gql.NodeInput):
     place_type: auto
     children: auto
     parent: auto
+    related_artifacts: auto
+    related_associations: auto
+    related_characters: auto
+    related_items: auto
+    related_places: auto
+    related_races: auto
 
 
 @gql.type

@@ -11,7 +11,11 @@ from .proficiency import Proficiency
 from race.types import Race
 
 if TYPE_CHECKING:
+    from character.types.character import Character
+    from item.types import Artifact, Item
     from association.types import Association
+    from place.types.place import Place
+    from race.types.race import Race
 
 
 @gql.django.type(models.Character)
@@ -23,6 +27,24 @@ class Character(Entity, relay.Node):
     associations: relay.Connection[
         Annotated["Association", gql.lazy("association.types")]
     ] = gql.django.connection()
+    related_artifacts: relay.Connection[
+        Annotated["Artifact", gql.lazy("item.types.artifact")]
+    ] = gql.django.connection()
+    related_associations: relay.Connection[
+        Annotated["Association", gql.lazy("association.types")]
+    ] = gql.django.connection()
+    related_characters: relay.Connection[
+        Annotated["Character", gql.lazy("character.types.character")]
+    ] = gql.django.connection()
+    related_items: relay.Connection[
+        Annotated["Item", gql.lazy("item.types.item")]
+    ] = gql.django.connection()
+    related_places: relay.Connection[
+        Annotated["Place", gql.lazy("place.types.place")]
+    ] = gql.django.connection()
+    related_races: relay.Connection[
+        Annotated["Race", gql.lazy("race.types.race")]
+    ] = gql.django.connection()
 
 
 @gql.django.input(models.Character)
@@ -32,6 +54,12 @@ class CharacterInput(EntityInput):
     features_and_traits: auto
     proficiencies: auto
     associations: auto
+    related_artifacts: auto
+    related_associations: auto
+    related_characters: auto
+    related_items: auto
+    related_places: auto
+    related_races: auto
 
 
 @gql.django.partial(models.Character)
@@ -41,6 +69,12 @@ class CharacterInputPartial(EntityInputPartial, gql.NodeInput):
     features_and_traits: auto
     proficiencies: auto
     associations: auto
+    related_artifacts: auto
+    related_associations: auto
+    related_characters: auto
+    related_items: auto
+    related_places: auto
+    related_races: auto
 
 
 @gql.type
