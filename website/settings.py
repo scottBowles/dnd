@@ -39,7 +39,6 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 DEBUG = "RENDER" not in os.environ
 
 ALLOWED_HOSTS = []
-# ALLOWED_HOSTS = ["127.0.0.1", ".herokuapp.com"]
 RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
@@ -63,10 +62,6 @@ INSTALLED_APPS = [
     "django_extensions",
     "debug_toolbar",
     # "graphiql_debug_toolbar",
-    # "graphene_django",
-    # "rest_framework",
-    # "rest_framework.authtoken",
-    # "djoser",
     "algoliasearch_django",
     # "generic_relations",
     "association",
@@ -121,17 +116,6 @@ WSGI_APPLICATION = "website.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/3.1/ref/settings/#databases
 
-# What I had before addin dj_database_url
-# DATABASES = {
-#     "default": {
-#         "ENGINE": "django.db.backends.postgresql_psycopg2",
-#         "NAME": os.environ.get("POSTGRES_DB"),
-#         "USER": os.environ.get("POSTGRES_USER"),
-#         "PASSWORD": os.environ.get("POSTGRES_PASSWORD"),
-#         "HOST": "localhost",
-#         "PORT": "5432",
-#     }
-# }
 DATABASES = {
     "default": dj_database_url.config(
         # from render.com example (https://render.com/docs/deploy-django):
@@ -194,18 +178,6 @@ if not DEBUG:
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# REST_FRAMEWORK = {
-#     # Use Django's standard `django.contrib.auth` permissions,
-#     # or allow read-only access for unauthenticated users.
-#     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
-#     "DEFAULT_AUTHENTICATION_CLASSES": (
-#         "rest_framework.authentication.TokenAuthentication",
-#     ),
-#     # The below disables the browsable api, which isn't useful for the current
-#     # graphql api and can only slow things down. Remove this if we want it back.
-#     "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
-# }
-
 CORS_ALLOWED_ORIGINS = (
     [
         "http://localhost:8000",
@@ -227,23 +199,6 @@ AUTH_USER_MODEL = "nucleus.User"
 INTERNAL_IPS = [
     "127.0.0.1",
 ]
-
-# DJOSER = {
-#     "USER_CREATE_PASSWORD_RETYPE": True,
-#     "SERIALIZERS": {
-#         "user_create": "nucleus.serializers.UserCreateSerializer",
-#         "current_user": "nucleus.serializers.UserSerializer",
-#         "user": "nucleus.serializers.UserSerializer",
-#     },
-# }
-
-# GRAPHENE = {
-#     "SCHEMA": "website.schema.schema",
-#     "ATOMIC_MUTATIONS": True,
-#     "MIDDLEWARE": [
-#         "graphql_jwt.middleware.JSONWebTokenMiddleware",
-#     ],
-# }
 
 AUTHENTICATION_BACKENDS = [
     # "graphql_jwt.backends.JSONWebTokenBackend",

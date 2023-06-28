@@ -2,5 +2,5 @@ from django.apps import AppConfig
 
 
 class ScientiaConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'scientia'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "scientia"
