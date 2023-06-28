@@ -1,4 +1,4 @@
-from typing import Iterable, Optional
+from typing import TYPE_CHECKING, Iterable, Optional
 from association import models
 from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
 from nucleus.types import Entity, EntityInput, EntityInputPartial
@@ -7,6 +7,9 @@ from strawberry_django_plus.gql import relay, auto
 from strawberry_django_plus.mutations import resolvers
 
 from place import models
+
+if TYPE_CHECKING:
+    from place.types.place import Place
 
 
 @gql.django.type(models.Place)
@@ -25,6 +28,12 @@ class PlaceInput(EntityInput):
     place_type: auto
     children: auto
     parent: auto
+    related_artifacts: auto
+    related_associations: auto
+    related_characters: auto
+    related_items: auto
+    related_places: auto
+    related_races: auto
 
 
 @gql.django.partial(models.Place)
@@ -32,6 +41,12 @@ class PlaceInputPartial(EntityInputPartial, gql.NodeInput):
     place_type: auto
     children: auto
     parent: auto
+    related_artifacts: auto
+    related_associations: auto
+    related_characters: auto
+    related_items: auto
+    related_places: auto
+    related_races: auto
 
 
 @gql.type

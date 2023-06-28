@@ -78,6 +78,16 @@ class Place(Entity):
     exports = models.ManyToManyField(Export, through="PlaceExport")
     common_races = models.ManyToManyField(Race, through="PlaceRace")
     associations = models.ManyToManyField(Association, through="PlaceAssociation")
+    related_places = models.ManyToManyField(
+        "self",
+        blank=True,
+        symmetrical=True,
+    )
+    related_races = models.ManyToManyField(
+        "race.Race",
+        blank=True,
+        related_name="related_places",
+    )
 
     def global_id(self):
         return to_global_id("PlaceNode", self.id)

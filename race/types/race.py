@@ -9,6 +9,7 @@ from .. import models
 
 if TYPE_CHECKING:
     from character.types.character import Character
+    from race.types.race import Race
 
 
 @gql.django.type(models.Race)
@@ -21,11 +22,23 @@ class Race(Entity, relay.Node):
 @gql.django.input(models.Race)
 class RaceInput(EntityInput):
     characters: auto
+    related_artifacts: auto
+    related_associations: auto
+    related_characters: auto
+    related_items: auto
+    related_places: auto
+    related_races: auto
 
 
 @gql.django.partial(models.Race)
 class RaceInputPartial(EntityInputPartial, gql.NodeInput):
     characters: auto
+    related_artifacts: auto
+    related_associations: auto
+    related_characters: auto
+    related_items: auto
+    related_places: auto
+    related_races: auto
 
 
 @gql.type

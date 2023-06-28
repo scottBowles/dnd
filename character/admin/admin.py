@@ -2,6 +2,8 @@ from django.contrib import admin
 
 from character.models import PlayerCharacter, CharacterClass, Character
 from .inlines import (
+    CharacterRelatedArtifactsInline,
+    CharacterRelatedAssociationsInline,
     ClassAndLevelInline,
     AttackInline,
     BondInline,
@@ -172,6 +174,28 @@ class CharacterAdmin(admin.ModelAdmin):
         "created",
     )
     list_filter = ("created", "updated")
+    readonly_fields = (
+        "lock_user",
+        "lock_time",
+        "updated",
+        "created",
+    )
+    fields = (
+        "name",
+        "description",
+        "lock_user",
+        "lock_time",
+        "updated",
+        "created",
+        "related_characters",
+        "related_items",
+        "related_places",
+        "related_races",
+    )
+    inlines = [
+        CharacterRelatedAssociationsInline,
+        CharacterRelatedArtifactsInline,
+    ]
 
 
 admin.site.register(CharacterClass)

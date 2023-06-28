@@ -8,7 +8,7 @@ from strawberry_django_plus.mutations import resolvers
 from .. import models
 
 if TYPE_CHECKING:
-    from item.types import Item
+    from item.types import Artifact, Item
 
 
 @gql.django.type(models.Artifact)
@@ -23,12 +23,24 @@ class Artifact(Entity, relay.Node):
 class ArtifactInput(EntityInput):
     items: auto
     notes: auto
+    related_artifacts: auto
+    related_associations: auto
+    related_characters: auto
+    related_items: auto
+    related_places: auto
+    related_races: auto
 
 
 @gql.django.partial(models.Artifact)
 class ArtifactInputPartial(EntityInputPartial, gql.NodeInput):
     items: auto
     notes: auto
+    related_artifacts: auto
+    related_associations: auto
+    related_characters: auto
+    related_items: auto
+    related_places: auto
+    related_races: auto
 
 
 @gql.type

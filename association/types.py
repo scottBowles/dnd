@@ -8,6 +8,7 @@ from nucleus.types import Entity, EntityInput, EntityInputPartial
 
 if TYPE_CHECKING:
     from character.types.character import Character
+    from association.types import Association
 
 
 @gql.django.type(models.Association)
@@ -20,11 +21,23 @@ class Association(Entity, relay.Node):
 @gql.django.input(models.Association)
 class AssociationInput(EntityInput):
     characters: auto
+    related_artifacts: auto
+    related_associations: auto
+    related_characters: auto
+    related_items: auto
+    related_places: auto
+    related_races: auto
 
 
 @gql.django.partial(models.Association)
 class AssociationInputPartial(EntityInputPartial, gql.NodeInput):
     characters: auto
+    related_artifacts: auto
+    related_associations: auto
+    related_characters: auto
+    related_items: auto
+    related_places: auto
+    related_races: auto
 
 
 @gql.type

@@ -9,6 +9,22 @@ Each trait set has its own proxy model and manager for relevant methods.
 
 
 class Item(Entity):
+    related_items = models.ManyToManyField(
+        "self",
+        blank=True,
+        symmetrical=True,
+    )
+    related_places = models.ManyToManyField(
+        "place.Place",
+        blank=True,
+        related_name="related_items",
+    )
+    related_races = models.ManyToManyField(
+        "race.Race",
+        blank=True,
+        related_name="related_items",
+    )
+
     def __str__(self):
         return self.name
 
@@ -19,6 +35,31 @@ class Item(Entity):
 class Artifact(Entity):
     items = models.ManyToManyField(Item, related_name="artifacts", blank=True)
     notes = models.TextField(null=True, blank=True)
+    related_artifacts = models.ManyToManyField(
+        "self",
+        blank=True,
+        symmetrical=True,
+    )
+    related_characters = models.ManyToManyField(
+        "character.Character",
+        blank=True,
+        related_name="related_artifacts",
+    )
+    related_items = models.ManyToManyField(
+        "item.Item",
+        blank=True,
+        related_name="related_artifacts",
+    )
+    related_places = models.ManyToManyField(
+        "place.Place",
+        blank=True,
+        related_name="related_artifacts",
+    )
+    related_races = models.ManyToManyField(
+        "race.Race",
+        blank=True,
+        related_name="related_artifacts",
+    )
 
     def global_id(self):
         return to_global_id("ArtifactNode", self.id)

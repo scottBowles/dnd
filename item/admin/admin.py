@@ -1,6 +1,14 @@
 from django.contrib import admin
 from ..models import Item, Artifact
-from .inlines import ArmorTraitsInline, WeaponTraitsInline, EquipmentTraitsInline
+from .inlines import (
+    ArmorTraitsInline,
+    ArtifactRelatedAssociationsInline,
+    ItemRelatedArtifactsInline,
+    ItemRelatedAssociationsInline,
+    ItemRelatedCharactersInline,
+    WeaponTraitsInline,
+    EquipmentTraitsInline,
+)
 
 
 class ItemAdmin(admin.ModelAdmin):
@@ -18,6 +26,31 @@ class ItemAdmin(admin.ModelAdmin):
         "created",
         "updated",
     )
+    readonly_fields = (
+        "lock_user",
+        "lock_time",
+        "updated",
+        "created",
+    )
+    fields = (
+        "name",
+        "description",
+        "lock_user",
+        "lock_time",
+        "updated",
+        "created",
+        "related_items",
+        "related_places",
+        "related_races",
+    )
+    inlines = [
+        ArmorTraitsInline,
+        WeaponTraitsInline,
+        EquipmentTraitsInline,
+        ItemRelatedAssociationsInline,
+        ItemRelatedArtifactsInline,
+        ItemRelatedCharactersInline,
+    ]
 
     @admin.display(boolean=True, description="Armor")
     def is_armor(self, obj):
@@ -31,12 +64,6 @@ class ItemAdmin(admin.ModelAdmin):
     def is_equipment(self, obj):
         return obj.equipment is not None
 
-    inlines = [
-        ArmorTraitsInline,
-        WeaponTraitsInline,
-        EquipmentTraitsInline,
-    ]
-
 
 class ArtifactAdmin(admin.ModelAdmin):
     list_display = (
@@ -47,6 +74,28 @@ class ArtifactAdmin(admin.ModelAdmin):
         "created",
     )
     list_filter = ("created", "updated")
+    readonly_fields = (
+        "lock_user",
+        "lock_time",
+        "updated",
+        "created",
+    )
+    fields = (
+        "name",
+        "description",
+        "lock_user",
+        "lock_time",
+        "updated",
+        "created",
+        "related_artifacts",
+        "related_characters",
+        "related_items",
+        "related_places",
+        "related_races",
+    )
+    inlines = [
+        ArtifactRelatedAssociationsInline,
+    ]
 
 
 admin.site.register(Item, ItemAdmin)
