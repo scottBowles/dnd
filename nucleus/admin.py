@@ -11,6 +11,8 @@ class GameLogAdmin(admin.ModelAdmin):
     fields = (
         "url",
         "copy_text_for_summary",
+        "copy_text_for_ai_suggestions",
+        "copy_text_for_ai_titles",
         "title",
         "google_id",
         "google_created_time",
@@ -23,21 +25,48 @@ class GameLogAdmin(admin.ModelAdmin):
     readonly_fields = (
         "url",
         "copy_text_for_summary",
+        "copy_text_for_ai_suggestions",
+        "copy_text_for_ai_titles",
         "google_id",
         "google_created_time",
     )
     list_display = ("title", "google_created_time", "game_date")
 
     def copy_text_for_summary(self, obj):
-        btn_id = "copy-helper"
+        btn_id = "copy-text-helper"
+        link_text = "Copy text for ai summary to clipboard"
         return mark_safe(
             f"""
             <textarea id="{btn_id}" style="position: absolute; top: -10000px">{obj.copy_text_for_summary()}</textarea>
-            <a href="#" onclick="document.querySelector(\'#{btn_id}\').select(); document.execCommand(\'copy\');" class="addlink">Copy text for ai summary to clipboard</a>
+            <a href="#" onclick="document.querySelector(\'#{btn_id}\').select(); document.execCommand(\'copy\');" class="addlink">{link_text}</a>
             """
         )
 
     copy_text_for_summary.short_description = "Copy text for summary"
+
+    def copy_text_for_ai_suggestions(self, obj):
+        btn_id = "copy-suggestions-helper"
+        link_text = "Copy text for ai suggestions to clipboard"
+        return mark_safe(
+            f"""
+            <textarea id="{btn_id}" style="position: absolute; top: -10000px">{obj.copy_text_for_ai_suggestions()}</textarea>
+            <a href="#" onclick="document.querySelector(\'#{btn_id}\').select(); document.execCommand(\'copy\');" class="addlink">{link_text}</a>
+            """
+        )
+
+    copy_text_for_ai_suggestions.short_description = "Copy text for ai suggestions"
+
+    def copy_text_for_ai_titles(self, obj):
+        btn_id = "copy-titles-helper"
+        link_text = "Copy text for ai titles to clipboard"
+        return mark_safe(
+            f"""
+            <textarea id="{btn_id}" style="position: absolute; top: -10000px">{obj.copy_text_for_ai_titles()}</textarea>
+            <a href="#" onclick="document.querySelector(\'#{btn_id}\').select(); document.execCommand(\'copy\');" class="addlink">{link_text}</a>
+            """
+        )
+
+    copy_text_for_ai_suggestions.short_description = "Copy text for ai titles"
 
 
 @admin.register(AiLogSuggestion)

@@ -7,7 +7,7 @@ from django.utils.translation import gettext_lazy as _
 from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.db.models import Q
-from django.contrib import admin
+from django.utils.functional import cached_property
 
 
 class User(AbstractUser):
@@ -222,16 +222,54 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
         except Exception as e:
             raise e
 
-    def copy_text_for_summary(self):
+    @cached_property
+    def log_text(self):
         from nucleus.gdrive import fetch_airel_file_text
 
-        log_text = fetch_airel_file_text(self.google_id)
-        prompt = (
+        return fetch_airel_file_text(self.google_id)
+
+    def copy_text_for_summary(self):
+        if not self.google_id:
+            return ""
+        return (
             'Make the following text 70% shorter without losing any content. Be especially sure to retain all events, characters, places, items, and essential details that are mentioned in the log.\n\nText: """\n\n'
-            + log_text
+            + self.log_text
             + '\n"""\n\nSummary:\n'
         )
-        return prompt
+
+    def copy_text_for_ai_suggestions(self):
+        if not self.google_id:
+            return ""
+        return (
+            '''
+            Given the following game log from a role playing game, give it a creative episode title of a few words and a brief description of a few sentences. Also list all places, characters, races, associations, and items that are mentioned. If you are not sure which something is, include it in both. The response should be in the form of a json object with the following keys: "title", "brief", "places", "characters", "races", "associations", "items". For example:
+            '{"title":"My Title","brief":"The Branch, lead by Ego, invents AI using the ReDream. On their way to Hielo, they have to fight off void spiders. They make it to Hielo, and leave the nascent AI to mature.","places":["Hielo"],"characters":["Ego","Void Spiders","AI"],"races":["Void Spiders","AI"],"associations":["The Branch"],"items":["ReDream"]}'
+            Text:
+            """
+            '''
+            + self.log_text
+            + '''
+            """
+            Response:
+            '''
+        )
+
+    def copy_text_for_ai_titles(self):
+        if not self.google_id:
+            return ""
+        return (
+            '''
+            Given the following game log from a role playing game, provide five possible one-phrase episode titles. One title should be descriptive, one evocative, one pithy, one funny, and one entertaining. The response should be a json object with the key "titles" and the value as an array of five strings. For example:
+            '{"titles":["My Title","My Title","My Title","My Title","My Title"]}'
+            Text:
+            """
+            '''
+            + self.log_text
+            + '''
+            """
+            Response:
+            '''
+        )
 
     def get_game_date_from_title(self):
         """
@@ -269,18 +307,12 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
         from nucleus.ai_helpers import openai_summarize_text_chat
         import json
 
-        print("enter get_ai_log_suggestions")
         if self.ailogsuggestion_set.count() > 0:
-            print("HERE")
             return self.ailogsuggestion_set.first()
-        print("NOT HERE")
 
         text = self.get_text()
         response = openai_summarize_text_chat(text)
-        # response = {"choices": [{"text": '{"title": f'}]}
-        print(response)
         json_res: str = response["choices"][0]["text"]
-        print(json_res)
 
         try:
             data = json.loads(json_res)
