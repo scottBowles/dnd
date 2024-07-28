@@ -38,6 +38,17 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 # DEBUG = os.environ.get("DJANGO_DEBUG", "") != "False"
 DEBUG = "RENDER" not in os.environ and "COOLIFY_URL" not in os.environ
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://airel.onrender.com",
+    "https://api.airel.vip",
+]
+if DEBUG:
+    CSRF_TRUSTED_ORIGINS.extend(
+        [
+            "http://localhost:8000",
+        ]
+    )
+
 ALLOWED_HOSTS = [
     "api.airel.vip",
 ]
