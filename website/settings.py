@@ -36,7 +36,7 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 # DEBUG = True
 # DEBUG = os.environ.get("DJANGO_DEBUG", "") != "False"
-DEBUG = "RENDER" not in os.environ
+DEBUG = "RENDER" not in os.environ and "COOLIFY_URL" not in os.environ
 
 ALLOWED_HOSTS = [
     "api.airel.vip",
