@@ -38,7 +38,9 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 # DEBUG = os.environ.get("DJANGO_DEBUG", "") != "False"
 DEBUG = "RENDER" not in os.environ
 
-ALLOWED_HOSTS = ["api.airel.vip",]
+ALLOWED_HOSTS = [
+    "api.airel.vip",
+]
 RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
@@ -189,9 +191,10 @@ CORS_ALLOWED_ORIGINS = (
         "http://localhost:5174",
         "http://127.0.0.1:5174",
         "https://airel.onrender.com",
+        "https://api.airel.vip",
     ]
     if DEBUG
-    else ["https://airel.onrender.com"]
+    else ["https://airel.onrender.com", "https://api.airel.vip"]
 )
 
 AUTH_USER_MODEL = "nucleus.User"
