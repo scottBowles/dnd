@@ -20,8 +20,9 @@ from django.urls import include, path
 
 from django.views.decorators.csrf import csrf_exempt
 from strawberry.django.views import GraphQLView
-
+from django.http import HttpResponse
 from website import settings
+
 
 # from strawberry.django.views import AsyncGraphQLView
 from .types import schema
@@ -29,9 +30,15 @@ from .types import schema
 admin.site.site_header = "D&D Admin"
 admin.site.index_title = "Admin"
 
+
+def healthcheck(request):
+    return HttpResponse("OK")
+
+
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browsable API.
 urlpatterns = [
+    path("healthcheck/", healthcheck),
     path("admin/", admin.site.urls),
     path("__debug__/", include("debug_toolbar.urls")),
     path(
