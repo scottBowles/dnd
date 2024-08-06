@@ -50,6 +50,7 @@ if DEBUG:
     )
 
 ALLOWED_HOSTS = [
+    "airel.vip",
     "api.airel.vip",
 ]
 RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
