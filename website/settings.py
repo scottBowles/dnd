@@ -86,6 +86,7 @@ INSTALLED_APPS = [
     "race",
     "scientia",
     "nucleus",
+    "transcription",
 ]
 
 MIDDLEWARE = [
