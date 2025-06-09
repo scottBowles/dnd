@@ -3,24 +3,27 @@ Transcription services for D&D audio files.
 Provides Whisper API integration with campaign-specific context enhancement.
 """
 
+import math
 import os
 import time
-import math
-from pathlib import Path
 from datetime import timedelta
-from typing import List, Dict, Any, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import openai
-from pydub import AudioSegment
-from django.utils import timezone
-from django.db.models import Max
 from django.conf import settings
+from django.db.models import Max
+from django.utils import timezone
+from pydub import AudioSegment
 
-from character.models import Character
-from place.models import Place
-from item.models import Item, Artifact
 from association.models import Association
+from character.models import Character
+from item.models import Artifact, Item
+from place.models import Place
 from race.models import Race
+
+from .responses import WhisperResponse
+from .utils import ordinal, safe_save_json
 
 
 class TranscriptionConfig:
@@ -51,20 +54,24 @@ class TranscriptionConfig:
 
         # Directories (can be customized per instance)
         self.input_folder = input_folder or Path("recordings")
-        self.output_folder = output_folder or Path("transcripts")
-        self.chunks_folder = chunks_folder or Path("audio_chunks")
+        self._output_folder = output_folder or Path("transcripts")
+        self._chunks_folder = chunks_folder or Path("audio_chunks")
 
         # API Settings
         self.delay_between_requests = delay_between_requests  # seconds
         self.recent_threshold_days = recent_threshold_days  # 6 months
 
-        # Ensure directories exist
-        self.setup_directories()
+    @property
+    def output_folder(self) -> Path:
+        """Output folder for transcripts (created on first access)."""
+        self._output_folder.mkdir(parents=True, exist_ok=True)
+        return self._output_folder
 
-    def setup_directories(self):
-        """Ensure required directories exist."""
-        self.output_folder.mkdir(parents=True, exist_ok=True)
-        self.chunks_folder.mkdir(parents=True, exist_ok=True)
+    @property
+    def chunks_folder(self) -> Path:
+        """Chunks folder for temporary audio files (created on first access)."""
+        self._chunks_folder.mkdir(parents=True, exist_ok=True)
+        return self._chunks_folder
 
 
 class CampaignContextService:
@@ -188,7 +195,15 @@ class CampaignContextService:
 
         return context
 
-    def format_context_for_prompt(
+    def get_formatted_context(self, max_length: int = 800) -> str:
+        """
+        Get campaign context from database and format it for Whisper prompt.
+        Prioritizes recently mentioned entities.
+        """
+        context = self.get_campaign_context()
+        return self._format_context_for_prompt(context, max_length)
+
+    def _format_context_for_prompt(
         self, context: Dict[str, List[Dict[str, Any]]], max_length: int = 1200
     ) -> str:
         """
@@ -266,11 +281,18 @@ class CampaignContextService:
         # Join and truncate gracefully
         formatted_context = ". ".join(prompt_parts)
 
+        # Handle edge case where max_length is 0 or very small
+        if max_length <= 0:
+            return ""
+
         if len(formatted_context) > max_length:
+            if max_length < 10:  # Very small max_length
+                return "..."
+            
             truncated = formatted_context[:max_length]
             last_period = truncated.rfind(".")
             if last_period > max_length * 0.75:
-                formatted_context = truncated[: last_period + 1]
+                formatted_context = truncated[:last_period + 1]
             else:
                 last_space = truncated.rfind(" ")
                 if last_space > max_length * 0.9:
@@ -290,8 +312,11 @@ class AudioProcessingService:
 
     @staticmethod
     def get_file_size_mb(file_path: Path) -> float:
-        """Get file size in MB."""
-        return file_path.stat().st_size / (1024 * 1024)
+        """Get file size in MB. Returns 0 if file doesn't exist."""
+        try:
+            return file_path.stat().st_size / (1024 * 1024)
+        except (FileNotFoundError, OSError):
+            return 0.0
 
     def split_audio_file(
         self, file_path: Path, character_name: str = "Unknown"
@@ -351,105 +376,20 @@ class TranscriptionService:
             )
 
         openai.api_key = self.config.openai_api_key
-        self.config.setup_directories()
 
         self.context_service = CampaignContextService(self.config)
         self.audio_service = AudioProcessingService(self.config)
 
-    @staticmethod
-    def ordinal(n: int) -> str:
-        """Convert number to ordinal (1st, 2nd, 3rd, etc.)."""
-        if 11 <= (n % 100) <= 13:
-            suffix = "th"
-        else:
-            suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
-        return f"{n}{suffix}"
-
-    def create_whisper_prompt(
-        self,
-        character_name: str,
-        session_number: int,
-        chunk_info: str = "",
-        previous_chunks_text: str = "",
-        previous_transcript: str = "",
-    ) -> str:
-        """Create a comprehensive prompt for Whisper API."""
-
-        chunk_context = f" This is {chunk_info}." if chunk_info else ""
-
-        # Limit recent chunks to avoid token limits
-        recent_chunks_context = ""
-        if previous_chunks_text:
-            words = previous_chunks_text.split()
-            if len(words) > 500:
-                previous_chunks_text = " ".join(words[-500:])
-            recent_chunks_context = f"\n\nRecent chunks from this session for {character_name}:\n{previous_chunks_text}"
-
-        # Get campaign context
-        campaign_context = self.context_service.get_campaign_context()
-        formatted_context = self.context_service.format_context_for_prompt(
-            campaign_context, max_length=800
-        )
-
-        # Build base prompt
-        base_prompt = (
-            f"This is a session of a homebrew Dungeons & Dragons game. The player characters include "
-            f"Darnit, Hrothulf, Ego (aka Carlos), Izar, and Dorinda. "
-            f"The last session's transcript is provided below, followed by any chunks transcribed thus far for this player. "
-            f"Distinguish between narration, banter, and in-character dialogue when possible. "
-            f"This is the {self.ordinal(session_number)} session for {'the DM' if character_name == 'DM' else character_name}. "
-            f"However in this session, the DM's computer ran out of battery so part of the Izar session includes the DM's voice.{chunk_context} "
-        )
-
-        # Add campaign context if available
-        if formatted_context:
-            base_prompt += f"\n\nCampaign Context: {formatted_context}"
-
-        # Add previous transcript and recent chunks
-        full_prompt = base_prompt
-        if previous_transcript:
-            full_prompt += f"\n\nPrevious Transcript:\n{previous_transcript}"
-        full_prompt += recent_chunks_context
-
-        return full_prompt
-
-    def transcribe_file(
-        self,
-        file_path: Path,
-        character_name: str = "Unknown",
-        session_number: int = 1,
-        previous_transcript: str = "",
-    ) -> Optional[Dict[str, Any]]:
-        """Transcribe a single audio file."""
-        try:
-            with file_path.open("rb") as f:
-                print(f"Transcribing {file_path.name}...")
-                response = openai.Audio.transcribe(
-                    model="whisper-1",
-                    file=f,
-                    response_format="verbose_json",
-                    prompt=self.create_whisper_prompt(
-                        character_name,
-                        session_number,
-                        previous_transcript=previous_transcript,
-                    ),
-                    temperature=0,
-                    language="en",
-                )
-
-                output_file = (
-                    self.config.output_folder / file_path.with_suffix(".json").name
-                )
-                output_file.write_text(str(response), encoding="utf-8")
-                print(f"Saved to {output_file}")
-                return response
-
-        except Exception as e:
-            print(f"❌ Failed to transcribe {file_path.name}: {e}")
-            return None
+    # ========================================
+    # Public Interface Methods
+    # ========================================
 
     def process_file_with_splitting(
-        self, file_path: Path, session_number: int = 1, previous_transcript: str = ""
+        self,
+        file_path: Path,
+        session_number: int = 1,
+        previous_transcript: str = "",
+        session_notes: str = "",
     ) -> bool:
         """Process a file, splitting it if necessary, and transcribe all chunks."""
         character_name = file_path.stem
@@ -464,20 +404,172 @@ class TranscriptionService:
         chunk_paths = self.audio_service.split_audio_file(file_path, character_name)
 
         if len(chunk_paths) == 1:
-            # File wasn't split, transcribe directly
-            result = self.transcribe_file(
-                file_path, character_name, session_number, previous_transcript
+            # File wasn't split, transcribe directly and save
+            whisper_response = self._call_whisper_api(
+                file_path,
+                character_name,
+                session_number,
+                previous_transcript=previous_transcript,
+                session_notes=session_notes,
             )
-            return result is not None
+
+            if whisper_response:
+                return safe_save_json(
+                    whisper_response.raw_response, final_output, "transcript"
+                )
+            return False
         else:
-            # File was split, transcribe each chunk
-            return self._process_chunks(
+            # File was split, transcribe chunks and save all outputs
+            combined_transcript = self._process_chunks(
                 chunk_paths,
                 character_name,
                 session_number,
                 previous_transcript,
-                final_output,
+                session_notes,
             )
+
+            if combined_transcript:
+                # Save individual chunk transcripts (extracted from combined data)
+                chunk_transcripts = combined_transcript.get("chunks", [])
+                for i, (chunk_path, chunk_transcript) in enumerate(
+                    zip(chunk_paths, chunk_transcripts)
+                ):
+                    chunk_output = (
+                        self.config.output_folder / chunk_path.with_suffix(".json").name
+                    )
+                    safe_save_json(chunk_transcript, chunk_output, f"chunk transcript")
+
+                # Save combined transcript
+                return safe_save_json(
+                    combined_transcript, final_output, "combined transcript"
+                )
+
+            return False
+
+    def process_all_files(
+        self,
+        session_number: int = 1,
+        previous_transcript: str = "",
+        session_notes: str = "",
+    ) -> int:
+        """Process all audio files in the input folder."""
+        processed_count = 0
+
+        for file in self.config.input_folder.iterdir():
+            if file.suffix.lower() in self.config.audio_extensions:
+                if self.process_file_with_splitting(
+                    file, session_number, previous_transcript, session_notes
+                ):
+                    processed_count += 1
+
+        return processed_count
+
+    # ========================================
+    # Private Implementation Methods
+    # ========================================
+
+    def _create_whisper_prompt(
+        self,
+        character_name: str,
+        session_number: int,
+        chunk_info: str = "",
+        previous_chunks_text: str = "",
+        previous_transcript: str = "",
+        session_notes: str = "",
+    ) -> str:
+        """Create a comprehensive prompt for Whisper API."""
+
+        # Calculate context components in order of usage for logical flow
+        # 1. Session/Character identification (immediate context)
+        character_display = "the DM" if character_name == "DM" else character_name
+        session_info = (
+            f"This is the {ordinal(session_number)} session for {character_display}."
+        )
+
+        # 2. Session-specific context (current session details)
+        session_context = f" {session_notes}" if session_notes else ""
+
+        # 3. Current chunk context (processing-specific info)
+        chunk_context = f" This is {chunk_info}." if chunk_info else ""
+
+        # 4. Campaign context (broader world knowledge)
+        formatted_context = self.context_service.get_formatted_context(max_length=800)
+        campaign_context = (
+            f"\n\nCampaign Context: {formatted_context}" if formatted_context else ""
+        )
+
+        # 5. Previous transcript context (historical session data)
+        transcript_context = (
+            f"\n\nPrevious Transcript:\n{previous_transcript}"
+            if previous_transcript
+            else ""
+        )
+
+        # 6. Recent chunks context (immediate previous processing context)
+        recent_chunks_context = ""
+        if previous_chunks_text:
+            words = previous_chunks_text.split()
+            if len(words) > 500:
+                previous_chunks_text = " ".join(words[-500:])
+            recent_chunks_context = f"\n\nRecent chunks from this session for {character_name}:\n{previous_chunks_text}"
+
+        # Build complete prompt in logical context flow order
+        full_prompt = (
+            f"This is a session of a homebrew Dungeons & Dragons game. The player characters include "
+            f"Darnit, Hrothulf, Ego (aka Carlos), Izar, and Dorinda. "
+            f"The last session's transcript is provided below, followed by any chunks transcribed thus far for this player. "
+            f"Distinguish between narration, banter, and in-character dialogue when possible. "
+            f"{session_info}{session_context}{chunk_context}"
+            f"{campaign_context}"
+            f"{transcript_context}"
+            f"{recent_chunks_context}"
+        )
+
+        return full_prompt
+
+    def _call_whisper_api(
+        self,
+        file_path: Path,
+        character_name: str,
+        session_number: int,
+        chunk_info: str = "",
+        previous_chunks_text: str = "",
+        previous_transcript: str = "",
+        session_notes: str = "",
+    ) -> Optional[WhisperResponse]:
+        """Make a Whisper API call with validation and error handling."""
+        try:
+            with file_path.open("rb") as f:
+                print(f"Transcribing {file_path.name}...")
+                response = openai.Audio.transcribe(
+                    model="whisper-1",
+                    file=f,
+                    response_format="verbose_json",
+                    prompt=self._create_whisper_prompt(
+                        character_name,
+                        session_number,
+                        chunk_info,
+                        previous_chunks_text,
+                        previous_transcript,
+                        session_notes,
+                    ),
+                    temperature=0,
+                    language="en",
+                )
+
+                # Validate response structure using WhisperResponse
+                whisper_response = WhisperResponse(response)
+                if not whisper_response.is_valid:
+                    print(
+                        f"⚠️ Invalid response format from Whisper API for {file_path.name}"
+                    )
+                    return None
+
+                return whisper_response
+
+        except Exception as e:
+            print(f"❌ Failed to transcribe {file_path.name}: {e}")
+            return None
 
     def _process_chunks(
         self,
@@ -485,67 +577,65 @@ class TranscriptionService:
         character_name: str,
         session_number: int,
         previous_transcript: str,
-        final_output: Path,
-    ) -> bool:
-        """Process multiple audio chunks and combine results."""
+        session_notes: str = "",
+    ) -> Optional[Dict[str, Any]]:
+        """Process multiple audio chunks and return combined transcript data. Pure function - no file I/O."""
         all_transcripts = []
         previous_chunks_text = ""
 
         for i, chunk_path in enumerate(chunk_paths):
             chunk_info = f"chunk {i+1} of {len(chunk_paths)}"
 
-            try:
-                with chunk_path.open("rb") as f:
-                    print(f"Transcribing {chunk_path.name}...")
-                    response = openai.Audio.transcribe(
-                        model="whisper-1",
-                        file=f,
-                        response_format="verbose_json",
-                        prompt=self.create_whisper_prompt(
-                            character_name,
-                            session_number,
-                            chunk_info,
-                            previous_chunks_text,
-                            previous_transcript,
-                        ),
-                        temperature=0,
-                        language="en",
-                    )
+            whisper_response = self._call_whisper_api(
+                chunk_path,
+                character_name,
+                session_number,
+                chunk_info,
+                previous_chunks_text,
+                previous_transcript,
+                session_notes,
+            )
 
-                    # Save individual chunk
-                    chunk_output = (
-                        self.config.output_folder / chunk_path.with_suffix(".json").name
-                    )
-                    chunk_output.write_text(str(response), encoding="utf-8")
-                    print(f"Saved chunk to {chunk_output}")
+            if whisper_response:
+                # Collect transcripts for processing
+                all_transcripts.append(
+                    {
+                        "transcript": whisper_response.raw_response,
+                        "chunk_path": chunk_path,
+                    }
+                )
 
-                    # Collect for combined transcript
-                    all_transcripts.append(response)
+                # Update previous chunks text for subsequent chunk prompts
+                chunk_text = whisper_response.text
+                if chunk_text:
+                    previous_chunks_text += f"\n\n{chunk_text}"
 
-                    # Update previous chunks text
-                    if response.get("text"):
-                        previous_chunks_text += f"\n\n{response['text']}"
+                # Delay between requests
+                if i < len(chunk_paths) - 1:
+                    time.sleep(self.config.delay_between_requests)
 
-                    # Delay between requests
-                    if i < len(chunk_paths) - 1:
-                        time.sleep(self.config.delay_between_requests)
-
-            except Exception as e:
-                print(f"❌ Failed to transcribe {chunk_path.name}: {e}")
-                continue
-
-        # Create combined transcript
+        # Return combined transcript data (no file I/O)
         if all_transcripts:
-            return self._create_combined_transcript(all_transcripts, final_output)
+            return self._create_combined_transcript(
+                [item["transcript"] for item in all_transcripts]
+            )
 
-        return False
+        return None
 
     def _create_combined_transcript(
-        self, all_transcripts: List[Dict[str, Any]], final_output: Path
-    ) -> bool:
-        """Create a combined transcript from multiple chunks."""
+        self, all_transcripts: List[Dict[str, Any]]
+    ) -> Optional[Dict[str, Any]]:
+        """Create a combined transcript from multiple chunks. Pure function - no side effects."""
         try:
-            combined_text = "\n\n".join([t.get("text", "") for t in all_transcripts])
+            # Safely extract text from all transcripts
+            text_parts = []
+            for transcript in all_transcripts:
+                whisper_response = WhisperResponse(transcript)
+                text = whisper_response.text
+                if text:
+                    text_parts.append(text)
+
+            combined_text = "\n\n".join(text_parts)
             combined_transcript = {
                 "text": combined_text,
                 "segments": [],
@@ -555,35 +645,18 @@ class TranscriptionService:
             # Combine segments with time offsets
             time_offset = 0
             for transcript in all_transcripts:
-                if "segments" in transcript:
-                    for segment in transcript["segments"]:
-                        adjusted_segment = segment.copy()
-                        adjusted_segment["start"] += time_offset
-                        adjusted_segment["end"] += time_offset
-                        combined_transcript["segments"].append(adjusted_segment)
+                whisper_response = WhisperResponse(transcript)
+                segments = whisper_response.segments
+                for segment in segments:
+                    adjusted_segment = segment.copy()
+                    adjusted_segment["start"] += time_offset
+                    adjusted_segment["end"] += time_offset
+                    combined_transcript["segments"].append(adjusted_segment)
 
                 time_offset += self.config.chunk_duration_minutes * 60
 
-            # Save combined transcript
-            final_output.write_text(str(combined_transcript), encoding="utf-8")
-            print(f"✅ Created combined transcript: {final_output}")
-            return True
+            return combined_transcript
 
         except Exception as e:
             print(f"❌ Failed to create combined transcript: {e}")
-            return False
-
-    def process_all_files(
-        self, session_number: int = 1, previous_transcript: str = ""
-    ) -> int:
-        """Process all audio files in the input folder."""
-        processed_count = 0
-
-        for file in self.config.input_folder.iterdir():
-            if file.suffix.lower() in self.config.audio_extensions:
-                if self.process_file_with_splitting(
-                    file, session_number, previous_transcript
-                ):
-                    processed_count += 1
-
-        return processed_count
+            return None
