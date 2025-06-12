@@ -13,12 +13,6 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            "--session-number",
-            type=int,
-            default=1,
-            help="Session number for context (default: 1)",
-        )
-        parser.add_argument(
             "--file",
             type=str,
             help="Specific audio file to transcribe (relative to recordings folder)",
@@ -52,7 +46,7 @@ class Command(BaseCommand):
                 config_kwargs["input_folder"] = Path(options["input_folder"])
             if options["output_folder"]:
                 config_kwargs["output_folder"] = Path(options["output_folder"])
-            
+
             config = TranscriptionConfig(**config_kwargs)
 
             # Load previous transcript if provided
@@ -75,7 +69,6 @@ class Command(BaseCommand):
 
             # Initialize transcription service with config
             service = TranscriptionService(config)
-            session_number = options["session_number"]
 
             # Check if input folder exists
             if not config.input_folder.exists():
@@ -95,7 +88,7 @@ class Command(BaseCommand):
 
                 self.stdout.write(f"Processing file: {file_path}")
                 success = service.process_file_with_splitting(
-                    file_path, session_number, previous_transcript
+                    file_path, previous_transcript
                 )
 
                 if success:
@@ -131,9 +124,7 @@ class Command(BaseCommand):
                     return
 
                 self.stdout.write(f"Processing {len(audio_files)} files...")
-                processed_count = service.process_all_files(
-                    session_number, previous_transcript
-                )
+                processed_count = service.process_all_files(previous_transcript)
 
                 self.stdout.write(
                     self.style.SUCCESS(

@@ -288,11 +288,11 @@ class CampaignContextService:
         if len(formatted_context) > max_length:
             if max_length < 10:  # Very small max_length
                 return "..."
-            
+
             truncated = formatted_context[:max_length]
             last_period = truncated.rfind(".")
             if last_period > max_length * 0.75:
-                formatted_context = truncated[:last_period + 1]
+                formatted_context = truncated[: last_period + 1]
             else:
                 last_space = truncated.rfind(" ")
                 if last_space > max_length * 0.9:
@@ -387,7 +387,6 @@ class TranscriptionService:
     def process_file_with_splitting(
         self,
         file_path: Path,
-        session_number: int = 1,
         previous_transcript: str = "",
         session_notes: str = "",
     ) -> bool:
@@ -408,7 +407,6 @@ class TranscriptionService:
             whisper_response = self._call_whisper_api(
                 file_path,
                 character_name,
-                session_number,
                 previous_transcript=previous_transcript,
                 session_notes=session_notes,
             )
@@ -423,7 +421,6 @@ class TranscriptionService:
             combined_transcript = self._process_chunks(
                 chunk_paths,
                 character_name,
-                session_number,
                 previous_transcript,
                 session_notes,
             )
@@ -448,7 +445,6 @@ class TranscriptionService:
 
     def process_all_files(
         self,
-        session_number: int = 1,
         previous_transcript: str = "",
         session_notes: str = "",
     ) -> int:
@@ -458,7 +454,7 @@ class TranscriptionService:
         for file in self.config.input_folder.iterdir():
             if file.suffix.lower() in self.config.audio_extensions:
                 if self.process_file_with_splitting(
-                    file, session_number, previous_transcript, session_notes
+                    file, previous_transcript, session_notes
                 ):
                     processed_count += 1
 
@@ -471,7 +467,6 @@ class TranscriptionService:
     def _create_whisper_prompt(
         self,
         character_name: str,
-        session_number: int,
         chunk_info: str = "",
         previous_chunks_text: str = "",
         previous_transcript: str = "",
@@ -480,17 +475,17 @@ class TranscriptionService:
         """Create a comprehensive prompt for Whisper API."""
 
         # Calculate context components in order of usage for logical flow
-        # 1. Session/Character identification (immediate context)
+        # 1. Character identification with chunk context (immediate context)
         character_display = "the DM" if character_name == "DM" else character_name
-        session_info = (
-            f"This is the {ordinal(session_number)} session for {character_display}."
-        )
+        if chunk_info:
+            character_chunk_info = (
+                f"This is {character_display} and this is {chunk_info}"
+            )
+        else:
+            character_chunk_info = f"This is {character_display}"
 
         # 2. Session-specific context (current session details)
         session_context = f" {session_notes}" if session_notes else ""
-
-        # 3. Current chunk context (processing-specific info)
-        chunk_context = f" This is {chunk_info}." if chunk_info else ""
 
         # 4. Campaign context (broader world knowledge)
         formatted_context = self.context_service.get_formatted_context(max_length=800)
@@ -519,7 +514,7 @@ class TranscriptionService:
             f"Darnit, Hrothulf, Ego (aka Carlos), Izar, and Dorinda. "
             f"The last session's transcript is provided below, followed by any chunks transcribed thus far for this player. "
             f"Distinguish between narration, banter, and in-character dialogue when possible. "
-            f"{session_info}{session_context}{chunk_context}"
+            f"{character_chunk_info}.{session_context}"
             f"{campaign_context}"
             f"{transcript_context}"
             f"{recent_chunks_context}"
@@ -531,7 +526,6 @@ class TranscriptionService:
         self,
         file_path: Path,
         character_name: str,
-        session_number: int,
         chunk_info: str = "",
         previous_chunks_text: str = "",
         previous_transcript: str = "",
@@ -547,7 +541,6 @@ class TranscriptionService:
                     response_format="verbose_json",
                     prompt=self._create_whisper_prompt(
                         character_name,
-                        session_number,
                         chunk_info,
                         previous_chunks_text,
                         previous_transcript,
@@ -575,7 +568,6 @@ class TranscriptionService:
         self,
         chunk_paths: List[Path],
         character_name: str,
-        session_number: int,
         previous_transcript: str,
         session_notes: str = "",
     ) -> Optional[Dict[str, Any]]:
@@ -584,12 +576,11 @@ class TranscriptionService:
         previous_chunks_text = ""
 
         for i, chunk_path in enumerate(chunk_paths):
-            chunk_info = f"chunk {i+1} of {len(chunk_paths)}"
+            chunk_info = f"the {ordinal(i+1)} chunk of {len(chunk_paths)}"
 
             whisper_response = self._call_whisper_api(
                 chunk_path,
                 character_name,
-                session_number,
                 chunk_info,
                 previous_chunks_text,
                 previous_transcript,

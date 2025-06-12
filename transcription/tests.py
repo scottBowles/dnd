@@ -381,17 +381,14 @@ class TranscriptionServiceTests(TestCase):
 
         prompt = service._create_whisper_prompt(
             character_name="TestPlayer",
-            session_number=5,
-            chunk_info="chunk 1 of 3",
+            chunk_info="the 1st chunk of 3",
             previous_chunks_text="Previous text",
             previous_transcript="Last session transcript",
         )
 
         # Verify prompt contains expected elements
         self.assertIn("Dungeons & Dragons", prompt)
-        self.assertIn("5th session", prompt)
-        self.assertIn("TestPlayer", prompt)
-        self.assertIn("chunk 1 of 3", prompt)
+        self.assertIn("This is TestPlayer and this is the 1st chunk of 3", prompt)
         self.assertIn("Test context", prompt)
         self.assertIn("Previous text", prompt)
         self.assertIn("Last session transcript", prompt)
@@ -413,7 +410,7 @@ class TranscriptionServiceTests(TestCase):
         mock_openai.Audio.transcribe.return_value = mock_response
 
         with patch("builtins.open", mock_open(read_data=b"fake audio")):
-            result = service._call_whisper_api(test_file, "TestPlayer", 1)
+            result = service._call_whisper_api(test_file, "TestPlayer")
 
         # Should return a WhisperResponse object
         self.assertIsNotNone(result)
@@ -439,7 +436,7 @@ class TranscriptionServiceTests(TestCase):
         mock_openai.Audio.transcribe.side_effect = Exception("API Error")
 
         with patch("builtins.open", mock_open(read_data=b"fake audio")):
-            result = service._call_whisper_api(test_file, "TestPlayer", 1)
+            result = service._call_whisper_api(test_file, "TestPlayer")
 
         self.assertIsNone(result)
 
@@ -788,7 +785,7 @@ class ProcessFileWithSplittingTests(TestCase):
         output_file.parent.mkdir(parents=True, exist_ok=True)
         output_file.write_text('{"text": "existing transcript"}')
 
-        result = service.process_file_with_splitting(test_file, 1)
+        result = service.process_file_with_splitting(test_file)
 
         self.assertTrue(result)
         mock_openai.Audio.transcribe.assert_not_called()
@@ -810,9 +807,7 @@ class ProcessFileWithSplittingTests(TestCase):
         mock_openai.Audio.transcribe.return_value = mock_response
 
         with patch("builtins.open", mock_open(read_data=b"fake audio")):
-            result = service.process_file_with_splitting(
-                test_file, 2, "previous", "notes"
-            )
+            result = service.process_file_with_splitting(test_file, "previous", "notes")
 
         self.assertTrue(result)
         mock_openai.Audio.transcribe.assert_called_once()
@@ -836,7 +831,7 @@ class ProcessFileWithSplittingTests(TestCase):
         mock_openai.Audio.transcribe.side_effect = Exception("API Error")
 
         with patch("builtins.open", mock_open(read_data=b"fake audio")):
-            result = service.process_file_with_splitting(test_file, 1)
+            result = service.process_file_with_splitting(test_file)
 
         self.assertFalse(result)
 
@@ -877,7 +872,7 @@ class ProcessFileWithSplittingTests(TestCase):
 
         with patch("builtins.open", mock_open(read_data=b"fake audio")):
             result = service.process_file_with_splitting(
-                test_file, 3, "previous transcript", "session notes"
+                test_file, "previous transcript", "session notes"
             )
 
         self.assertTrue(result)
@@ -917,7 +912,7 @@ class ProcessFileWithSplittingTests(TestCase):
         ]
 
         with patch("builtins.open", mock_open(read_data=b"fake audio")):
-            result = service.process_file_with_splitting(test_file, 1)
+            result = service.process_file_with_splitting(test_file)
 
         self.assertTrue(
             result
@@ -1010,7 +1005,7 @@ class ErrorHandlingTests(TestCase):
         # Try to process non-existent file
         non_existent_file = self.config.input_folder / "does_not_exist.mp3"
 
-        result = service.process_file_with_splitting(non_existent_file, 1)
+        result = service.process_file_with_splitting(non_existent_file)
 
         # Should handle gracefully without crashing
         self.assertFalse(result)
@@ -1088,7 +1083,6 @@ class EdgeCaseTests(TestCase):
 
         prompt = service._create_whisper_prompt(
             character_name="TestPlayer",
-            session_number=1,
             chunk_info="",
             previous_chunks_text="",
             previous_transcript="",
@@ -1096,8 +1090,7 @@ class EdgeCaseTests(TestCase):
         )
 
         self.assertIn("Dungeons & Dragons", prompt)
-        self.assertIn("1st session", prompt)
-        self.assertIn("TestPlayer", prompt)
+        self.assertIn("This is TestPlayer", prompt)
         # Should not contain empty context sections
         self.assertNotIn("Campaign Context:", prompt)
         self.assertNotIn("Previous Transcript:", prompt)
@@ -1114,7 +1107,6 @@ class EdgeCaseTests(TestCase):
 
         prompt = service._create_whisper_prompt(
             character_name="TestPlayer",
-            session_number=1,
             previous_chunks_text=long_text,
         )
 
@@ -1309,7 +1301,7 @@ class RegressionTests(TestCase):
             return_value="test context"
         )
 
-        prompt = service._create_whisper_prompt("TestPlayer", 1)
+        prompt = service._create_whisper_prompt("TestPlayer")
 
         service.context_service.get_formatted_context.assert_called_once()
 

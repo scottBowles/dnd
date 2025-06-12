@@ -10,8 +10,7 @@ from nucleus.models import BaseModel, GameLog
 class TranscriptionSession(BaseModel):
     """Represents a transcription session for a D&D game."""
 
-    session_number = models.PositiveIntegerField()
-    game_log = models.ForeignKey(
+    log = models.ForeignKey(
         GameLog,
         on_delete=models.CASCADE,
         related_name="transcription_sessions",
@@ -21,10 +20,12 @@ class TranscriptionSession(BaseModel):
     notes = models.TextField(blank=True)
 
     class Meta:
-        ordering = ["-session_number"]
+        ordering = ["-created"]
 
     def __str__(self):
-        return f"Session {self.session_number}"
+        if self.log:
+            return f"Transcription for {self.log.title or self.log.url}"
+        return f"Transcription Session {self.id}"
 
 
 class AudioTranscript(BaseModel):
