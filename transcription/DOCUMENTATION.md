@@ -41,12 +41,16 @@ This directory contains a comprehensive audio transcription system designed spec
 # Set your OpenAI API key
 export OPENAI_API_KEY="your-key-here"
 
+# Run database migrations for transcription models
+python manage.py makemigrations transcription
+python manage.py migrate
+
 # Place audio files in recordings folder
 mkdir -p recordings
 cp your-audio-files.mp3 recordings/
 
 # Run your first transcription
-python manage.py transcribe_audio --session-number 1
+python manage.py transcribe_audio --session-notes "First session"
 ```
 
 ### 2. Essential Commands
@@ -55,8 +59,8 @@ python manage.py transcribe_audio --session-number 1
 # Basic transcription
 python manage.py transcribe_audio
 
-# With session context
-python manage.py transcribe_audio --session-number 5
+# With session context and GameLog
+python manage.py transcribe_audio --log-url "session-5-url"
 
 # Process specific file
 python manage.py transcribe_audio --file "dm.flac"
@@ -78,8 +82,8 @@ service = TranscriptionService(config)
 # Process file with splitting support and session context
 success = service.process_file_with_splitting(
     Path("session.mp3"),
-    session_number=5,
-    session_notes="Tonight we explore the dungeon..."
+    session_notes="Tonight we explore the dungeon...",
+    log=game_log  # Optional: link to GameLog for database storage
 )
 
 # Get campaign context for custom usage

@@ -5,6 +5,7 @@ Django management command for transcribing D&D audio files.
 from django.core.management.base import BaseCommand, CommandError
 from pathlib import Path
 
+from nucleus.models import GameLog
 from transcription.services import TranscriptionService, TranscriptionConfig
 
 
@@ -12,6 +13,22 @@ class Command(BaseCommand):
     help = "Transcribe D&D audio files using Whisper API with campaign context"
 
     def add_arguments(self, parser):
+        parser.add_argument(
+            "--log-url",
+            type=str,
+            help="GameLog URL for database correlation (optional)",
+        )
+        parser.add_argument(
+            "--log-id",
+            type=str,
+            help="GameLog Google Drive ID for database correlation (optional)",
+        )
+        parser.add_argument(
+            "--session-notes",
+            type=str,
+            default="",
+            help="Notes about this transcription session",
+        )
         parser.add_argument(
             "--file",
             type=str,
@@ -70,6 +87,41 @@ class Command(BaseCommand):
             # Initialize transcription service with config
             service = TranscriptionService(config)
 
+            # Get GameLog if provided
+            log = None
+            if options["log_url"]:
+                try:
+                    google_id = GameLog.get_id_from_url(options["log_url"])
+                    log, created = GameLog.objects.get_or_create(
+                        google_id=google_id, defaults={"url": options["log_url"]}
+                    )
+                    if created:
+                        self.stdout.write(
+                            self.style.SUCCESS(f"Created new GameLog: {log}")
+                        )
+                    else:
+                        self.stdout.write(
+                            self.style.SUCCESS(f"Using existing GameLog: {log}")
+                        )
+                except Exception as e:
+                    self.stdout.write(
+                        self.style.WARNING(f"Could not process log URL: {e}")
+                    )
+            elif options["log_id"]:
+                try:
+                    log = GameLog.objects.get(google_id=options["log_id"])
+                    self.stdout.write(self.style.SUCCESS(f"Using GameLog: {log}"))
+                except GameLog.DoesNotExist:
+                    self.stdout.write(
+                        self.style.WARNING(
+                            f"GameLog with ID {options['log_id']} not found"
+                        )
+                    )
+                except Exception as e:
+                    self.stdout.write(
+                        self.style.WARNING(f"Could not process log ID: {e}")
+                    )
+
             # Check if input folder exists
             if not config.input_folder.exists():
                 raise CommandError(
@@ -88,7 +140,7 @@ class Command(BaseCommand):
 
                 self.stdout.write(f"Processing file: {file_path}")
                 success = service.process_file_with_splitting(
-                    file_path, previous_transcript
+                    file_path, previous_transcript, options["session_notes"], log
                 )
 
                 if success:
@@ -124,7 +176,9 @@ class Command(BaseCommand):
                     return
 
                 self.stdout.write(f"Processing {len(audio_files)} files...")
-                processed_count = service.process_all_files(previous_transcript)
+                processed_count = service.process_all_files(
+                    previous_transcript, options["session_notes"], log
+                )
 
                 self.stdout.write(
                     self.style.SUCCESS(

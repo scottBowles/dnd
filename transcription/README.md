@@ -154,10 +154,10 @@ Transcriptions are saved as JSON files with the following structure:
         }
     ],
     "metadata": {
-        "session_number": 5,
         "character_name": "DM",
         "processing_date": "2025-06-07T10:30:00Z",
-        "chunk_info": "chunk 1 of 3"
+        "chunk_info": "chunk 1 of 3",
+        "database_id": 42
     }
 }
 ```

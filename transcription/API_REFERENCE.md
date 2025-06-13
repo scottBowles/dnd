@@ -67,17 +67,17 @@ TranscriptionService(config: Optional[TranscriptionConfig] = None)
 def process_file_with_splitting(
     self,
     file_path: Path,
-    session_number: int = 1,
     previous_transcript: str = "",
-    session_notes: str = ""
+    session_notes: str = "",
+    log: Optional[GameLog] = None
 ) -> bool
 
 # Process all files in input folder
 def process_all_files(
     self,
-    session_number: int = 1,
     previous_transcript: str = "",
-    session_notes: str = ""
+    session_notes: str = "",
+    log: Optional[GameLog] = None
 ) -> int  # Returns count of successfully processed files
 ```
 
@@ -88,7 +88,6 @@ def process_all_files(
 def _create_whisper_prompt(
     self,
     character_name: str,
-    session_number: int,
     chunk_info: str = "",
     previous_chunks_text: str = "",
     previous_transcript: str = "",
@@ -100,12 +99,100 @@ def _call_whisper_api(
     self,
     file_path: Path,
     character_name: str,
-    session_number: int,
     chunk_info: str = "",
     previous_chunks_text: str = "",
     previous_transcript: str = "",
     session_notes: str = ""
 ) -> Optional[WhisperResponse]  # Returns WhisperResponse or None
+```
+
+## Database Models
+
+The transcription system includes Django models for persistent storage of transcription data alongside JSON file backups.
+
+### TranscriptionSession
+
+Represents a transcription session, optionally linked to a GameLog.
+
+```python
+from transcription.models import TranscriptionSession
+from nucleus.models import GameLog
+
+# Create session without GameLog
+session = TranscriptionSession.objects.create(
+    notes="Session notes"
+)
+
+# Create session linked to GameLog
+game_log = GameLog.objects.get(id=1)
+session = TranscriptionSession.objects.create(
+    log=game_log,
+    notes="Session notes"
+)
+```
+
+#### Fields
+
+```python
+session.log                    # ForeignKey(GameLog): Optional link to game session
+session.notes                  # TextField: Session notes
+session.created                # DateTimeField: Creation timestamp
+session.updated                # DateTimeField: Last update timestamp
+```
+
+### AudioTranscript
+
+Stores transcript data for individual audio files.
+
+```python
+from transcription.models import AudioTranscript
+
+# Query transcripts
+transcript = AudioTranscript.objects.get(id=1)
+transcripts = AudioTranscript.objects.filter(session=session)
+```
+
+#### Fields
+
+```python
+transcript.session                    # ForeignKey(TranscriptionSession)
+transcript.original_filename          # CharField: Original audio filename
+transcript.character_name             # CharField: Character/player name
+transcript.file_size_mb              # FloatField: File size in MB
+transcript.duration_minutes          # FloatField: Audio duration (nullable)
+transcript.transcript_text           # TextField: Full transcript text
+transcript.whisper_response          # JSONField: Full Whisper API response
+transcript.was_split                 # BooleanField: Whether file was split
+transcript.num_chunks                # PositiveIntegerField: Number of chunks
+transcript.processing_time_seconds   # FloatField: Processing time (nullable)
+transcript.campaign_context          # JSONField: Campaign context used
+transcript.created                   # DateTimeField: Creation timestamp
+transcript.updated                   # DateTimeField: Last update timestamp
+```
+
+### TranscriptChunk
+
+Stores data for individual chunks of split audio files.
+
+```python
+from transcription.models import TranscriptChunk
+
+# Query chunks for a transcript
+chunks = TranscriptChunk.objects.filter(transcript=transcript).order_by('chunk_number')
+```
+
+#### Fields
+
+```python
+chunk.transcript              # ForeignKey(AudioTranscript)
+chunk.chunk_number           # PositiveIntegerField: Chunk sequence number
+chunk.filename               # CharField: Chunk filename
+chunk.start_time_offset      # FloatField: Seconds from start of original file
+chunk.duration_seconds       # FloatField: Chunk duration
+chunk.chunk_text             # TextField: Chunk transcript text
+chunk.whisper_response       # JSONField: Chunk-specific Whisper response
+chunk.created                # DateTimeField: Creation timestamp
+chunk.updated                # DateTimeField: Last update timestamp
 ```
 
 ## Utility Modules
@@ -236,9 +323,9 @@ service = TranscriptionService(config)
 audio_file = Path("my_recordings/session_1.mp3")
 success = service.process_file_with_splitting(
     audio_file,
-    session_number=1,
     previous_transcript="Previous session context...",
-    session_notes="Important events this session..."
+    session_notes="Important events this session...",
+    log=game_log  # Optional: link to GameLog
 )
 
 if success:
@@ -252,9 +339,9 @@ else:
 ```python
 # Process all files in a directory
 processed_count = service.process_all_files(
-    session_number=5,
     previous_transcript="Last session context...",
-    session_notes="Tonight we explore the dungeon..."
+    session_notes="Tonight we explore the dungeon...",
+    log=game_log  # Optional: link to GameLog
 )
 
 print(f"Successfully processed {processed_count} files")
@@ -419,8 +506,8 @@ try:
     # Using the current API methods
     success = service.process_file_with_splitting(
         audio_file,
-        session_number=1,
-        session_notes="Game session notes..."
+        session_notes="Game session notes...",
+        log=game_log  # Optional: link to GameLog
     )
     if success:
         print("Transcription completed successfully")
@@ -476,10 +563,10 @@ class CustomContextService(CampaignContextService):
 
 ```python
 class CustomTranscriptionService(TranscriptionService):
-    def _create_whisper_prompt(self, character_name, session_number, **kwargs):
+    def _create_whisper_prompt(self, character_name, **kwargs):
         # Override private method to customize prompt generation
         base_prompt = super()._create_whisper_prompt(
-            character_name, session_number, **kwargs
+            character_name, **kwargs
         )
         return f"{base_prompt}\n\nCustom instructions: Focus on combat descriptions."
 
@@ -527,7 +614,6 @@ def test_transcription_service(mock_openai):
     service = TranscriptionService(mock_config)
     success = service.process_file_with_splitting(
         Path("test.mp3"),
-        session_number=1,
         session_notes="Test session"
     )
 

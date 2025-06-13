@@ -19,9 +19,11 @@ from pydub import AudioSegment
 from association.models import Association
 from character.models import Character
 from item.models import Artifact, Item
+from nucleus.models import GameLog
 from place.models import Place
 from race.models import Race
 
+from .models import TranscriptionSession, AudioTranscript, TranscriptChunk
 from .responses import WhisperResponse
 from .utils import ordinal, safe_save_json
 
@@ -389,15 +391,24 @@ class TranscriptionService:
         file_path: Path,
         previous_transcript: str = "",
         session_notes: str = "",
+        log: Optional["GameLog"] = None,
     ) -> bool:
         """Process a file, splitting it if necessary, and transcribe all chunks."""
+        import time
+
+        start_time = time.time()
+
         character_name = file_path.stem
+        file_size_mb = AudioProcessingService.get_file_size_mb(file_path)
 
         # Check if already transcribed
         final_output = self.config.output_folder / file_path.with_suffix(".json").name
         if final_output.exists():
             print(f"✅ Already transcribed: {file_path.name}")
             return True
+
+        # Create or get transcription session
+        session = self._get_or_create_session(log, session_notes)
 
         # Split file if needed
         chunk_paths = self.audio_service.split_audio_file(file_path, character_name)
@@ -412,6 +423,22 @@ class TranscriptionService:
             )
 
             if whisper_response:
+                # Calculate processing time
+                processing_time = time.time() - start_time
+
+                # Save to database
+                self._save_audio_transcript(
+                    session=session,
+                    file_path=file_path,
+                    character_name=character_name,
+                    file_size_mb=file_size_mb,
+                    whisper_response=whisper_response,
+                    was_split=False,
+                    num_chunks=1,
+                    processing_time=processing_time,
+                )
+
+                # Save JSON file for backup
                 return safe_save_json(
                     whisper_response.raw_response, final_output, "transcript"
                 )
@@ -426,6 +453,26 @@ class TranscriptionService:
             )
 
             if combined_transcript:
+                # Calculate processing time
+                processing_time = time.time() - start_time
+
+                # Save to database
+                audio_transcript = self._save_audio_transcript(
+                    session=session,
+                    file_path=file_path,
+                    character_name=character_name,
+                    file_size_mb=file_size_mb,
+                    whisper_response=combined_transcript,
+                    was_split=True,
+                    num_chunks=len(chunk_paths),
+                    processing_time=processing_time,
+                )
+
+                # Save chunk data to database
+                self._save_transcript_chunks(
+                    audio_transcript, combined_transcript, chunk_paths
+                )
+
                 # Save individual chunk transcripts (extracted from combined data)
                 chunk_transcripts = combined_transcript.get("chunks", [])
                 for i, (chunk_path, chunk_transcript) in enumerate(
@@ -447,6 +494,7 @@ class TranscriptionService:
         self,
         previous_transcript: str = "",
         session_notes: str = "",
+        log: Optional[GameLog] = None,
     ) -> int:
         """Process all audio files in the input folder."""
         processed_count = 0
@@ -454,11 +502,120 @@ class TranscriptionService:
         for file in self.config.input_folder.iterdir():
             if file.suffix.lower() in self.config.audio_extensions:
                 if self.process_file_with_splitting(
-                    file, previous_transcript, session_notes
+                    file, previous_transcript, session_notes, log
                 ):
                     processed_count += 1
 
         return processed_count
+
+    # ========================================
+    # Database Operations
+    # ========================================
+
+    def _get_or_create_session(
+        self, log: Optional[GameLog] = None, session_notes: str = ""
+    ) -> TranscriptionSession:
+        """Get or create a transcription session."""
+        session, created = TranscriptionSession.objects.get_or_create(
+            log=log, defaults={"notes": session_notes}
+        )
+        if created:
+            print(f"✅ Created transcription session: {session}")
+        else:
+            print(f"✅ Using existing transcription session: {session}")
+        return session
+
+    def _save_audio_transcript(
+        self,
+        session: TranscriptionSession,
+        file_path: Path,
+        character_name: str,
+        file_size_mb: float,
+        whisper_response,
+        was_split: bool,
+        num_chunks: int,
+        processing_time: float,
+    ) -> AudioTranscript:
+        """Save audio transcript data to database."""
+        from .responses import WhisperResponse
+
+        # Handle both WhisperResponse objects and raw dict responses
+        if isinstance(whisper_response, WhisperResponse):
+            transcript_text = whisper_response.text
+            raw_response = whisper_response.raw_response
+        else:
+            # For combined transcripts (dict)
+            transcript_text = whisper_response.get("text", "")
+            raw_response = whisper_response
+
+        # Get campaign context that was used
+        campaign_context = self.context_service.get_campaign_context()
+
+        # Calculate duration from whisper response if available
+        duration_minutes = None
+        if isinstance(raw_response, dict) and "segments" in raw_response:
+            segments = raw_response["segments"]
+            if segments:
+                last_segment = max(segments, key=lambda s: s.get("end", 0))
+                duration_minutes = last_segment.get("end", 0) / 60
+
+        audio_transcript = AudioTranscript.objects.create(
+            session=session,
+            original_filename=file_path.name,
+            character_name=character_name,
+            file_size_mb=file_size_mb,
+            duration_minutes=duration_minutes,
+            transcript_text=transcript_text,
+            whisper_response=raw_response,
+            was_split=was_split,
+            num_chunks=num_chunks,
+            processing_time_seconds=processing_time,
+            campaign_context=campaign_context,
+        )
+
+        print(f"✅ Saved audio transcript to database: {audio_transcript}")
+        return audio_transcript
+
+    def _save_transcript_chunks(
+        self,
+        audio_transcript: AudioTranscript,
+        combined_transcript: dict,
+        chunk_paths: List[Path],
+    ):
+        """Save individual chunk data to database."""
+        chunk_transcripts = combined_transcript.get("chunks", [])
+
+        for i, (chunk_path, chunk_transcript) in enumerate(
+            zip(chunk_paths, chunk_transcripts)
+        ):
+            from .responses import WhisperResponse
+
+            # Extract chunk data - chunk_transcript is already the raw transcript data
+            whisper_response = WhisperResponse(chunk_transcript)
+            chunk_text = whisper_response.text
+
+            # Calculate chunk timing
+            start_time_offset = i * self.config.chunk_duration_minutes * 60
+
+            # Get duration from segments if available
+            duration_seconds = self.config.chunk_duration_minutes * 60  # Default
+            if whisper_response.segments:
+                last_segment = max(
+                    whisper_response.segments, key=lambda s: s.get("end", 0)
+                )
+                duration_seconds = last_segment.get("end", duration_seconds)
+
+            TranscriptChunk.objects.create(
+                transcript=audio_transcript,
+                chunk_number=i + 1,
+                filename=chunk_path.name,
+                start_time_offset=start_time_offset,
+                duration_seconds=duration_seconds,
+                chunk_text=chunk_text,
+                whisper_response=chunk_transcript,
+            )
+
+        print(f"✅ Saved {len(chunk_transcripts)} transcript chunks to database")
 
     # ========================================
     # Private Implementation Methods

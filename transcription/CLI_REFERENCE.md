@@ -6,8 +6,8 @@
 # Transcribe all files
 python manage.py transcribe_audio
 
-# Transcribe with session number
-python manage.py transcribe_audio --session-number 5
+# Transcribe with GameLog link
+python manage.py transcribe_audio --log-url "session-5-url"
 
 # Transcribe specific file
 python manage.py transcribe_audio --file "player1.mp3"
@@ -19,9 +19,10 @@ python manage.py transcribe_audio --dry-run
 ## Advanced Usage
 
 ```bash
-# Full session with context
+# Full session with context and GameLog
 python manage.py transcribe_audio \
-  --session-number 12 \
+  --log-url "session-12-url" \
+  --session-notes "Epic battle with the dragon" \
   --previous-transcript "transcripts/session11.txt" \
   --input-folder "recordings/session12" \
   --output-folder "transcripts/session12"
@@ -34,14 +35,16 @@ python manage.py transcribe_audio \
 
 ## All Available Flags
 
-| Flag                    | Type   | Description                | Example                                |
-| ----------------------- | ------ | -------------------------- | -------------------------------------- |
-| `--session-number`      | `int`  | Session number for context | `--session-number 5`                   |
-| `--file`                | `str`  | Specific file to process   | `--file "dm.flac"`                     |
-| `--previous-transcript` | `str`  | Previous session context   | `--previous-transcript "session4.txt"` |
-| `--input-folder`        | `str`  | Custom input directory     | `--input-folder "audio/"`              |
-| `--output-folder`       | `str`  | Custom output directory    | `--output-folder "results/"`           |
-| `--dry-run`             | `flag` | Preview without processing | `--dry-run`                            |
+| Flag                    | Type   | Description                 | Example                                |
+| ----------------------- | ------ | --------------------------- | -------------------------------------- |
+| `--log-url`             | `str`  | GameLog URL for correlation | `--log-url "session-5-url"`            |
+| `--log-id`              | `str`  | GameLog Google Drive ID     | `--log-id "abc123"`                    |
+| `--session-notes`       | `str`  | Notes about the session     | `--session-notes "Epic battle"`        |
+| `--file`                | `str`  | Specific file to process    | `--file "dm.flac"`                     |
+| `--previous-transcript` | `str`  | Previous session context    | `--previous-transcript "session4.txt"` |
+| `--input-folder`        | `str`  | Custom input directory      | `--input-folder "audio/"`              |
+| `--output-folder`       | `str`  | Custom output directory     | `--output-folder "results/"`           |
+| `--dry-run`             | `flag` | Preview without processing  | `--dry-run`                            |
 
 ## Output Examples
 
