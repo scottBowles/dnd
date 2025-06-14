@@ -164,8 +164,14 @@ class AudioTranscriptAdmin(admin.ModelAdmin):
                     "was_split",
                     "num_chunks",
                     "processing_time_seconds",
-                    "campaign_context_display",
                 ),
+                "classes": ("collapse",),
+            },
+        ),
+        (
+            "Campaign Context",
+            {
+                "fields": ("campaign_context_display",),
                 "classes": ("collapse",),
             },
         ),
@@ -201,17 +207,77 @@ class AudioTranscriptAdmin(admin.ModelAdmin):
 
     @admin.display(description="Campaign Context")
     def campaign_context_display(self, obj):
-        if obj.campaign_context:
-            context_items = []
-            for key, value in obj.campaign_context.items():
-                if isinstance(value, list) and value:
-                    context_items.append(f"{key}: {len(value)} items")
-                elif value:
-                    context_items.append(f"{key}: {value}")
-            return (
-                mark_safe("<br>".join(context_items)) if context_items else "No context"
+        if not obj.campaign_context:
+            return "No campaign context available"
+
+        context_data = obj.campaign_context
+        sections = []
+
+        # Count totals
+        total_entities = sum(
+            len(v) for v in context_data.values() if isinstance(v, list)
+        )
+        summary = f"📊 {total_entities} entities"
+
+        sections.append(f"<p><strong>{summary}</strong></p>")
+
+        # Process each entity type
+        for section_name, icon in [
+            ("characters", "🎭"),
+            ("places", "🏰"),
+            ("items", "⚔️"),
+            ("races", "🧝"),
+            ("associations", "🏛️"),
+        ]:
+            entities = context_data.get(section_name, [])
+            if not entities:
+                continue
+
+            # Sort: recent first, then alphabetically
+            sorted_entities = sorted(
+                entities,
+                key=lambda x: (
+                    not (
+                        x.get("recently_mentioned", False)
+                        if isinstance(x, dict)
+                        else False
+                    ),
+                    x.get("name", str(x)) if isinstance(x, dict) else str(x),
+                ),
             )
-        return "No context"
+
+            sections.append(
+                f"<p><strong>{icon} {section_name.title()} ({len(entities)})</strong></p>"
+            )
+            sections.append("<ul>")
+
+            for entity in sorted_entities:
+                if isinstance(entity, str):
+                    sections.append(f"<li>{entity}</li>")
+                elif isinstance(entity, dict):
+                    name = entity.get("name", "Unknown")
+                    description = entity.get("description", "")
+                    recently_mentioned = entity.get("recently_mentioned", False)
+
+                    # Get other property (race or type)
+                    other_property = entity.get("race") or entity.get("type")
+
+                    # Format: name (property) — description
+                    entity_text = name
+                    if other_property:
+                        entity_text += f" ({other_property})"
+                    if description:
+                        entity_text += f" — {description}"
+                    if recently_mentioned:
+                        entity_text = f"🔥 {entity_text}"
+
+                    sections.append(f"<li>{entity_text}</li>")
+                else:
+                    sections.append(f"<li>{str(entity)}</li>")
+
+            sections.append("</ul>")
+
+        return mark_safe("".join(sections))
 
 
 @admin.register(TranscriptChunk)
