@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User, GameLog, AiLogSuggestion
+from .models import User, GameLog, AiLogSuggestion, SessionAudio
 from django.utils import timezone
 import zoneinfo
 from django.utils.safestring import mark_safe
@@ -140,3 +140,36 @@ class UserAdmin(BaseUserAdmin):
             "%B %d, %Y %-I:%M %p %Z"
         )
         return formatted_date
+
+
+@admin.register(SessionAudio)
+class SessionAudioAdmin(admin.ModelAdmin):
+    list_display = (
+        "original_filename",
+        "gamelog",
+        "transcription_status",
+        "file_size_mb",
+        "uploaded_by",
+        "created",
+    )
+    list_filter = ("transcription_status", "created")
+    search_fields = ("original_filename", "gamelog__title")
+    readonly_fields = ("file_size_mb", "created", "updated")
+    fields = (
+        "file",
+        "gamelog",
+        "original_filename",
+        "uploaded_by",
+        "transcription_status",
+        "file_size_mb",
+        "created",
+        "updated",
+    )
+
+    def save_model(self, request, obj, form, change):
+        if not change:  # Only set on creation
+            if not obj.uploaded_by:
+                obj.uploaded_by = request.user
+            if not obj.original_filename and obj.file:
+                obj.original_filename = obj.file.name
+        super().save_model(request, obj, form, change)

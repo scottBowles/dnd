@@ -551,3 +551,39 @@ class Entity(
 
     class Meta:
         abstract = True
+
+
+class SessionAudio(BaseModel):
+    """Audio file associated with a D&D game session."""
+
+    file = models.FileField(upload_to="audio/")
+    gamelog = models.ForeignKey(
+        GameLog, on_delete=models.CASCADE, related_name="session_audio_files"
+    )
+    original_filename = models.CharField(max_length=255)
+    uploaded_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    transcription_status = models.CharField(
+        max_length=20,
+        choices=[
+            ("pending", "Pending"),
+            ("processing", "Processing"),
+            ("completed", "Completed"),
+            ("failed", "Failed"),
+        ],
+        default="pending",
+    )
+
+    class Meta:
+        ordering = ["-created"]
+
+    def __str__(self):
+        return f"{self.original_filename} ({self.gamelog})"
+
+    @property
+    def file_size_mb(self):
+        """Get file size in MB."""
+        if self.file and hasattr(self.file, "size"):
+            return round(self.file.size / (1024 * 1024), 2)
+        return None
