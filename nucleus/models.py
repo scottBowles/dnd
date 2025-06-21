@@ -166,6 +166,19 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
     places_set_in = models.ManyToManyField(
         "place.Place", blank=True, related_name="logs_set_in"
     )
+    audio_session_notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Notes for this session's audio, used for transcription context.",
+    )
+    last_game_log = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="next_game_logs",
+        help_text="The previous game log (used for context in transcription).",
+    )
 
     def __str__(self):
         return self.title or self.url
@@ -173,6 +186,13 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
     def save(self, *args, **kwargs):
         if self._state.adding:
             self.update_from_google()
+            # Default last_game_log to the most recently created GameLog (excluding self)
+            if not self.last_game_log:
+                latest_log = (
+                    GameLog.objects.exclude(pk=self.pk).order_by("-created").first()
+                )
+                if latest_log:
+                    self.last_game_log = latest_log
         super().save(*args, **kwargs)
 
     def update_from_google(self, overwrite=False):
@@ -567,12 +587,12 @@ class SessionAudio(BaseModel):
     transcription_status = models.CharField(
         max_length=20,
         choices=[
-            ("pending", "Pending"),
+            ("not_transcribed", "Not Transcribed"),
             ("processing", "Processing"),
             ("completed", "Completed"),
             ("failed", "Failed"),
         ],
-        default="pending",
+        default="not_transcribed",
     )
 
     class Meta:
