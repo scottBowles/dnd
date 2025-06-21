@@ -19,7 +19,7 @@ from pydub import AudioSegment
 from association.models import Association
 from character.models import Character
 from item.models import Artifact, Item
-from nucleus.models import GameLog
+from nucleus.models import GameLog, SessionAudio
 from place.models import Place
 from race.models import Race
 
@@ -808,3 +808,35 @@ class TranscriptionService:
         except Exception as e:
             print(f"❌ Failed to create combined transcript: {e}")
             return None
+
+
+def transcribe_session_audio(
+    session_audio: SessionAudio, session_notes: str = "", previous_transcript: str = ""
+) -> bool:
+    """
+    Process a SessionAudio instance using the existing transcription logic.
+    Saves the file to a temp path and calls process_file_with_splitting.
+    """
+    import tempfile
+    from pathlib import Path
+
+    # Save the uploaded file to a temp file
+    with tempfile.NamedTemporaryFile(
+        suffix=Path(session_audio.file.name).suffix, delete=False
+    ) as temp_file:
+        for chunk in session_audio.file.chunks():
+            temp_file.write(chunk)
+        temp_path = Path(temp_file.name)
+
+    # Use the GameLog for context if available
+    gamelog = session_audio.gamelog if hasattr(session_audio, "gamelog") else None
+
+    # Call the main transcription service
+    service = TranscriptionService()
+    result = service.process_file_with_splitting(
+        temp_path,
+        previous_transcript=previous_transcript,
+        session_notes=session_notes,
+        log=gamelog,
+    )
+    return result

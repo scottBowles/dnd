@@ -4,6 +4,22 @@ from .models import User, GameLog, AiLogSuggestion, SessionAudio
 from django.utils import timezone
 import zoneinfo
 from django.utils.safestring import mark_safe
+from transcription.services import transcribe_session_audio
+
+
+class SessionAudioInline(admin.TabularInline):
+    model = SessionAudio
+    extra = 1
+    fields = (
+        "file",
+        "original_filename",
+        "uploaded_by",
+        "transcription_status",
+        "file_size_mb",
+        "created",
+        "updated",
+    )
+    readonly_fields = ("file_size_mb", "created", "updated")
 
 
 @admin.register(GameLog)
@@ -21,6 +37,8 @@ class GameLogAdmin(admin.ModelAdmin):
         "synopsis",
         "summary",
         "places_set_in",
+        "audio_session_notes",
+        "last_game_log",
     )
     readonly_fields = (
         "url",
@@ -31,6 +49,8 @@ class GameLogAdmin(admin.ModelAdmin):
         "google_created_time",
     )
     list_display = ("title", "google_created_time", "game_date")
+    inlines = [SessionAudioInline]
+    actions = ["transcribe_audio_files_action"]
 
     def copy_text_for_summary(self, obj):
         btn_id = "copy-text-helper"
@@ -67,6 +87,48 @@ class GameLogAdmin(admin.ModelAdmin):
         )
 
     copy_text_for_ai_suggestions.short_description = "Copy text for ai titles"
+
+    def transcribe_audio_files_action(self, request, queryset):
+        """
+        Admin action to transcribe all SessionAudio files for selected GameLogs.
+        Uses audio_session_notes and last_game_log.log_text for context.
+        """
+        from transcription.services import transcribe_session_audio
+        from django.contrib import messages
+
+        for gamelog in queryset:
+            session_notes = gamelog.audio_session_notes or ""
+            previous_transcript = ""
+            if gamelog.last_game_log:
+                previous_transcript = (
+                    getattr(gamelog.last_game_log, "log_text", "") or ""
+                )
+            audio_files = gamelog.session_audio_files.all()
+            if not audio_files:
+                messages.warning(request, f"No audio files found for {gamelog}.")
+                continue
+            for audio in audio_files:
+                audio.transcription_status = "processing"
+                audio.save(update_fields=["transcription_status"])
+                try:
+                    transcribe_session_audio(
+                        audio,
+                        session_notes=session_notes,
+                        previous_transcript=previous_transcript,
+                    )
+                    audio.transcription_status = "completed"
+                    audio.save(update_fields=["transcription_status"])
+                except Exception as e:
+                    audio.transcription_status = "failed"
+                    audio.save(update_fields=["transcription_status"])
+                    messages.error(request, f"Failed to transcribe {audio}: {e}")
+            messages.success(
+                request, f"Transcription attempted for all audio files in {gamelog}."
+            )
+
+    transcribe_audio_files_action.short_description = (
+        "Transcribe audio files for selected game logs"
+    )
 
 
 @admin.register(AiLogSuggestion)
@@ -165,6 +227,7 @@ class SessionAudioAdmin(admin.ModelAdmin):
         "created",
         "updated",
     )
+    actions = ["transcribe_selected_audio"]
 
     def save_model(self, request, obj, form, change):
         if not change:  # Only set on creation
@@ -173,3 +236,27 @@ class SessionAudioAdmin(admin.ModelAdmin):
             if not obj.original_filename and obj.file:
                 obj.original_filename = obj.file.name
         super().save_model(request, obj, form, change)
+
+    def transcribe_selected_audio(self, request, queryset):
+        """
+        Admin action to transcribe selected SessionAudio files.
+        """
+        count = 0
+        for audio in queryset:
+            audio.transcription_status = "processing"
+            audio.save(update_fields=["transcription_status"])
+            try:
+                result = transcribe_session_audio(audio)
+                if result:
+                    audio.transcription_status = "completed"
+                else:
+                    audio.transcription_status = "failed"
+            except Exception as e:
+                audio.transcription_status = "failed"
+            audio.save(update_fields=["transcription_status"])
+            count += 1
+        self.message_user(
+            request, f"Transcription triggered for {count} audio file(s)."
+        )
+
+    transcribe_selected_audio.short_description = "Transcribe selected audio files"
