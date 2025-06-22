@@ -25,7 +25,7 @@ from race.models import Race
 
 from .models import AudioTranscript, TranscriptChunk
 from .responses import WhisperResponse
-from .utils import ordinal, safe_save_json
+from .utils import ordinal
 
 
 class TranscriptionConfig:
@@ -306,6 +306,8 @@ class AudioProcessingService:
         Split an audio file into chunks if it exceeds the size limit.
         Returns a list of chunk file paths.
         """
+        import tempfile
+
         file_size_mb = AudioProcessingService.get_file_size_mb(file_path)
 
         if file_size_mb <= self.config.max_file_size_mb:
@@ -321,23 +323,32 @@ class AudioProcessingService:
             num_chunks = math.ceil(total_length_ms / chunk_length_ms)
 
             chunk_paths = []
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_dir_path = Path(temp_dir)
+                for i in range(num_chunks):
+                    start_time = i * chunk_length_ms
+                    end_time = min((i + 1) * chunk_length_ms, total_length_ms)
 
-            for i in range(num_chunks):
-                start_time = i * chunk_length_ms
-                end_time = min((i + 1) * chunk_length_ms, total_length_ms)
+                    chunk = audio[start_time:end_time]
+                    chunk_filename = f"{file_path.stem}_{character_name}_chunk_{i+1:02d}{file_path.suffix}"
+                    chunk_path = temp_dir_path / chunk_filename
 
-                chunk = audio[start_time:end_time]
-                chunk_filename = f"{file_path.stem}_{character_name}_chunk_{i+1:02d}{file_path.suffix}"
-                chunk_path = self.config.chunks_folder / chunk_filename
+                    chunk.export(chunk_path, format=file_path.suffix[1:])
 
-                chunk.export(chunk_path, format=file_path.suffix[1:])
+                    chunk_size_mb = AudioProcessingService.get_file_size_mb(chunk_path)
+                    print(f"  ✅ Created {chunk_filename} ({chunk_size_mb:.1f}MB)")
+                    chunk_paths.append(chunk_path)
 
-                chunk_size_mb = AudioProcessingService.get_file_size_mb(chunk_path)
-                print(f"  ✅ Created {chunk_filename} ({chunk_size_mb:.1f}MB)")
-                chunk_paths.append(chunk_path)
-
-            print(f"✅ Split into {num_chunks} chunks")
-            return chunk_paths
+                # Copy chunk files to a list of paths outside the context manager
+                result_paths = []
+                for chunk_path in chunk_paths:
+                    # Move to a new NamedTemporaryFile to persist after context
+                    with tempfile.NamedTemporaryFile(
+                        delete=False, suffix=file_path.suffix
+                    ) as f:
+                        f.write(chunk_path.read_bytes())
+                        result_paths.append(Path(f.name))
+                return result_paths
 
         except Exception as e:
             print(f"❌ Failed to split {file_path.name}: {e}")
@@ -371,9 +382,9 @@ class TranscriptionService:
 
         start_time = time.time()
 
-        character_name = (
+        file_name = (
             getattr(session_audio, "original_filename", None)
-            or Path(session_audio.file.name).stem
+            or Path(session_audio.file.name).name
         )
 
         # Save the uploaded file to a temp file for processing
@@ -387,13 +398,15 @@ class TranscriptionService:
         file_size_mb = AudioProcessingService.get_file_size_mb(temp_path)
 
         # Split file if needed
-        chunk_paths = self.audio_service.split_audio_file(temp_path, character_name)
+        chunk_paths = self.audio_service.split_audio_file(
+            temp_path, Path(file_name).stem
+        )
 
         if len(chunk_paths) == 1:
             # File wasn't split, transcribe directly and save
             whisper_response = self._call_whisper_api(
                 temp_path,
-                character_name,
+                character_name=Path(file_name).stem,
                 previous_transcript=previous_transcript,
                 session_notes=session_notes,
             )
@@ -406,7 +419,7 @@ class TranscriptionService:
                 self._save_audio_transcript(
                     session_audio=session_audio,
                     file_path=temp_path,
-                    character_name=character_name,
+                    character_name=Path(file_name).stem,
                     file_size_mb=file_size_mb,
                     whisper_response=whisper_response,
                     was_split=False,
@@ -420,9 +433,9 @@ class TranscriptionService:
             # File was split, transcribe chunks and save all outputs
             combined_transcript = self._process_chunks(
                 chunk_paths,
-                character_name,
-                previous_transcript,
-                session_notes,
+                character_name=Path(file_name).stem,
+                previous_transcript=previous_transcript,
+                session_notes=session_notes,
             )
 
             if combined_transcript:
@@ -433,7 +446,7 @@ class TranscriptionService:
                 audio_transcript = self._save_audio_transcript(
                     session_audio=session_audio,
                     file_path=temp_path,
-                    character_name=character_name,
+                    character_name=Path(file_name).stem,
                     file_size_mb=file_size_mb,
                     whisper_response=combined_transcript,
                     was_split=True,
