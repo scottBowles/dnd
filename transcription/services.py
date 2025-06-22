@@ -33,16 +33,13 @@ class TranscriptionConfig:
 
     def __init__(
         self,
-        input_folder: Optional[Path] = None,
-        output_folder: Optional[Path] = None,
-        chunks_folder: Optional[Path] = None,
         max_file_size_mb: int = 20,
         chunk_duration_minutes: int = 10,
         delay_between_requests: int = 21,
         recent_threshold_days: int = 180,
         openai_api_key: Optional[str] = None,
     ):
-        """Initialize configuration with optional custom paths."""
+        """Initialize configuration settings."""
 
         # API Configuration
         self.openai_api_key = openai_api_key or getattr(
@@ -54,26 +51,9 @@ class TranscriptionConfig:
         self.chunk_duration_minutes = chunk_duration_minutes
         self.audio_extensions = [".flac", ".wav", ".aac", ".m4a", ".mp3"]
 
-        # Directories (can be customized per instance)
-        self.input_folder = input_folder or Path("recordings")
-        self._output_folder = output_folder or Path("transcripts")
-        self._chunks_folder = chunks_folder or Path("audio_chunks")
-
         # API Settings
         self.delay_between_requests = delay_between_requests  # seconds
         self.recent_threshold_days = recent_threshold_days  # 6 months
-
-    @property
-    def output_folder(self) -> Path:
-        """Output folder for transcripts (created on first access)."""
-        self._output_folder.mkdir(parents=True, exist_ok=True)
-        return self._output_folder
-
-    @property
-    def chunks_folder(self) -> Path:
-        """Chunks folder for temporary audio files (created on first access)."""
-        self._chunks_folder.mkdir(parents=True, exist_ok=True)
-        return self._chunks_folder
 
 
 class CampaignContextService:
@@ -309,7 +289,6 @@ class AudioProcessingService:
     """Service for audio file processing and splitting."""
 
     def __init__(self, config: TranscriptionConfig):
-        """Initialize with configuration instance."""
         self.config = config
 
     @staticmethod
@@ -369,7 +348,6 @@ class TranscriptionService:
     """Main service for transcribing D&D audio files with campaign context."""
 
     def __init__(self, config: Optional[TranscriptionConfig] = None):
-        """Initialize with configuration instance."""
         self.config = config or TranscriptionConfig()
 
         if not self.config.openai_api_key:
@@ -382,41 +360,44 @@ class TranscriptionService:
         self.context_service = CampaignContextService(self.config)
         self.audio_service = AudioProcessingService(self.config)
 
-    # ========================================
-    # Public Interface Methods
-    # ========================================
-
-    def process_file_with_splitting(
+    def process_session_audio(
         self,
-        file_path: Path,
+        session_audio: SessionAudio,
         previous_transcript: str = "",
         session_notes: str = "",
-        log: Optional["GameLog"] = None,
     ) -> bool:
-        """Process a file, splitting it if necessary, and transcribe all chunks."""
-        import time
+        """Process a SessionAudio instance, split if needed, and save all results to the database."""
+        import tempfile
 
         start_time = time.time()
 
-        character_name = file_path.stem
-        file_size_mb = AudioProcessingService.get_file_size_mb(file_path)
+        character_name = (
+            getattr(session_audio, "original_filename", None)
+            or Path(session_audio.file.name).stem
+        )
 
-        # Check if already transcribed
-        final_output = self.config.output_folder / file_path.with_suffix(".json").name
-        if final_output.exists():
-            print(f"✅ Already transcribed: {file_path.name}")
-            return True
+        # Save the uploaded file to a temp file for processing
+        with tempfile.NamedTemporaryFile(
+            suffix=Path(session_audio.file.name).suffix, delete=False
+        ) as temp_file:
+            for chunk in session_audio.file.chunks():
+                temp_file.write(chunk)
+            temp_path = Path(temp_file.name)
+
+        file_size_mb = AudioProcessingService.get_file_size_mb(temp_path)
+
+        gamelog = session_audio.gamelog if hasattr(session_audio, "gamelog") else None
 
         # Create or get transcription session
-        session = self._get_or_create_session(log, session_notes)
+        session = self._get_or_create_session(gamelog, session_notes)
 
         # Split file if needed
-        chunk_paths = self.audio_service.split_audio_file(file_path, character_name)
+        chunk_paths = self.audio_service.split_audio_file(temp_path, character_name)
 
         if len(chunk_paths) == 1:
             # File wasn't split, transcribe directly and save
             whisper_response = self._call_whisper_api(
-                file_path,
+                temp_path,
                 character_name,
                 previous_transcript=previous_transcript,
                 session_notes=session_notes,
@@ -429,7 +410,7 @@ class TranscriptionService:
                 # Save to database
                 self._save_audio_transcript(
                     session=session,
-                    file_path=file_path,
+                    file_path=temp_path,
                     character_name=character_name,
                     file_size_mb=file_size_mb,
                     whisper_response=whisper_response,
@@ -438,10 +419,7 @@ class TranscriptionService:
                     processing_time=processing_time,
                 )
 
-                # Save JSON file for backup
-                return safe_save_json(
-                    whisper_response.raw_response, final_output, "transcript"
-                )
+                return True
             return False
         else:
             # File was split, transcribe chunks and save all outputs
@@ -459,7 +437,7 @@ class TranscriptionService:
                 # Save to database
                 audio_transcript = self._save_audio_transcript(
                     session=session,
-                    file_path=file_path,
+                    file_path=temp_path,
                     character_name=character_name,
                     file_size_mb=file_size_mb,
                     whisper_response=combined_transcript,
@@ -473,40 +451,9 @@ class TranscriptionService:
                     audio_transcript, combined_transcript, chunk_paths
                 )
 
-                # Save individual chunk transcripts (extracted from combined data)
-                chunk_transcripts = combined_transcript.get("chunks", [])
-                for i, (chunk_path, chunk_transcript) in enumerate(
-                    zip(chunk_paths, chunk_transcripts)
-                ):
-                    chunk_output = (
-                        self.config.output_folder / chunk_path.with_suffix(".json").name
-                    )
-                    safe_save_json(chunk_transcript, chunk_output, f"chunk transcript")
-
-                # Save combined transcript
-                return safe_save_json(
-                    combined_transcript, final_output, "combined transcript"
-                )
+                return True
 
             return False
-
-    def process_all_files(
-        self,
-        previous_transcript: str = "",
-        session_notes: str = "",
-        log: Optional[GameLog] = None,
-    ) -> int:
-        """Process all audio files in the input folder."""
-        processed_count = 0
-
-        for file in self.config.input_folder.iterdir():
-            if file.suffix.lower() in self.config.audio_extensions:
-                if self.process_file_with_splitting(
-                    file, previous_transcript, session_notes, log
-                ):
-                    processed_count += 1
-
-        return processed_count
 
     # ========================================
     # Database Operations
@@ -814,29 +761,11 @@ def transcribe_session_audio(
     session_audio: SessionAudio, session_notes: str = "", previous_transcript: str = ""
 ) -> bool:
     """
-    Process a SessionAudio instance using the existing transcription logic.
-    Saves the file to a temp path and calls process_file_with_splitting.
+    Process a SessionAudio instance using the model-driven transcription logic.
     """
-    import tempfile
-    from pathlib import Path
-
-    # Save the uploaded file to a temp file
-    with tempfile.NamedTemporaryFile(
-        suffix=Path(session_audio.file.name).suffix, delete=False
-    ) as temp_file:
-        for chunk in session_audio.file.chunks():
-            temp_file.write(chunk)
-        temp_path = Path(temp_file.name)
-
-    # Use the GameLog for context if available
-    gamelog = session_audio.gamelog if hasattr(session_audio, "gamelog") else None
-
-    # Call the main transcription service
     service = TranscriptionService()
-    result = service.process_file_with_splitting(
-        temp_path,
+    return service.process_session_audio(
+        session_audio,
         previous_transcript=previous_transcript,
         session_notes=session_notes,
-        log=gamelog,
     )
-    return result
