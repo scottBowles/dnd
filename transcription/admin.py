@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
 from django.utils.safestring import mark_safe
-from .models import TranscriptionSession, AudioTranscript, TranscriptChunk
+from .models import AudioTranscript, TranscriptChunk
 
 
 class TranscriptChunkInline(admin.TabularInline):
@@ -59,57 +59,6 @@ class AudioTranscriptInline(admin.TabularInline):
         return False  # Transcripts are created programmatically
 
 
-@admin.register(TranscriptionSession)
-class TranscriptionSessionAdmin(admin.ModelAdmin):
-    """Admin interface for transcription sessions."""
-
-    list_display = (
-        "id",
-        "log_title",
-        "transcript_count",
-        "total_duration",
-        "created",
-        "updated",
-    )
-    list_filter = ("created", "updated")
-    search_fields = ("notes", "log__title", "log__url")
-    readonly_fields = ("created", "updated", "transcript_count", "total_duration")
-
-    fieldsets = (
-        (None, {"fields": ("log", "notes")}),
-        (
-            "Metadata",
-            {
-                "fields": ("created", "updated", "transcript_count", "total_duration"),
-                "classes": ("collapse",),
-            },
-        ),
-    )
-
-    inlines = [AudioTranscriptInline]
-
-    @admin.display(description="GameLog", ordering="log__title")
-    def log_title(self, obj):
-        if obj.log:
-            return obj.log.title or obj.log.url
-        return "No GameLog"
-
-    @admin.display(description="Transcripts")
-    def transcript_count(self, obj):
-        return obj.transcripts.count()
-
-    @admin.display(description="Total Duration")
-    def total_duration(self, obj):
-        total = sum(t.duration_minutes or 0 for t in obj.transcripts.all())
-        if total > 0:
-            hours = int(total // 60)
-            minutes = int(total % 60)
-            if hours > 0:
-                return f"{hours}h {minutes}m"
-            return f"{minutes}m"
-        return "Unknown"
-
-
 @admin.register(AudioTranscript)
 class AudioTranscriptAdmin(admin.ModelAdmin):
     """Admin interface for audio transcripts."""
@@ -124,12 +73,11 @@ class AudioTranscriptAdmin(admin.ModelAdmin):
         "was_split",
         "created",
     )
-    list_filter = ("character_name", "was_split", "created", "session__log")
+    list_filter = ("character_name", "was_split", "created", "session_audio__gamelog")
     search_fields = (
         "character_name",
         "original_filename",
         "transcript_text",
-        "session__notes",
     )
     readonly_fields = (
         "created",
@@ -148,7 +96,6 @@ class AudioTranscriptAdmin(admin.ModelAdmin):
             "File Information",
             {
                 "fields": (
-                    "session",
                     "original_filename",
                     "character_name",
                     "file_size_mb",
@@ -181,12 +128,9 @@ class AudioTranscriptAdmin(admin.ModelAdmin):
 
     inlines = [TranscriptChunkInline]
 
-    @admin.display(description="Session")
+    @admin.display(description="Session Audio")
     def session_link(self, obj):
-        url = reverse(
-            "admin:transcription_transcriptionsession_change", args=[obj.session.pk]
-        )
-        return format_html('<a href="{}">{}</a>', url, str(obj.session))
+        return str(obj.session_audio)
 
     @admin.display(description="Duration", ordering="duration_minutes")
     def duration_display(self, obj):

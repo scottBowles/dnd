@@ -7,32 +7,13 @@ from django.db.models import JSONField
 from nucleus.models import BaseModel, GameLog
 
 
-class TranscriptionSession(BaseModel):
-    """Represents a transcription session for a D&D game."""
-
-    log = models.ForeignKey(
-        GameLog,
-        on_delete=models.CASCADE,
-        related_name="transcription_sessions",
-        null=True,
-        blank=True,
-    )
-    notes = models.TextField(blank=True)
-
-    class Meta:
-        ordering = ["-created"]
-
-    def __str__(self):
-        if self.log:
-            return f"Transcription for {self.log.title or self.log.url}"
-        return f"Transcription Session {self.id}"
-
-
 class AudioTranscript(BaseModel):
     """Stores transcript data for individual audio files."""
 
-    session = models.ForeignKey(
-        TranscriptionSession, on_delete=models.CASCADE, related_name="transcripts"
+    session_audio = models.ForeignKey(
+        "nucleus.SessionAudio",
+        on_delete=models.CASCADE,
+        related_name="audio_transcripts",
     )
 
     # File information

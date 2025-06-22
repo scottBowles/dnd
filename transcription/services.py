@@ -23,7 +23,7 @@ from nucleus.models import GameLog, SessionAudio
 from place.models import Place
 from race.models import Race
 
-from .models import TranscriptionSession, AudioTranscript, TranscriptChunk
+from .models import AudioTranscript, TranscriptChunk
 from .responses import WhisperResponse
 from .utils import ordinal, safe_save_json
 
@@ -386,11 +386,6 @@ class TranscriptionService:
 
         file_size_mb = AudioProcessingService.get_file_size_mb(temp_path)
 
-        gamelog = session_audio.gamelog if hasattr(session_audio, "gamelog") else None
-
-        # Create or get transcription session
-        session = self._get_or_create_session(gamelog, session_notes)
-
         # Split file if needed
         chunk_paths = self.audio_service.split_audio_file(temp_path, character_name)
 
@@ -409,7 +404,7 @@ class TranscriptionService:
 
                 # Save to database
                 self._save_audio_transcript(
-                    session=session,
+                    session_audio=session_audio,
                     file_path=temp_path,
                     character_name=character_name,
                     file_size_mb=file_size_mb,
@@ -436,7 +431,7 @@ class TranscriptionService:
 
                 # Save to database
                 audio_transcript = self._save_audio_transcript(
-                    session=session,
+                    session_audio=session_audio,
                     file_path=temp_path,
                     character_name=character_name,
                     file_size_mb=file_size_mb,
@@ -459,22 +454,9 @@ class TranscriptionService:
     # Database Operations
     # ========================================
 
-    def _get_or_create_session(
-        self, log: Optional[GameLog] = None, session_notes: str = ""
-    ) -> TranscriptionSession:
-        """Get or create a transcription session."""
-        session, created = TranscriptionSession.objects.get_or_create(
-            log=log, defaults={"notes": session_notes}
-        )
-        if created:
-            print(f"✅ Created transcription session: {session}")
-        else:
-            print(f"✅ Using existing transcription session: {session}")
-        return session
-
     def _save_audio_transcript(
         self,
-        session: TranscriptionSession,
+        session_audio: SessionAudio,
         file_path: Path,
         character_name: str,
         file_size_mb: float,
@@ -507,7 +489,7 @@ class TranscriptionService:
                 duration_minutes = last_segment.get("end", 0) / 60
 
         audio_transcript = AudioTranscript.objects.create(
-            session=session,
+            session_audio=session_audio,
             original_filename=file_path.name,
             character_name=character_name,
             file_size_mb=file_size_mb,
