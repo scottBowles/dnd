@@ -4,7 +4,7 @@ Models for storing transcription data and metadata.
 
 from django.db import models
 from django.db.models import JSONField
-from nucleus.models import BaseModel, GameLog
+from nucleus.models import BaseModel
 
 
 class AudioTranscript(BaseModel):
