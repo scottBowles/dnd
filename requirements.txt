@@ -3,6 +3,7 @@ algoliasearch-django==3.0.0
 anyio==3.6.2
 asgiref==3.6.0
 black==23.1.0
+boto3==1.38.37
 cachetools==5.3.0
 certifi==2022.12.7
 charset-normalizer==3.1.0
@@ -13,6 +14,7 @@ django-choices-field==2.1.1
 django-cors-headers==3.14.0
 django-extensions==3.2.1
 django_debug_toolbar==3.8.1
+django-storages==1.14.6
 google-api-core==2.11.0
 google-api-python-client==2.85.0
 google-auth==2.16.2
