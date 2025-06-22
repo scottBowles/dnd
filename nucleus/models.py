@@ -189,7 +189,7 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
             # Default last_game_log to the most recently created GameLog (excluding self)
             if not self.last_game_log:
                 latest_log = (
-                    GameLog.objects.exclude(pk=self.pk).order_by("-created").first()
+                    GameLog.objects.exclude(pk=self.pk).order_by("-game_date").first()
                 )
                 if latest_log:
                     self.last_game_log = latest_log
