@@ -21,9 +21,6 @@ class TranscriptionServiceTests(TestCase):
         self.temp_dir = tempfile.mkdtemp()
         self.temp_path = Path(self.temp_dir)
         self.config = TranscriptionConfig(
-            input_folder=self.temp_path / "input",
-            output_folder=self.temp_path / "output",
-            chunks_folder=self.temp_path / "chunks",
             openai_api_key="test_key",
         )
 
@@ -133,16 +130,18 @@ class TranscriptionServiceTests(TestCase):
         service.context_service.get_formatted_context.return_value = "Test context"
 
         # Create test audio file
-        test_file = self.config.input_folder / "test.mp3"
-        test_file.parent.mkdir(parents=True, exist_ok=True)
-        test_file.write_text("fake audio content")
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as test_file:
+            test_file.write(b"fake audio content")
+            test_file_path = Path(test_file.name)
 
         # Mock OpenAI response
         mock_response = {"text": "Test transcription", "segments": []}
         mock_openai.Audio.transcribe.return_value = mock_response
 
         with patch("builtins.open", mock_open(read_data=b"fake audio")):
-            result = service._call_whisper_api(test_file, "TestPlayer")
+            result = service._call_whisper_api(test_file_path, "TestPlayer")
 
         # Should return a WhisperResponse object
         self.assertIsNotNone(result)
@@ -160,15 +159,17 @@ class TranscriptionServiceTests(TestCase):
         service.context_service.get_formatted_context.return_value = "Test context"
 
         # Create test audio file
-        test_file = self.config.input_folder / "test.mp3"
-        test_file.parent.mkdir(parents=True, exist_ok=True)
-        test_file.write_text("fake audio content")
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as test_file:
+            test_file.write(b"fake audio content")
+            test_file_path = Path(test_file.name)
 
         # Mock OpenAI exception
         mock_openai.Audio.transcribe.side_effect = Exception("API Error")
 
         with patch("builtins.open", mock_open(read_data=b"fake audio")):
-            result = service._call_whisper_api(test_file, "TestPlayer")
+            result = service._call_whisper_api(test_file_path, "TestPlayer")
 
         self.assertIsNone(result)
 
@@ -243,99 +244,14 @@ class TranscriptionServiceTests(TestCase):
         self.assertIn("segments", result)
 
     @patch("transcription.services.openai")
-    def test_process_all_files(self, mock_openai):
-        """Test processing all files in input folder."""
-        service = TranscriptionService(self.config)
-        service.context_service = Mock()
-        service.context_service.get_campaign_context.return_value = {
-            "characters": [],
-            "places": [],
-            "races": [],
-            "items": [],
-            "associations": [],
-        }
-        service.context_service.get_formatted_context.return_value = ""
-
-        # Create test audio files
-        self.config.input_folder.mkdir(parents=True, exist_ok=True)
-        test_files = [
-            self.config.input_folder / "player1.mp3",
-            self.config.input_folder / "player2.flac",
-            self.config.input_folder / "notes.txt",  # Should be ignored
-        ]
-
-        for file in test_files:
-            file.write_text("content")
-
-        # Mock audio service
-        service.audio_service = Mock()
-        service.audio_service.split_audio_file.return_value = [
-            test_files[0]
-        ]  # Return same file
-
-        # Mock successful transcription
-        mock_response = {"text": "Test transcription"}
-        mock_openai.Audio.transcribe.return_value = mock_response
-
-        with patch("builtins.open", mock_open(read_data=b"fake audio")):
-            processed_count = service.process_all_files()
-
-        # Should process 2 audio files, ignore 1 text file
-        self.assertEqual(processed_count, 2)
-
-    @patch("transcription.services.openai")
-    def test_process_all_files_with_empty_directory(self, mock_openai):
-        """Test process_all_files with no audio files in directory."""
-        service = TranscriptionService(self.config)
-
-        # Create empty input directory
-        self.config.input_folder.mkdir(parents=True, exist_ok=True)
-
-        result = service.process_all_files()
-
-        self.assertEqual(result, 0)
-        mock_openai.Audio.transcribe.assert_not_called()
-
-    @patch("transcription.services.openai")
-    def test_process_all_files_with_only_non_audio_files(self, mock_openai):
-        """Test process_all_files with only non-audio files."""
-        service = TranscriptionService(self.config)
-
-        # Create directory with non-audio files
-        self.config.input_folder.mkdir(parents=True, exist_ok=True)
-        (self.config.input_folder / "notes.txt").write_text("notes")
-        (self.config.input_folder / "image.jpg").write_text("fake image")
-        (self.config.input_folder / "document.pdf").write_text("fake pdf")
-
-        result = service.process_all_files()
-
-        self.assertEqual(result, 0)
-        mock_openai.Audio.transcribe.assert_not_called()
-
-    @patch("transcription.services.openai")
-    def test_audio_processing_with_invalid_file(self, mock_openai):
-        """Test audio processing with file that doesn't exist."""
-        service = TranscriptionService(self.config)
-
-        # Try to process non-existent file
-        non_existent_file = self.config.input_folder / "does_not_exist.mp3"
-
-        result = service.process_file_with_splitting(non_existent_file)
-
-        # Should handle gracefully without crashing
-        self.assertFalse(result)
-
-    @patch("transcription.services.openai")
     def test_service_instances_use_correct_config(self, mock_openai):
         """Test that service instances use their assigned config."""
         config1 = TranscriptionConfig(
-            output_folder=self.temp_path / "service1_output",
             recent_threshold_days=30,
             openai_api_key="key1",
         )
 
         config2 = TranscriptionConfig(
-            output_folder=self.temp_path / "service2_output",
             recent_threshold_days=90,
             openai_api_key="key2",
         )
@@ -344,8 +260,6 @@ class TranscriptionServiceTests(TestCase):
         service2 = TranscriptionService(config2)
 
         # Verify services use correct configs
-        self.assertEqual(service1.config.output_folder, config1.output_folder)
-        self.assertEqual(service2.config.output_folder, config2.output_folder)
         self.assertEqual(service1.config.recent_threshold_days, 30)
         self.assertEqual(service2.config.recent_threshold_days, 90)
 

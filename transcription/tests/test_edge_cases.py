@@ -25,34 +25,11 @@ class ErrorHandlingTests(TestCase):
         self.temp_dir = tempfile.mkdtemp()
         self.temp_path = Path(self.temp_dir)
         self.config = TranscriptionConfig(
-            input_folder=self.temp_path / "input",
-            output_folder=self.temp_path / "output",
-            chunks_folder=self.temp_path / "chunks",
             openai_api_key="test_key",
         )
 
     def tearDown(self):
         shutil.rmtree(self.temp_dir, ignore_errors=True)
-
-    def test_config_directory_creation_permission_error(self):
-        """Test config behavior when directory creation fails."""
-        # Create a file where we want to create a directory
-        conflicting_file = self.temp_path / "conflict"
-        conflicting_file.write_text("blocking file")
-
-        config = TranscriptionConfig(
-            output_folder=conflicting_file,  # This will conflict
-            chunks_folder=self.temp_path / "chunks",
-        )
-
-        # Directory creation should handle the error gracefully
-        # (The property will try to create but may fail)
-        try:
-            _ = config.output_folder
-            # If it doesn't raise an exception, that's fine too
-        except Exception:
-            # Expected behavior - should handle gracefully
-            pass
 
 
 class EdgeCaseTests(TestCase):
@@ -62,9 +39,6 @@ class EdgeCaseTests(TestCase):
         self.temp_dir = tempfile.mkdtemp()
         self.temp_path = Path(self.temp_dir)
         self.config = TranscriptionConfig(
-            input_folder=self.temp_path / "input",
-            output_folder=self.temp_path / "output",
-            chunks_folder=self.temp_path / "chunks",
             openai_api_key="test_key",
         )
 
@@ -190,41 +164,6 @@ class RegressionTests(TestCase):
     def tearDown(self):
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    def test_config_directory_lazy_creation(self):
-        """Test that directories are created lazily on first access."""
-        config = TranscriptionConfig(
-            output_folder=self.temp_path / "lazy_output",
-            chunks_folder=self.temp_path / "lazy_chunks",
-        )
-
-        # Directories should not exist yet
-        self.assertFalse((self.temp_path / "lazy_output").exists())
-        self.assertFalse((self.temp_path / "lazy_chunks").exists())
-
-        # Access should create them
-        _ = config.output_folder
-        _ = config.chunks_folder
-
-        self.assertTrue((self.temp_path / "lazy_output").exists())
-        self.assertTrue((self.temp_path / "lazy_chunks").exists())
-
-    @patch("transcription.services.openai")
-    def test_no_duplicate_directory_setup_calls(self, mock_openai):
-        """Test that directory setup is not called redundantly."""
-        config = TranscriptionConfig(
-            output_folder=self.temp_path / "test_output",
-            chunks_folder=self.temp_path / "test_chunks",
-            openai_api_key="test_key",
-        )
-
-        # Multiple service instantiations should not cause issues
-        service1 = TranscriptionService(config)
-        service2 = TranscriptionService(config)
-
-        # Both should work fine
-        self.assertEqual(service1.config, config)
-        self.assertEqual(service2.config, config)
-
     @patch("transcription.services.openai")
     def test_context_service_uses_consistent_api(self, mock_openai):
         """Test that context service uses the new API consistently."""
@@ -255,26 +194,11 @@ class IntegrationTests(TestCase):
 
     def test_multiple_config_instances_independence(self):
         """Test that multiple config instances don't interfere with each other."""
-        config1 = TranscriptionConfig(
-            input_folder=self.temp_path / "config1_input",
-            output_folder=self.temp_path / "config1_output",
-            max_file_size_mb=10,
-        )
-
-        config2 = TranscriptionConfig(
-            input_folder=self.temp_path / "config2_input",
-            output_folder=self.temp_path / "config2_output",
-            max_file_size_mb=25,
-        )
+        config1 = TranscriptionConfig(max_file_size_mb=10)
+        config2 = TranscriptionConfig(max_file_size_mb=25)
 
         # Verify configs are independent
-        self.assertNotEqual(config1.input_folder, config2.input_folder)
-        self.assertNotEqual(config1.output_folder, config2.output_folder)
         self.assertNotEqual(config1.max_file_size_mb, config2.max_file_size_mb)
-
-        # Verify both directories were created
-        self.assertTrue(config1.output_folder.exists())
-        self.assertTrue(config2.output_folder.exists())
 
     def test_no_shared_state_between_instances(self):
         """Test that modifying one config doesn't affect another."""
@@ -292,13 +216,11 @@ class IntegrationTests(TestCase):
     def test_service_instances_use_correct_config(self, mock_openai):
         """Test that service instances use their assigned config."""
         config1 = TranscriptionConfig(
-            output_folder=self.temp_path / "service1_output",
             recent_threshold_days=30,
             openai_api_key="key1",
         )
 
         config2 = TranscriptionConfig(
-            output_folder=self.temp_path / "service2_output",
             recent_threshold_days=90,
             openai_api_key="key2",
         )
@@ -307,8 +229,6 @@ class IntegrationTests(TestCase):
         service2 = TranscriptionService(config2)
 
         # Verify services use correct configs
-        self.assertEqual(service1.config.output_folder, config1.output_folder)
-        self.assertEqual(service2.config.output_folder, config2.output_folder)
         self.assertEqual(service1.config.recent_threshold_days, 30)
         self.assertEqual(service2.config.recent_threshold_days, 90)
 

@@ -2,198 +2,122 @@
 Tests for file processing and splitting functionality.
 """
 
-import tempfile
-import shutil
-from pathlib import Path
-from unittest.mock import Mock, mock_open, patch
+from unittest.mock import Mock, patch
 
 from django.test import TestCase
 
+from nucleus.models import GameLog, SessionAudio
+from transcription.models import AudioTranscript
 from transcription.services import TranscriptionConfig, TranscriptionService
 
 
-class ProcessFileWithSplittingTests(TestCase):
-    """Test the main public API method process_file_with_splitting()"""
+class ProcessSessionAudioTests(TestCase):
+    """Test the model-driven process_session_audio() API."""
 
     def setUp(self):
-        self.temp_dir = tempfile.mkdtemp()
-        self.temp_path = Path(self.temp_dir)
-        self.config = TranscriptionConfig(
-            input_folder=self.temp_path / "input",
-            output_folder=self.temp_path / "output",
-            chunks_folder=self.temp_path / "chunks",
-            openai_api_key="test_key",
-            max_file_size_mb=1,  # Small for testing splits
+        patcher = patch("nucleus.models.GameLog.update_from_google")
+        self.addCleanup(patcher.stop)
+        self.mock_update_from_google = patcher.start()
+        self.gamelog = GameLog.objects.create(title="Test Session", url="test-session")
+        self.session_audio = SessionAudio.objects.create(
+            gamelog=self.gamelog,
+            original_filename="test_player.mp3",
+            file="audio/test_player.mp3",
         )
 
-    def tearDown(self):
-        shutil.rmtree(self.temp_dir, ignore_errors=True)
-
     @patch("transcription.services.openai")
-    def test_process_file_already_exists(self, mock_openai):
-        """Test that already transcribed files are skipped."""
-        service = TranscriptionService(self.config)
-
-        # Create input file
-        test_file = self.config.input_folder / "test_player.mp3"
-        test_file.parent.mkdir(parents=True, exist_ok=True)
-        test_file.write_text("fake audio content")
-
-        # Create existing output file
-        output_file = self.config.output_folder / "test_player.json"
-        output_file.parent.mkdir(parents=True, exist_ok=True)
-        output_file.write_text('{"text": "existing transcript"}')
-
-        result = service.process_file_with_splitting(test_file)
-
-        self.assertTrue(result)
-        mock_openai.Audio.transcribe.assert_not_called()
-
-    @patch("transcription.services.openai")
-    def test_process_file_single_file_success(self, mock_openai):
-        """Test successful processing of a single file (no splitting)."""
-        service = TranscriptionService(self.config)
+    def test_process_session_audio_success(self, mock_openai):
+        """Test successful processing of a SessionAudio (no splitting)."""
+        service = TranscriptionService()
         service.context_service = Mock()
-        service.context_service.get_campaign_context.return_value = {
-            "characters": [],
-            "places": [],
-            "races": [],
-            "items": [],
-            "associations": [],
-        }
+        service.context_service.get_campaign_context.return_value = {}
         service.context_service.get_formatted_context.return_value = "Test context"
 
-        # Create small input file (won't be split)
-        test_file = self.config.input_folder / "test_player.mp3"
-        test_file.parent.mkdir(parents=True, exist_ok=True)
-        test_file.write_text("small audio content")  # Small file
+        # Mock file chunks and OpenAI response
+        self.session_audio.file.chunks = Mock(return_value=[b"audio data"])
+        mock_openai.Audio.transcribe.return_value = {
+            "text": "Test transcription",
+            "segments": [],
+        }
 
-        # Mock successful API response
-        mock_response = {"text": "Test transcription", "segments": []}
-        mock_openai.Audio.transcribe.return_value = mock_response
-
-        with patch("builtins.open", mock_open(read_data=b"fake audio")):
-            result = service.process_file_with_splitting(test_file, "previous", "notes")
-
+        result = service.process_session_audio(self.session_audio, "previous", "notes")
         self.assertTrue(result)
         mock_openai.Audio.transcribe.assert_called_once()
-
-        # Verify output file was created
-        output_file = self.config.output_folder / "test_player.json"
-        self.assertTrue(output_file.exists())
+        transcript = AudioTranscript.objects.get(session_audio=self.session_audio)
+        self.assertEqual(transcript.transcript_text, "Test transcription")
 
     @patch("transcription.services.openai")
-    def test_process_file_single_file_api_failure(self, mock_openai):
-        """Test handling of API failure for single file."""
-        service = TranscriptionService(self.config)
+    def test_process_session_audio_api_failure(self, mock_openai):
+        """Test handling of API failure for SessionAudio."""
+        service = TranscriptionService()
         service.context_service = Mock()
         service.context_service.get_formatted_context.return_value = "Test context"
-
-        test_file = self.config.input_folder / "test_player.mp3"
-        test_file.parent.mkdir(parents=True, exist_ok=True)
-        test_file.write_text("small audio content")
-
-        # Mock API failure
+        self.session_audio.file.chunks = Mock(return_value=[b"audio data"])
         mock_openai.Audio.transcribe.side_effect = Exception("API Error")
-
-        with patch("builtins.open", mock_open(read_data=b"fake audio")):
-            result = service.process_file_with_splitting(test_file)
-
+        result = service.process_session_audio(self.session_audio)
         self.assertFalse(result)
+        self.assertFalse(
+            AudioTranscript.objects.filter(session_audio=self.session_audio).exists()
+        )
 
-    @patch("transcription.services.time.sleep")  # Mock sleep to speed up tests
+    @patch("transcription.services.time.sleep")
     @patch("transcription.services.openai")
-    @patch("transcription.services.AudioSegment")
-    def test_process_file_with_splitting_success(
-        self, mock_audio_segment, mock_openai, mock_sleep
-    ):
-        """Test successful processing of file that needs splitting."""
-        service = TranscriptionService(self.config)
+    def test_process_session_audio_with_splitting(self, mock_openai, mock_sleep):
+        """Test processing of SessionAudio that needs splitting."""
+        import tempfile
+        from pathlib import Path
+        service = TranscriptionService()
         service.context_service = Mock()
-        service.context_service.get_campaign_context.return_value = {
-            "characters": [],
-            "places": [],
-            "races": [],
-            "items": [],
-            "associations": [],
-        }
+        service.context_service.get_campaign_context.return_value = {}
         service.context_service.get_formatted_context.return_value = "Test context"
-
-        # Create large file that will be split
-        test_file = self.config.input_folder / "large_player.mp3"
-        test_file.parent.mkdir(parents=True, exist_ok=True)
-        large_content = "x" * (2 * 1024 * 1024)  # 2MB
-        test_file.write_bytes(large_content.encode())
-
-        # Mock audio splitting
-        chunk1 = self.config.chunks_folder / "large_player_chunk_01.mp3"
-        chunk2 = self.config.chunks_folder / "large_player_chunk_02.mp3"
-        chunk1.parent.mkdir(parents=True, exist_ok=True)
-        chunk1.write_text("chunk1 content")
-        chunk2.write_text("chunk2 content")
-
-        # Mock audio service to return chunks
+        # Mock file chunks
+        self.session_audio.file.chunks = Mock(return_value=[b"audio data"])
+        # Create real temp files for chunk mocks
+        temp_chunk1 = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+        temp_chunk1.write(b"chunk1 data")
+        temp_chunk1.flush()
+        temp_chunk1_path = Path(temp_chunk1.name)
+        temp_chunk1.close()
+        temp_chunk2 = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+        temp_chunk2.write(b"chunk2 data")
+        temp_chunk2.flush()
+        temp_chunk2_path = Path(temp_chunk2.name)
+        temp_chunk2.close()
         service.audio_service = Mock()
-        service.audio_service.split_audio_file.return_value = [chunk1, chunk2]
-
-        # Mock successful API responses for chunks
-        mock_responses = [
-            {"text": "Chunk 1 transcription", "segments": []},
-            {"text": "Chunk 2 transcription", "segments": []},
-        ]
-        mock_openai.Audio.transcribe.side_effect = mock_responses
-
-        with patch("builtins.open", mock_open(read_data=b"fake audio")):
-            result = service.process_file_with_splitting(
-                test_file, "previous transcript", "session notes"
-            )
-
-        self.assertTrue(result)
-        self.assertEqual(mock_openai.Audio.transcribe.call_count, 2)
-
-        # Verify combined output file was created
-        output_file = self.config.output_folder / "large_player.json"
-        self.assertTrue(output_file.exists())
-
-    @patch("transcription.services.time.sleep")  # Mock sleep to speed up tests
-    @patch("transcription.services.openai")
-    def test_process_file_with_splitting_partial_failure(self, mock_openai, mock_sleep):
-        """Test handling when some chunks fail during splitting."""
-        service = TranscriptionService(self.config)
-        service.context_service = Mock()
-        service.context_service.get_campaign_context.return_value = {
-            "characters": [],
-            "places": [],
-            "races": [],
-            "items": [],
-            "associations": [],
-        }
-        service.context_service.get_formatted_context.return_value = "Test context"
-
-        test_file = self.config.input_folder / "large_player.mp3"
-        test_file.parent.mkdir(parents=True, exist_ok=True)
-        large_content = "x" * (2 * 1024 * 1024)  # 2MB
-        test_file.write_bytes(large_content.encode())
-
-        # Mock chunks
-        chunk1 = self.config.chunks_folder / "large_player_chunk_01.mp3"
-        chunk2 = self.config.chunks_folder / "large_player_chunk_02.mp3"
-        chunk1.parent.mkdir(parents=True, exist_ok=True)
-        chunk1.write_text("chunk1 content")
-        chunk2.write_text("chunk2 content")
-
-        service.audio_service = Mock()
-        service.audio_service.split_audio_file.return_value = [chunk1, chunk2]
-
-        # Mock API failure for second chunk
+        service.audio_service.split_audio_file.return_value = [temp_chunk1_path, temp_chunk2_path]
+        # Mock OpenAI responses for chunks
         mock_openai.Audio.transcribe.side_effect = [
-            {"text": "Chunk 1 transcription", "segments": []},
+            {"text": "Chunk 1 transcription", "segments": [{"end": 60}]},
+            {"text": "Chunk 2 transcription", "segments": [{"end": 120}]},
+        ]
+        result = service.process_session_audio(self.session_audio, "previous", "notes")
+        self.assertTrue(result)
+        transcript = AudioTranscript.objects.get(session_audio=self.session_audio)
+        self.assertTrue(transcript.was_split)
+        self.assertEqual(transcript.num_chunks, 2)
+        self.assertIn("Chunk 1 transcription", transcript.transcript_text)
+        self.assertIn("Chunk 2 transcription", transcript.transcript_text)
+        # Clean up temp files
+        temp_chunk1_path.unlink()
+        temp_chunk2_path.unlink()
+
+    @patch("transcription.services.time.sleep")
+    @patch("transcription.services.openai")
+    def test_process_session_audio_partial_failure(self, mock_openai, mock_sleep):
+        """Test handling when some chunks fail during splitting."""
+        service = TranscriptionService()
+        service.context_service = Mock()
+        service.context_service.get_campaign_context.return_value = {}
+        service.context_service.get_formatted_context.return_value = "Test context"
+        self.session_audio.file.chunks = Mock(return_value=[b"audio data"])
+        chunk1 = Mock(name="chunk1", name_attr="chunk1.mp3")
+        chunk2 = Mock(name="chunk2", name_attr="chunk2.mp3")
+        service.audio_service = Mock()
+        service.audio_service.split_audio_file.return_value = [chunk1, chunk2]
+        mock_openai.Audio.transcribe.side_effect = [
+            {"text": "Chunk 1 transcription", "segments": [{"end": 60}]},
             Exception("API Error for chunk 2"),
         ]
-
-        with patch("builtins.open", mock_open(read_data=b"fake audio")):
-            result = service.process_file_with_splitting(test_file)
-
-        self.assertTrue(
-            result
-        )  # Should succeed with partial results (at least one chunk succeeded)
+        result = service.process_session_audio(self.session_audio)
+        self.assertFalse(result)
+        self.assertFalse(AudioTranscript.objects.filter(session_audio=self.session_audio).exists())

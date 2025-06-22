@@ -19,7 +19,6 @@ class AudioProcessingServiceTests(TestCase):
         self.temp_dir = tempfile.mkdtemp()
         self.temp_path = Path(self.temp_dir)
         self.config = TranscriptionConfig(
-            chunks_folder=self.temp_path / "chunks",
             max_file_size_mb=1,  # Small for testing
             chunk_duration_minutes=1,
         )
@@ -73,7 +72,7 @@ class AudioProcessingServiceTests(TestCase):
         test_file.write_bytes(large_content.encode())
 
         # Ensure chunks folder exists
-        self.config.chunks_folder.mkdir(parents=True, exist_ok=True)
+        self.temp_path.mkdir(parents=True, exist_ok=True)
 
         # Mock audio processing
         mock_audio = Mock()
