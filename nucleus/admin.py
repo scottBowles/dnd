@@ -60,17 +60,17 @@ class GameLogAdmin(admin.ModelAdmin):
         urls = super().get_urls()
         custom_urls = [
             path(
-                "<path:object_id>/transcribe-audio-files/",
+                "<int:object_id>/transcribe-audio-files/",
                 self.admin_site.admin_view(self.transcribe_audio_files_detail_view),
                 name="nucleus_gamelog_transcribe_audio_files_detail",
             ),
             path(
-                "<path:object_id>/generate-session-log-concat/",
+                "<int:object_id>/generate-session-log-concat/",
                 self.admin_site.admin_view(self.generate_session_log_concat_view),
                 name="nucleus_gamelog_generate_session_log_concat",
             ),
             path(
-                "<path:object_id>/generate-session-log-segment/",
+                "<int:object_id>/generate-session-log-segment/",
                 self.admin_site.admin_view(self.generate_session_log_segment_view),
                 name="nucleus_gamelog_generate_session_log_segment",
             ),

@@ -1,17 +1,25 @@
 {% extends "admin/change_form.html" %} {% load static %} {% block object-tools %} {{ block.super }}
-<form method="post" action="transcribe-audio-files/" style="display: inline; margin-right: 8px">
+<form
+    method="post"
+    action="{% url 'admin:nucleus_gamelog_transcribe_audio_files_detail' original.pk %}"
+    style="display: inline; margin-right: 8px"
+>
     {% csrf_token %}
     <input type="submit" class="button" value="Transcribe Audio Files" />
 </form>
 <form
     method="post"
-    action="generate-session-log-concat/"
+    action="{% url 'admin:nucleus_gamelog_generate_session_log_concat' original.pk %}"
     style="display: inline; margin-right: 8px"
 >
     {% csrf_token %}
     <input type="submit" class="button" value="Generate Session Log (Concat)" />
 </form>
-<form method="post" action="generate-session-log-segment/" style="display: inline">
+<form
+    method="post"
+    action="{% url 'admin:nucleus_gamelog_generate_session_log_segment' original.pk %}"
+    style="display: inline"
+>
     {% csrf_token %}
     <input type="submit" class="button" value="Generate Session Log (Segment)" />
 </form>
