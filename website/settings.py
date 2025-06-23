@@ -86,6 +86,8 @@ INSTALLED_APPS = [
     "race",
     "scientia",
     "nucleus",
+    "transcription",
+    "storages",
 ]
 
 MIDDLEWARE = [
@@ -187,8 +189,7 @@ STATIC_URL = "/static/"
 
 if not DEBUG:
     STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-    # STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-    STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
+    STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -235,3 +236,17 @@ GQL_AUTH = GqlAuthSettings(
     LOGIN_REQUIRE_CAPTCHA=False,
     REGISTER_REQUIRE_CAPTCHA=False,
 )
+
+# Cloudflare R2 Storage (django-storages S3Boto3)
+DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+AWS_ACCESS_KEY_ID = os.environ.get("CLOUDFLARE_R2_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.environ.get("CLOUDFLARE_R2_SECRET_ACCESS_KEY")
+AWS_STORAGE_BUCKET_NAME = os.environ.get("CLOUDFLARE_R2_BUCKET_NAME")
+AWS_S3_ENDPOINT_URL = (
+    f"https://{os.environ.get('CLOUDFLARE_R2_ACCOUNT_ID')}.r2.cloudflarestorage.com"
+)
+AWS_S3_REGION_NAME = "auto"
+AWS_S3_SIGNATURE_VERSION = "s3v4"
+AWS_S3_ADDRESSING_STYLE = "virtual"
+AWS_DEFAULT_ACL = None
+AWS_S3_FILE_OVERWRITE = False
