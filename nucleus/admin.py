@@ -41,7 +41,6 @@ class GameLogAdmin(admin.ModelAdmin):
         "last_game_log",
     )
     readonly_fields = (
-        "url",
         "copy_text_for_summary",
         "copy_text_for_ai_suggestions",
         "copy_text_for_ai_titles",
