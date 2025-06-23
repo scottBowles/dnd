@@ -758,6 +758,15 @@ class TranscriptionService:
         """
         from transcription.models import AudioTranscript
 
+        # Get the previous GameLog by game_date (excluding this one)
+        previous_log = gamelog.get_previous_log()
+        example_section = ""
+        if previous_log and previous_log.log_text and previous_log.log_text.strip():
+            example_section = (
+                "\n\nThe following is the log from the previous session. Please use a similar style and maintain narrative continuity in the new session log.\n"
+                f"Previous session log:\n{previous_log.log_text}\n"
+            )
+
         transcripts = AudioTranscript.objects.filter(
             session_audio__gamelog=gamelog
         ).order_by("session_audio__id")
@@ -784,6 +793,7 @@ You are a Dungeons & Dragons session chronicler. Given the following raw transcr
 - Do not summarize or embellish. Give the session log in full, as it is in the transcripts.
 - The main players and characters are as follows: Greg is the DM; Noel plays Izar; Scott plays Ego aka Carlos; MJ aka Michael plays Hrothulf; Wes plays Darnit; Joel plays Dorinda.
 {notes_section}
+{example_section}
 Raw transcripts:
 {combined}
 
@@ -797,6 +807,15 @@ Session log:
         Generate the LLM prompt using the segment-based, time-ordered approach.
         """
         from transcription.models import AudioTranscript
+
+        # Get the previous GameLog by game_date (excluding this one)
+        previous_log = gamelog.get_previous_log()
+        example_section = ""
+        if previous_log and previous_log.log_text and previous_log.log_text.strip():
+            example_section = (
+                "\n\nThe following is the log from the previous session. Please use a similar style and maintain narrative continuity in the new session log.\n"
+                f"Previous session log:\n{previous_log.log_text}\n"
+            )
 
         transcripts = AudioTranscript.objects.filter(session_audio__gamelog=gamelog)
         if not transcripts.exists():
@@ -842,6 +861,7 @@ You are a Dungeons & Dragons session chronicler. Given the following time-ordere
 - Do not summarize or embellish. Give the session log in full, as it is in the transcripts.
 - The main players and characters are as follows: Greg is the DM; Noel plays Izar; Scott plays Ego aka Carlos; MJ aka Michael plays Hrothulf; Wes plays Darnit; Joel plays Dorinda.
 {notes_section}
+{example_section}
 Time-ordered transcript segments:
 {combined}
 

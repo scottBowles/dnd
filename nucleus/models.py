@@ -362,6 +362,21 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
             print(e)
             raise Exception(f"Could not parse json: {json_res}")
 
+    def get_previous_log(self):
+        """
+        Returns the previous GameLog by game_date, or None if not found.
+        """
+        try:
+            return (
+                GameLog.objects.filter(
+                    game_date__isnull=False, game_date__lt=self.game_date
+                )
+                .exclude(pk=self.pk)
+                .latest("game_date")
+            )
+        except GameLog.DoesNotExist:
+            return None
+
 
 class CombinedAiLogSuggestion:
     def __init__(self, log):
