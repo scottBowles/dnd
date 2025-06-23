@@ -4,6 +4,9 @@ Contains classes for validating and parsing responses from external services.
 """
 
 from typing import Any, Dict, List
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class WhisperResponse:
@@ -76,7 +79,7 @@ class WhisperResponse:
         # Filter out malformed segments and warn if any are found
         valid_segments = []
         malformed_count = 0
-        
+
         for segment in segments:
             if (
                 isinstance(segment, dict)
@@ -90,8 +93,10 @@ class WhisperResponse:
 
         # Warn about malformed segments
         if malformed_count > 0:
-            print(f"⚠️  Warning: {malformed_count} malformed segment(s) detected in Whisper response. "
-                  f"Using {len(valid_segments)} valid segments. Consider retrying for complete segment data.")
+            logger.warning(
+                f"WhisperResponse: {malformed_count} malformed segment(s) detected in response. "
+                f"Using {len(valid_segments)} valid segments. Consider retrying for complete segment data."
+            )
 
         return valid_segments
 
