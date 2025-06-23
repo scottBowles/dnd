@@ -210,9 +210,7 @@ class GameLogAdmin(admin.ModelAdmin):
         self._transcribe_audio_files_for_gamelogs(request, queryset)
 
     def transcribe_audio_files_detail_view(self, request, object_id):
-        print("object_id", object_id)
         gamelog = self.get_object(request, object_id)
-        print("gamelog", gamelog)
         if not gamelog:
             messages.error(request, "GameLog not found.")
             return redirect("..")
