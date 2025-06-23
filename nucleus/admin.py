@@ -60,6 +60,11 @@ class GameLogAdmin(admin.ModelAdmin):
         urls = super().get_urls()
         custom_urls = [
             path(
+                "<path:object_id>/transcribe-audio-files/",
+                self.admin_site.admin_view(self.transcribe_audio_files_detail_view),
+                name="nucleus_gamelog_transcribe_audio_files_detail",
+            ),
+            path(
                 "<path:object_id>/generate-session-log-concat/",
                 self.admin_site.admin_view(self.generate_session_log_concat_view),
                 name="nucleus_gamelog_generate_session_log_concat",
@@ -153,15 +158,14 @@ class GameLogAdmin(admin.ModelAdmin):
 
     copy_text_for_ai_suggestions.short_description = "Copy text for ai titles"
 
-    def transcribe_audio_files_action(self, request, queryset):
+    def _transcribe_audio_files_for_gamelogs(self, request, gamelogs):
         """
-        Admin action to transcribe all SessionAudio files for selected GameLogs.
-        Uses audio_session_notes and last_game_log.log_text for context.
+        Shared logic for transcribing audio files for one or more GameLogs.
         """
         from transcription.services import transcribe_session_audio
         from django.contrib import messages
 
-        for gamelog in queryset:
+        for gamelog in gamelogs:
             session_notes = gamelog.audio_session_notes or ""
             previous_transcript = ""
             if gamelog.last_game_log:
@@ -173,6 +177,14 @@ class GameLogAdmin(admin.ModelAdmin):
                 messages.warning(request, f"No audio files found for {gamelog}.")
                 continue
             for audio in audio_files:
+                if (
+                    hasattr(audio, "audio_transcripts")
+                    and audio.audio_transcripts.exists()
+                ):
+                    messages.info(
+                        request, f"Skipping {audio}: transcript already exists."
+                    )
+                    continue
                 audio.transcription_status = "processing"
                 audio.save(update_fields=["transcription_status"])
                 try:
@@ -191,9 +203,19 @@ class GameLogAdmin(admin.ModelAdmin):
                 request, f"Transcription attempted for all audio files in {gamelog}."
             )
 
-    transcribe_audio_files_action.short_description = (
-        "Transcribe audio files for selected game logs"
-    )
+    def transcribe_audio_files_action(self, request, queryset):
+        """
+        Admin action to transcribe all SessionAudio files for selected GameLogs.
+        """
+        self._transcribe_audio_files_for_gamelogs(request, queryset)
+
+    def transcribe_audio_files_detail_view(self, request, object_id):
+        gamelog = self.get_object(request, object_id)
+        if not gamelog:
+            messages.error(request, "GameLog not found.")
+            return redirect("..")
+        self._transcribe_audio_files_for_gamelogs(request, [gamelog])
+        return redirect(request.path.replace("transcribe-audio-files/", ""))
 
 
 @admin.register(AiLogSuggestion)
