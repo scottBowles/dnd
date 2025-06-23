@@ -751,6 +751,126 @@ class TranscriptionService:
             print(f"❌ Failed to create combined transcript: {e}")
             return None
 
+    @staticmethod
+    def make_concat_prompt(gamelog: GameLog) -> str:
+        """
+        Generate the LLM prompt using the concatenated transcript approach.
+        """
+        from transcription.models import AudioTranscript
+
+        transcripts = AudioTranscript.objects.filter(
+            session_audio__gamelog=gamelog
+        ).order_by("session_audio__id")
+        if not transcripts.exists():
+            return ""
+        combined = "\n".join(
+            f"[{t.character_name}] {t.transcript_text.strip()}"
+            for t in transcripts
+            if t.transcript_text.strip()
+        )
+        session_notes = gamelog.audio_session_notes or ""
+        notes_section = (
+            f"\n\nSession notes for context (important anomalies, DM/player issues, etc.):\n{session_notes}\n"
+            if session_notes
+            else ""
+        )
+        prompt = f"""
+You are a Dungeons & Dragons session chronicler. Given the following raw transcripts from multiple players, produce a single, clean, in-game session log. 
+- Remove all out-of-character banter, rules discussion, and non-game chatter.
+- Attribute dialogue to characters (e.g., 'Izar said, \"Let's attack!\"').
+- Write narration and events as they unfold in the story.
+- Do not mention player names or much meta-discussion.
+- The result should read as a narrative of the session, as if it were a story or campaign log.
+{notes_section}
+Raw transcripts:
+{combined}
+
+Session log:
+"""
+        return prompt
+
+    @staticmethod
+    def make_segment_prompt(gamelog: GameLog) -> str:
+        """
+        Generate the LLM prompt using the segment-based, time-ordered approach.
+        """
+        from transcription.models import AudioTranscript
+
+        transcripts = AudioTranscript.objects.filter(session_audio__gamelog=gamelog)
+        if not transcripts.exists():
+            return ""
+        segments = []
+        for t in transcripts:
+            whisper = t.whisper_response or {}
+            for seg in whisper.get("segments", []):
+                segments.append(
+                    {
+                        "start": seg.get("start", 0),
+                        "end": seg.get("end", 0),
+                        "text": seg.get("text", "").strip(),
+                        "character": t.character_name,
+                    }
+                )
+        segments.sort(key=lambda s: s["start"])
+
+        def format_time(seconds):
+            h = int(seconds // 3600)
+            m = int((seconds % 3600) // 60)
+            s = int(seconds % 60)
+            return f"{h:02}:{m:02}:{s:02}"
+
+        combined = "\n".join(
+            f"[{format_time(seg['start'])}] [{seg['character']}] {seg['text']}"
+            for seg in segments
+            if seg["text"]
+        )
+        session_notes = gamelog.audio_session_notes or ""
+        notes_section = (
+            f"\n\nSession notes for context (important anomalies, DM/player issues, etc.):\n{session_notes}\n"
+            if session_notes
+            else ""
+        )
+        prompt = f"""
+You are a Dungeons & Dragons session chronicler. Given the following time-ordered, attributed transcript segments, produce a single, clean, in-game session log. 
+- Remove all out-of-character banter, rules discussion, and non-game chatter.
+- Attribute dialogue to characters (e.g., 'Izar said, \"Let's attack!\"').
+- Write narration and events as they unfold in the story.
+- Do not mention player names or much meta-discussion.
+- The result should read as a narrative of the session, as if it were a story or campaign log.
+{notes_section}
+Time-ordered transcript segments:
+{combined}
+
+Session log:
+"""
+        return prompt
+
+    @staticmethod
+    def generate_session_log_from_transcripts(
+        gamelog: GameLog, model: str = "gpt-4", method: str = "concat"
+    ) -> str:
+        """
+        Generate a session log using either the 'concat' or 'segment' method. Shared OpenAI logic.
+        """
+        import openai
+
+        if method == "segment":
+            prompt = TranscriptionService.make_segment_prompt(gamelog)
+        else:
+            prompt = TranscriptionService.make_concat_prompt(gamelog)
+        if not prompt.strip():
+            return ""
+        response = openai.ChatCompletion.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.4,
+            max_tokens=2048,
+        )
+        session_log = response["choices"][0]["message"]["content"].strip()
+        gamelog.generated_log_text = session_log
+        gamelog.save(update_fields=["generated_log_text"])
+        return session_log
+
 
 def transcribe_session_audio(
     session_audio: SessionAudio, session_notes: str = "", previous_transcript: str = ""
