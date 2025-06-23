@@ -781,6 +781,8 @@ You are a Dungeons & Dragons session chronicler. Given the following raw transcr
 - Write narration and events as they unfold in the story.
 - Do not mention player names or much meta-discussion.
 - The result should read as a narrative of the session, as if it were a story or campaign log.
+- Do not summarize or embellish. Give the session log in full, as it is in the transcripts.
+- The main players and characters are as follows: Greg is the DM; Noel plays Izar; Scott plays Ego aka Carlos; MJ aka Michael plays Hrothulf; Wes plays Darnit; Joel plays Dorinda.
 {notes_section}
 Raw transcripts:
 {combined}
@@ -837,6 +839,8 @@ You are a Dungeons & Dragons session chronicler. Given the following time-ordere
 - Write narration and events as they unfold in the story.
 - Do not mention player names or much meta-discussion.
 - The result should read as a narrative of the session, as if it were a story or campaign log.
+- Do not summarize or embellish. Give the session log in full, as it is in the transcripts.
+- The main players and characters are as follows: Greg is the DM; Noel plays Izar; Scott plays Ego aka Carlos; MJ aka Michael plays Hrothulf; Wes plays Darnit; Joel plays Dorinda.
 {notes_section}
 Time-ordered transcript segments:
 {combined}
