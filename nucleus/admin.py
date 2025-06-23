@@ -5,6 +5,10 @@ from django.utils import timezone
 import zoneinfo
 from django.utils.safestring import mark_safe
 from transcription.services import transcribe_session_audio
+from django.urls import path
+from django.shortcuts import redirect
+from django.contrib import messages
+from transcription.services import TranscriptionService
 
 
 class SessionAudioInline(admin.TabularInline):
@@ -50,6 +54,68 @@ class GameLogAdmin(admin.ModelAdmin):
     list_display = ("title", "google_created_time", "game_date")
     inlines = [SessionAudioInline]
     actions = ["transcribe_audio_files_action"]
+    change_form_template = "admin/nucleus/gamelog/change_form.html"
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "<path:object_id>/generate-session-log-concat/",
+                self.admin_site.admin_view(self.generate_session_log_concat_view),
+                name="nucleus_gamelog_generate_session_log_concat",
+            ),
+            path(
+                "<path:object_id>/generate-session-log-segment/",
+                self.admin_site.admin_view(self.generate_session_log_segment_view),
+                name="nucleus_gamelog_generate_session_log_segment",
+            ),
+        ]
+        return custom_urls + urls
+
+    def _can_generate_log(self, gamelog, request):
+        # Check for existing generated_log_text
+        if gamelog.generated_log_text and gamelog.generated_log_text.strip():
+            messages.warning(request, "Generated log already exists. Not overwriting.")
+            return False
+        # Check for related AudioTranscripts
+        from transcription.models import AudioTranscript
+
+        if not AudioTranscript.objects.filter(session_audio__gamelog=gamelog).exists():
+            messages.warning(request, "No related AudioTranscripts to transcribe.")
+            return False
+        return True
+
+    def generate_session_log_concat_view(self, request, object_id):
+        gamelog = self.get_object(request, object_id)
+        if not gamelog:
+            messages.error(request, "GameLog not found.")
+            return redirect("..")
+        if not self._can_generate_log(gamelog, request):
+            return redirect(request.path.replace("generate-session-log-concat/", ""))
+        try:
+            TranscriptionService.generate_session_log_from_transcripts(
+                gamelog, method="concat"
+            )
+            messages.success(request, "Session log (concat) generated and saved.")
+        except Exception as e:
+            messages.error(request, f"Error generating session log: {e}")
+        return redirect(request.path.replace("generate-session-log-concat/", ""))
+
+    def generate_session_log_segment_view(self, request, object_id):
+        gamelog = self.get_object(request, object_id)
+        if not gamelog:
+            messages.error(request, "GameLog not found.")
+            return redirect("..")
+        if not self._can_generate_log(gamelog, request):
+            return redirect(request.path.replace("generate-session-log-segment/", ""))
+        try:
+            TranscriptionService.generate_session_log_from_transcripts(
+                gamelog, method="segment"
+            )
+            messages.success(request, "Session log (segment) generated and saved.")
+        except Exception as e:
+            messages.error(request, f"Error generating session log: {e}")
+        return redirect(request.path.replace("generate-session-log-segment/", ""))
 
     def copy_text_for_summary(self, obj):
         btn_id = "copy-text-helper"

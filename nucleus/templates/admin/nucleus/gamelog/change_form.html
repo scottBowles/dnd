@@ -1,0 +1,14 @@
+{% extends "admin/change_form.html" %} {% load static %} {% block object-tools %} {{ block.super }}
+<form
+    method="post"
+    action="generate-session-log-concat/"
+    style="display: inline; margin-right: 8px"
+>
+    {% csrf_token %}
+    <input type="submit" class="button" value="Generate Session Log (Concat)" />
+</form>
+<form method="post" action="generate-session-log-segment/" style="display: inline">
+    {% csrf_token %}
+    <input type="submit" class="button" value="Generate Session Log (Segment)" />
+</form>
+{% endblock %}
