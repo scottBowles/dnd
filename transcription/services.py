@@ -851,7 +851,7 @@ Session log:
 
     @staticmethod
     def generate_session_log_from_transcripts(
-        gamelog: GameLog, model: str = "gpt-4", method: str = "concat"
+        gamelog: GameLog, model: str = "gpt-4o", method: str = "concat"
     ) -> str:
         """
         Generate a session log using either the 'concat' or 'segment' method. Shared OpenAI logic.
@@ -867,8 +867,8 @@ Session log:
         response = openai.ChatCompletion.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.4,
-            max_tokens=2048,
+            temperature=0.3,
+            max_tokens=3500,
         )
         session_log = response["choices"][0]["message"]["content"].strip()
         gamelog.generated_log_text = session_log
