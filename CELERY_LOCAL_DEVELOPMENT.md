@@ -5,8 +5,8 @@ This guide explains how to set up and use Celery with Redis for background task 
 ## Prerequisites
 
 - Python 3.11+ with pip
-- Docker and Docker Compose (recommended for Redis)
-- Or Redis installed locally
+- Redis server (installed locally via Homebrew on Mac)
+- Or Docker and Docker Compose (alternative option)
 
 ## Quick Start
 
@@ -23,7 +23,40 @@ pip install -r requirements.txt
 
 ### 2. Start Redis
 
-#### Option A: Using Docker Compose (Recommended)
+#### Option A: Using Homebrew on Mac (Recommended for Mac Development)
+```bash
+# Install Redis using Homebrew
+brew install redis
+
+# Start Redis as a service
+brew services start redis
+
+# Or run Redis directly
+redis-server
+
+# Verify Redis is running
+redis-cli ping
+# Should respond with "PONG"
+```
+
+Redis will be available at `localhost:6379`
+
+**Managing Redis on Mac:**
+```bash
+# Start Redis service
+brew services start redis
+
+# Stop Redis service
+brew services stop redis
+
+# Restart Redis service
+brew services restart redis
+
+# Check Redis service status
+brew services list | grep redis
+```
+
+#### Option B: Using Docker Compose (Alternative)
 ```bash
 # Start Redis and optional Redis Commander GUI
 docker-compose up -d redis
@@ -35,7 +68,7 @@ docker-compose up -d
 Redis will be available at `localhost:6379`
 Redis Commander GUI will be available at `http://localhost:8081`
 
-#### Option B: Using Local Redis Installation
+#### Option C: Using Local Redis Installation (Linux)
 ```bash
 # Install Redis (Ubuntu/Debian)
 sudo apt-get install redis-server
@@ -217,9 +250,16 @@ The application automatically detects whether Celery is available:
 
 **1. "Cannot connect to Redis"**
 ```bash
-# Check if Redis is running
+# Check if Redis is running (Mac with Homebrew)
+brew services list | grep redis
+
+# Start Redis if not running
+brew services start redis
+
+# Or check with Docker Compose
 docker-compose ps redis
-# or
+
+# Or check system service (Linux)
 sudo systemctl status redis-server
 
 # Check Redis connectivity

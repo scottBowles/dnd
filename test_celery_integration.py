@@ -107,6 +107,8 @@ if __name__ == "__main__":
         print("⚠️  Some tests failed. Check the output above for details.")
         
     print("\n💡 To test asynchronous execution:")
-    print("   1. Start Redis: docker-compose up -d redis")
+    print("   1. Start Redis:")
+    print("      Mac: brew services start redis")
+    print("      Docker: docker-compose up -d redis")
     print("   2. Start worker: celery -A website worker --loglevel=info")
     print("   3. Run: python manage.py test_celery --async")
