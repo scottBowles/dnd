@@ -88,6 +88,7 @@ INSTALLED_APPS = [
     "nucleus",
     "transcription",
     "storages",
+    "django_celery_beat",
 ]
 
 MIDDLEWARE = [

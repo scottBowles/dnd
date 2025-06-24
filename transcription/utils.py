@@ -46,3 +46,43 @@ def ordinal(n: int) -> str:
     else:
         suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
     return f"{n}{suffix}"
+
+
+def cleanup_temporary_files(max_age_hours: int = 24) -> None:
+    """
+    Clean up temporary audio files and chunks older than specified age.
+    
+    Args:
+        max_age_hours: Maximum age of files to keep (in hours)
+    """
+    import tempfile
+    import time
+    import os
+    from datetime import datetime, timedelta
+    
+    temp_dir = Path(tempfile.gettempdir())
+    cutoff_time = time.time() - (max_age_hours * 3600)
+    
+    # Patterns for temporary files created by transcription service
+    patterns = [
+        "session_audio_*",
+        "chunk_*",
+        "*.tmp",
+        "transcription_*"
+    ]
+    
+    cleaned_count = 0
+    
+    for pattern in patterns:
+        for file_path in temp_dir.glob(pattern):
+            try:
+                # Check if file is older than cutoff time
+                if file_path.stat().st_mtime < cutoff_time:
+                    file_path.unlink()
+                    cleaned_count += 1
+                    print(f"🗑️ Cleaned up temporary file: {file_path.name}")
+            except (OSError, FileNotFoundError):
+                # File might have been deleted by another process
+                pass
+    
+    print(f"🧹 Cleanup completed. Removed {cleaned_count} temporary files.")

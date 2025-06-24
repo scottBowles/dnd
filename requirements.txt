@@ -67,3 +67,4 @@ uvicorn==0.21.1
 whitenoise==6.4.0
 celery==5.3.4
 redis==5.0.1
+django-celery-beat==2.5.0

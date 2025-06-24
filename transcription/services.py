@@ -934,8 +934,7 @@ Session log:
         self,
         gamelog,
         method: str = "concat",
-        previous_transcript: str = "",
-        session_notes: str = "",
+        model: str = "gpt-4o",
         use_celery: bool = True,
     ):
         """
@@ -944,8 +943,7 @@ Session log:
         Args:
             gamelog: The GameLog instance
             method: Method to use for log generation ('concat' or 'segment')
-            previous_transcript: Previous transcript for context
-            session_notes: Session notes for context
+            model: OpenAI model to use
             use_celery: Whether to use Celery for async processing
             
         Returns:
@@ -955,16 +953,16 @@ Session log:
             try:
                 from .tasks import generate_session_log_task
                 return generate_session_log_task.delay(
-                    gamelog.id, method, previous_transcript, session_notes
+                    gamelog.id, method, model
                 )
             except ImportError:
                 # Fallback to synchronous processing if Celery is not available
-                return self.generate_session_log(
-                    gamelog, method, previous_transcript, session_notes
+                return self.generate_session_log_from_transcripts(
+                    gamelog, model, method
                 )
         else:
-            return self.generate_session_log(
-                gamelog, method, previous_transcript, session_notes
+            return self.generate_session_log_from_transcripts(
+                gamelog, model, method
             )
 
 

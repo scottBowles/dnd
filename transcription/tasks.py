@@ -65,24 +65,24 @@ def process_session_audio_task(self, session_audio_id, previous_transcript="", s
 
 
 @shared_task(bind=True, max_retries=2, default_retry_delay=30)
-def generate_session_log_task(self, gamelog_id, method="concat", previous_transcript="", session_notes=""):
+def generate_session_log_task(self, gamelog_id, method="concat", model="gpt-4o"):
     """
     Generate a session log asynchronously.
     
     Args:
         gamelog_id: ID of the GameLog instance
         method: Method to use for log generation ('concat' or 'segment')
-        previous_transcript: Previous transcript for context
-        session_notes: Session notes for context
+        model: OpenAI model to use
         
     Returns:
-        dict: Generated session log data or None if failed
+        str: Generated session log or None if failed
     """
     try:
         logger.info(f"Starting session log generation for GameLog ID: {gamelog_id}")
         
         # Import here to avoid circular imports
         from nucleus.models import GameLog
+        from .services import TranscriptionService
         
         try:
             gamelog = GameLog.objects.get(id=gamelog_id)
@@ -90,24 +90,11 @@ def generate_session_log_task(self, gamelog_id, method="concat", previous_transc
             logger.error(f"GameLog with ID {gamelog_id} not found")
             return None
             
-        # Get all audio transcripts for this game log
-        audio_transcripts = AudioTranscript.objects.filter(
-            session_audio__gamelog=gamelog
-        ).order_by('created_at')
-        
-        if not audio_transcripts.exists():
-            logger.warning(f"No audio transcripts found for GameLog ID: {gamelog_id}")
-            return None
-            
-        # Create transcription service
-        service = TranscriptionService()
-        
-        # Generate the session log
-        result = service.generate_session_log(
-            audio_transcripts=list(audio_transcripts),
-            method=method,
-            previous_transcript=previous_transcript,
-            session_notes=session_notes
+        # Generate the session log using the static method
+        result = TranscriptionService.generate_session_log_from_transcripts(
+            gamelog=gamelog,
+            model=model,
+            method=method
         )
         
         logger.info(f"Successfully generated session log for GameLog ID: {gamelog_id}")
