@@ -895,6 +895,78 @@ Session log:
         gamelog.save(update_fields=["generated_log_text"])
         return session_log
 
+    def process_session_audio_async(
+        self,
+        session_audio: SessionAudio,
+        previous_transcript: str = "",
+        session_notes: str = "",
+        use_celery: bool = True,
+    ):
+        """
+        Process a SessionAudio instance asynchronously using Celery.
+        
+        Args:
+            session_audio: The SessionAudio instance to process
+            previous_transcript: Previous transcript text for context
+            session_notes: Session notes for context
+            use_celery: Whether to use Celery for async processing
+            
+        Returns:
+            AsyncResult if using Celery, otherwise result of synchronous processing
+        """
+        if use_celery:
+            try:
+                from .tasks import process_session_audio_task
+                return process_session_audio_task.delay(
+                    session_audio.id, previous_transcript, session_notes
+                )
+            except ImportError:
+                # Fallback to synchronous processing if Celery is not available
+                return self.process_session_audio(
+                    session_audio, previous_transcript, session_notes
+                )
+        else:
+            return self.process_session_audio(
+                session_audio, previous_transcript, session_notes
+            )
+
+    def generate_session_log_async(
+        self,
+        gamelog,
+        method: str = "concat",
+        previous_transcript: str = "",
+        session_notes: str = "",
+        use_celery: bool = True,
+    ):
+        """
+        Generate a session log asynchronously using Celery.
+        
+        Args:
+            gamelog: The GameLog instance
+            method: Method to use for log generation ('concat' or 'segment')
+            previous_transcript: Previous transcript for context
+            session_notes: Session notes for context
+            use_celery: Whether to use Celery for async processing
+            
+        Returns:
+            AsyncResult if using Celery, otherwise result of synchronous processing
+        """
+        if use_celery:
+            try:
+                from .tasks import generate_session_log_task
+                return generate_session_log_task.delay(
+                    gamelog.id, method, previous_transcript, session_notes
+                )
+            except ImportError:
+                # Fallback to synchronous processing if Celery is not available
+                return self.generate_session_log(
+                    gamelog, method, previous_transcript, session_notes
+                )
+        else:
+            return self.generate_session_log(
+                gamelog, method, previous_transcript, session_notes
+            )
+
 
 def transcribe_session_audio(
     session_audio: SessionAudio, session_notes: str = "", previous_transcript: str = ""
