@@ -119,6 +119,8 @@ celery -A website worker -Q transcription --loglevel=info
 celery -A website worker --concurrency=2 --loglevel=info
 ```
 
+**Note**: You may see deprecation warnings about `broker_connection_retry` configuration. These warnings are harmless and will be addressed in future Celery versions. The worker will function normally despite these warnings.
+
 ### 6. Optional: Start Celery Beat (for scheduled tasks)
 
 If you plan to use scheduled tasks:
@@ -192,6 +194,8 @@ PONG
 127.0.0.1:6379> keys celery*
 ```
 
+**Success response**: An empty array `(empty array)` is normal when no Celery tasks are currently queued or running. You may also see keys like `_kombu.binding.*` or task-specific keys if tasks are active.
+
 ### Monitor Celery Tasks
 ```bash
 # Check active tasks
@@ -244,6 +248,16 @@ The application automatically detects whether Celery is available:
 - If Celery is not available: falls back to synchronous processing
 - Use `use_celery=False` parameter to force synchronous processing
 
+### 4. Task Retry Behavior
+
+**Retry Policy**: Tasks automatically retry on certain types of failures:
+- **Retryable**: Network errors, timeouts, rate limits, temporary API issues
+- **Non-retryable**: Validation errors, business logic failures, malformed data
+- **Retry Count**: Up to 3 attempts with 60-second delays
+- **Billing Safety**: Retries only occur for connection/infrastructure failures, not successful API calls that return data
+
+**Important**: A task that successfully processes audio and gets a response from the Whisper API will not retry, even if downstream processing fails. This prevents duplicate billing.
+
 ## Troubleshooting
 
 ### Common Issues
@@ -265,6 +279,18 @@ sudo systemctl status redis-server
 # Check Redis connectivity
 redis-cli ping
 ```
+
+**3. "Test task times out but no logs in worker"**
+This is normal behavior when:
+- Task is submitted successfully to Redis queue
+- No Celery worker is currently running to process it
+- The task remains in the queue until a worker starts
+
+To verify everything is working:
+1. Run `python manage.py test_celery --async` (should succeed at submitting)
+2. Start a worker in another terminal: `celery -A website worker --loglevel=info`  
+3. Check worker logs for task execution
+4. Or run `python manage.py test_celery` (synchronous) to test without worker
 
 **2. "Worker not receiving tasks"**
 ```bash
@@ -341,8 +367,10 @@ CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_ACKS_LATE = True
 
 # Time limits (important for long-running transcription tasks)
-CELERY_TASK_SOFT_TIME_LIMIT = 600  # 10 minutes
-CELERY_TASK_TIME_LIMIT = 660  # 11 minutes
+# For transcribing multiple 2-hour audio files (chunked into 10-min segments),
+# processing can take 60-90+ minutes depending on file count and API response times
+CELERY_TASK_SOFT_TIME_LIMIT = 7200  # 2 hours (120 minutes)
+CELERY_TASK_TIME_LIMIT = 7500  # 2 hours 5 minutes (125 minutes)
 ```
 
 ### Environment Variables

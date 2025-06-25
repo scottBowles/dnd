@@ -271,6 +271,6 @@ CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_ACKS_LATE = True
 CELERY_WORKER_DISABLE_RATE_LIMITS = False
 
-# Celery task time limits (10 minutes for transcription tasks)
-CELERY_TASK_SOFT_TIME_LIMIT = 600  # 10 minutes
-CELERY_TASK_TIME_LIMIT = 660  # 11 minutes (hard limit)
+# Celery task time limits (2 hours for transcription tasks processing multiple large files)
+CELERY_TASK_SOFT_TIME_LIMIT = 7200  # 2 hours (120 minutes)
+CELERY_TASK_TIME_LIMIT = 7500  # 2 hours 5 minutes (125 minutes, hard limit)

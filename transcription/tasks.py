@@ -7,7 +7,8 @@ from celery import shared_task
 from django.core.exceptions import ObjectDoesNotExist
 
 from .services import TranscriptionService, TranscriptionConfig
-from .models import SessionAudio, AudioTranscript
+from .models import AudioTranscript
+from nucleus.models import SessionAudio
 
 logger = logging.getLogger(__name__)
 
@@ -55,12 +56,31 @@ def process_session_audio_task(self, session_audio_id, previous_transcript="", s
     except Exception as exc:
         logger.error(f"Error processing SessionAudio ID {session_audio_id}: {str(exc)}")
         
-        # Retry the task if we haven't exceeded max retries
-        if self.request.retries < self.max_retries:
-            logger.info(f"Retrying task for SessionAudio ID {session_audio_id} (attempt {self.request.retries + 1})")
+        # Only retry for certain types of exceptions (network errors, temporary failures)
+        # Don't retry for validation errors or business logic failures
+        retryable_exceptions = (
+            ConnectionError, 
+            TimeoutError,
+            OSError,  # Can include network issues
+        )
+        
+        # Also check for specific API error patterns that might be retryable
+        is_retryable = (
+            isinstance(exc, retryable_exceptions) or
+            "timeout" in str(exc).lower() or
+            "connection" in str(exc).lower() or
+            "temporary" in str(exc).lower() or
+            "rate limit" in str(exc).lower()
+        )
+        
+        if is_retryable and self.request.retries < self.max_retries:
+            logger.info(f"Retrying task for SessionAudio ID {session_audio_id} (attempt {self.request.retries + 1}) due to retryable error: {type(exc).__name__}")
             raise self.retry(exc=exc)
         else:
-            logger.error(f"Max retries exceeded for SessionAudio ID {session_audio_id}")
+            if not is_retryable:
+                logger.error(f"Non-retryable error for SessionAudio ID {session_audio_id}: {type(exc).__name__}")
+            else:
+                logger.error(f"Max retries exceeded for SessionAudio ID {session_audio_id}")
             return False
 
 
@@ -134,12 +154,3 @@ def cleanup_old_audio_files_task():
     except Exception as exc:
         logger.error(f"Error during audio files cleanup: {str(exc)}")
         return False
-
-
-@shared_task
-def health_check_task():
-    """
-    Simple health check task to verify Celery is working.
-    """
-    logger.info("Celery health check task executed successfully")
-    return "Celery is working!"

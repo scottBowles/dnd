@@ -895,6 +895,38 @@ Session log:
         gamelog.save(update_fields=["generated_log_text"])
         return session_log
 
+    def _is_large_processing_job(self, session_audio) -> bool:
+        """
+        Determine if this is likely a large processing job that should use Celery.
+        
+        Args:
+            session_audio: SessionAudio instance to evaluate
+            
+        Returns:
+            True if this appears to be a large job that should use async processing
+        """
+        try:
+            # If file size is available, use that as the primary indicator
+            if hasattr(session_audio, 'file') and session_audio.file:
+                file_size_mb = session_audio.file.size / (1024 * 1024)
+                # Files larger than 50MB are likely to be long audio files
+                if file_size_mb > 50:
+                    return True
+            
+            # Check if the filename suggests it's a long recording
+            filename = getattr(session_audio, 'original_filename', '') or str(session_audio.file.name if hasattr(session_audio, 'file') else '')
+            filename_lower = filename.lower()
+            
+            # Look for indicators of long recordings in filename
+            long_indicators = ['hour', 'session', 'full', 'complete', 'entire']
+            if any(indicator in filename_lower for indicator in long_indicators):
+                return True
+                
+            return False
+        except Exception:
+            # If we can't determine file size, err on the side of caution
+            return True
+
     def process_session_audio_async(
         self,
         session_audio: SessionAudio,
@@ -921,7 +953,16 @@ Session log:
                     session_audio.id, previous_transcript, session_notes
                 )
             except ImportError:
-                # Fallback to synchronous processing if Celery is not available
+                # Check if this might be a large processing job that should use Celery
+                if self._is_large_processing_job(session_audio):
+                    raise RuntimeError(
+                        "Celery is not available, but this appears to be a large audio processing job "
+                        "that may take a very long time or fail when processed synchronously. "
+                        "Please ensure Celery workers are running for large file processing. "
+                        "You can start a worker with: celery -A website worker --loglevel=info"
+                    )
+                
+                # Fallback to synchronous processing for smaller files
                 return self.process_session_audio(
                     session_audio, previous_transcript, session_notes
                 )

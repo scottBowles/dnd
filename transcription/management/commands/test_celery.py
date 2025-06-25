@@ -5,7 +5,7 @@ Django management command to test Celery setup.
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from transcription.tasks import health_check_task
+from nucleus.tasks import health_check_task
 
 
 class Command(BaseCommand):
@@ -46,6 +46,12 @@ class Command(BaseCommand):
                     self.stdout.write(
                         self.style.WARNING(
                             f'Could not get task result (worker might not be running): {e}'
+                        )
+                    )
+                    self.stdout.write(
+                        self.style.WARNING(
+                            'This is normal if no Celery worker is running. '
+                            'The task was submitted successfully to the queue.'
                         )
                     )
                     
