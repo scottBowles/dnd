@@ -1008,14 +1008,25 @@ Session log:
 
 
 def transcribe_session_audio(
-    session_audio: SessionAudio, session_notes: str = "", previous_transcript: str = ""
-) -> bool:
+    session_audio: SessionAudio, session_notes: str = "", previous_transcript: str = "", use_celery: bool = True
+):
     """
     Process a SessionAudio instance using the model-driven transcription logic.
+    By default, uses async processing via Celery for better performance and scalability.
+    
+    Args:
+        session_audio: The SessionAudio instance to process
+        session_notes: Session notes for context
+        previous_transcript: Previous transcript text for context
+        use_celery: Whether to use Celery for async processing (default: True)
+        
+    Returns:
+        AsyncResult if using Celery, otherwise boolean result of synchronous processing
     """
     service = TranscriptionService()
-    return service.process_session_audio(
+    return service.process_session_audio_async(
         session_audio,
         previous_transcript=previous_transcript,
         session_notes=session_notes,
+        use_celery=use_celery,
     )
