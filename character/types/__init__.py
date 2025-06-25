@@ -1,4 +1,4 @@
-from strawberry.tools import merge_types
+from strawberry import merge_types
 
 from .feature import *
 from .language import *
