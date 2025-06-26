@@ -74,37 +74,7 @@ CLOUDFLARE_R2_SECRET_ACCESS_KEY=your-r2-secret
 # ... other R2 config
 ```
 
-### 3. Django Application Configuration
-
-Update your main application's Dockerfile (if needed):
-
-```dockerfile
-# Dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy application code
-COPY . .
-
-# Collect static files
-RUN python manage.py collectstatic --noinput
-
-# Default command (can be overridden)
-CMD ["gunicorn", "website.wsgi:application", "--bind", "0.0.0.0:8000"]
-```
-
-### 4. Celery Worker Service
+### 3. Celery Worker Service
 
 Create a separate service for Celery workers:
 
@@ -117,67 +87,7 @@ Create a separate service for Celery workers:
    celery -A website worker --loglevel=info --concurrency=2
    ```
 
-#### Alternative: Docker Compose for All Services
-
-Create a `docker-compose.prod.yml`:
-
-```yaml
-# docker-compose.prod.yml
-version: '3.8'
-
-services:
-  web:
-    build: .
-    command: gunicorn website.wsgi:application --bind 0.0.0.0:8000
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
-      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
-      - SECRET_KEY=${SECRET_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-    depends_on:
-      - redis
-    ports:
-      - "8000:8000"
-
-  worker:
-    build: .
-    command: celery -A website worker --loglevel=info --concurrency=2
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
-      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
-      - SECRET_KEY=${SECRET_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-    depends_on:
-      - redis
-      - web
-
-  beat:
-    build: .
-    command: celery -A website beat --loglevel=info
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
-      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
-      - SECRET_KEY=${SECRET_KEY}
-    depends_on:
-      - redis
-      - web
-
-  redis:
-    image: redis:7-alpine
-    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
-    volumes:
-      - redis_data:/data
-    environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
-
-volumes:
-  redis_data:
-```
-
-### 5. Celery Beat Service (Optional)
+### 4. Celery Beat Service (Optional)
 
 If you need scheduled tasks:
 
