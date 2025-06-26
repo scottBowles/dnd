@@ -2,6 +2,8 @@
 
 This guide explains how to deploy Celery with Redis in a production environment using Coolify.
 
+> **📋 Quick Start**: For a streamlined Docker deployment guide, see [`COOLIFY_DEPLOYMENT.md`](./COOLIFY_DEPLOYMENT.md)
+
 ## Overview
 
 In production, you'll need to run multiple services:
@@ -10,7 +12,19 @@ In production, you'll need to run multiple services:
 3. **Celery Worker(s)** - Background task processors
 4. **Celery Beat** (optional) - Scheduled task scheduler
 
-## Coolify Configuration
+## Docker Deployment (Recommended)
+
+**⚡ This repository now includes optimized Docker configuration for Coolify deployment.**
+
+The recommended approach is to use Docker instead of Nixpacks:
+
+1. **Dockerfile**: Production-ready with FFmpeg, security best practices, and health checks
+2. **docker-compose.yml**: Complete multi-service setup for reference
+3. **Environment Configuration**: Template and comprehensive variable documentation
+
+See [`COOLIFY_DEPLOYMENT.md`](./COOLIFY_DEPLOYMENT.md) for complete Docker deployment instructions.
+
+## Legacy Coolify Configuration (Nixpacks Alternative)
 
 ### 1. Redis Service
 
