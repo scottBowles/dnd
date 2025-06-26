@@ -78,7 +78,7 @@ CLOUDFLARE_R2_SECRET_ACCESS_KEY=your-r2-secret
 
 Create a separate service for Celery workers:
 
-#### Coolify Service Configuration
+#### Option A: Coolify Service Configuration
 1. **Name**: `dnd-celery-worker`
 2. **Source**: Same repository as your Django app
 3. **Build Pack**: Dockerfile
@@ -87,16 +87,41 @@ Create a separate service for Celery workers:
    celery -A website worker --loglevel=info --concurrency=2
    ```
 
+#### Option B: Docker Compose Deployment
+You can use the included `docker-compose.yml` for multi-service deployment:
+
+```yaml
+# The repository includes a docker-compose.yml with:
+# - redis: Message broker and result backend
+# - celery-worker: Background task processor
+# - celery-beat: Scheduled task scheduler (optional)
+
+# To deploy individual services in Coolify:
+# 1. Use the redis service definition for your Redis deployment
+# 2. Deploy celery-worker as a separate service using the Dockerfile
+# 3. Deploy celery-beat if you need scheduled tasks
+```
+
+The included `Dockerfile` is configured for production deployment with:
+- Python 3.11 slim base image
+- System dependencies (build tools, PostgreSQL client, FFmpeg)
+- Application code and requirements
+- Proper working directory and environment setup
+
 ### 4. Celery Beat Service (Optional)
 
 If you need scheduled tasks:
 
+#### Option A: Coolify Service Configuration
 1. **Name**: `dnd-celery-beat`
 2. **Source**: Same repository
 3. **Custom Start Command**: 
    ```bash
    celery -A website beat --loglevel=info
    ```
+
+#### Option B: Docker Compose
+The included `docker-compose.yml` defines a `celery-beat` service that you can deploy separately or as part of a multi-service setup.
 
 ## Scaling and Performance
 

@@ -5,7 +5,8 @@ This guide explains how to set up and use Celery with Redis for background task 
 ## Prerequisites
 
 - Python 3.11+ with pip
-- Redis server (installed locally via Homebrew on Mac)
+- Redis server (installed locally via Homebrew on Mac - recommended)
+- Or Docker and Docker Compose (available for production deployment patterns)
 
 ## Quick Start
 
@@ -56,6 +57,23 @@ brew services list | grep redis
 ```
 
 Redis will be available at `localhost:6379`
+
+#### Option B: Docker Compose (For Production-like Setup)
+If you want to test the production Docker setup locally:
+
+```bash
+# Start only Redis (recommended for local development)
+docker-compose up -d redis
+
+# Or start the full stack (Redis + Celery workers)
+docker-compose up -d
+
+# Start with development profile to include Redis Commander GUI
+docker-compose --profile dev up -d
+```
+
+Redis will be available at `localhost:6379`
+Redis Commander GUI will be available at `http://localhost:8081` (with dev profile)
 
 #### Option C: Using Local Redis Installation (Linux)
 ```bash
@@ -261,6 +279,9 @@ brew services start redis
 
 # Check system service (Linux)
 sudo systemctl status redis-server
+
+# Or check with Docker Compose
+docker-compose ps redis
 
 # Check Redis connectivity
 redis-cli ping

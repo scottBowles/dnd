@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # Redis service for Celery broker and result backend
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+
+  # Celery worker service for background tasks
+  # NOTE: For Coolify deployment, this can be deployed as a separate service
+  celery-worker:
+    build: .
+    command: celery -A website worker --loglevel=info --concurrency=2
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+    restart: unless-stopped
+    volumes:
+      - .:/app
+
+  # Celery beat service for scheduled tasks (optional)
+  celery-beat:
+    build: .
+    command: celery -A website beat --loglevel=info
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+    restart: unless-stopped
+    volumes:
+      - .:/app
+
+  # Optional: Redis Commander for Redis GUI management (development only)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    restart: unless-stopped
+    profiles:
+      - dev
+
+volumes:
+  redis_data:
