@@ -44,8 +44,8 @@ USER appuser
 EXPOSE 8000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8000/healthcheck/ || curl -f http://localhost:8000/healthcheck/ || exit 1
+HEALTHCHECK --interval=30s --timeout=15s --start-period=30s --retries=5 \
+    CMD curl -f http://localhost:8000/healthcheck/ 2>&1 || wget --no-verbose --tries=1 --spider http://localhost:8000/healthcheck/ 2>&1 || (echo "Health check failed - server not responding" && exit 1)
 
 # Default command for Django app (can be overridden for celery workers)
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120", "website.wsgi:application"]
