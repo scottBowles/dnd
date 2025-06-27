@@ -21,6 +21,8 @@ services:
     # Django web application
     web:
         build: .
+        expose:
+            - "8000" # Tell Coolify this service handles external traffic
         # ports: # Removed - Coolify handles external routing
         #     - "8000:8000"
         environment:
