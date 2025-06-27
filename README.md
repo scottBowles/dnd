@@ -1,5 +1,21 @@
 API for https://airel.onrender.com/
 
+## 🐳 Docker Deployment (Coolify)
+
+**New!** This repository now includes optimized Docker configuration for Coolify deployment:
+
+- **Quick Deploy**: See [COOLIFY_QUICK_DEPLOY.md](COOLIFY_QUICK_DEPLOY.md) for fast setup
+- **Complete Guide**: See [COOLIFY_DEPLOYMENT.md](COOLIFY_DEPLOYMENT.md) for detailed instructions
+- **Environment Setup**: Copy [.env.template](.env.template) for configuration
+
+The Docker setup includes:
+- ✅ Production-ready Django app with Gunicorn
+- ✅ Celery workers for background tasks
+- ✅ Redis message broker
+- ✅ FFmpeg for audio processing
+- ✅ Health checks and monitoring
+- ✅ Security best practices (non-root user)
+
 ## Celery with Redis Background Tasks
 
 This application now supports background task processing using Celery with Redis for improved performance, especially for audio transcription operations.
@@ -13,9 +29,9 @@ This application now supports background task processing using Celery with Redis
 
 ### Documentation
 
-- **Local Development**: See [CELERY_LOCAL_DEVELOPMENT.md](CELERY_LOCAL_DEVELOPMENT.md)
-- **Production Deployment**: See [CELERY_PRODUCTION.md](CELERY_PRODUCTION.md)
-- **Docker Support**: Included `docker-compose.yml` and `Dockerfile` for production deployment (Coolify compatible)
+- **🐳 Docker/Coolify Deployment**: [COOLIFY_DEPLOYMENT.md](COOLIFY_DEPLOYMENT.md) | [Quick Deploy](COOLIFY_QUICK_DEPLOY.md)
+- **Local Development**: [CELERY_LOCAL_DEVELOPMENT.md](CELERY_LOCAL_DEVELOPMENT.md)
+- **Production Setup**: [CELERY_PRODUCTION.md](CELERY_PRODUCTION.md)
 
 ### Background Tasks Available
 
