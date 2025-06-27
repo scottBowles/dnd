@@ -23,6 +23,12 @@ services:
         build: .
         expose:
             - "8000" # Tell Coolify this service handles external traffic
+        ports:
+            - "8000:8000" # Temporarily add back for Coolify routing
+        labels:
+            - "coolify.managed=true"
+            - "coolify.http.enabled=true"
+            - "coolify.http.port=8000"
         # ports: # Removed - Coolify handles external routing
         #     - "8000:8000"
         environment:
