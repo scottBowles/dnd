@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     ffmpeg \
     curl \
+    wget \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -43,8 +44,8 @@ USER appuser
 EXPOSE 8000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/healthcheck/ || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8000/healthcheck/ || curl -f http://localhost:8000/healthcheck/ || exit 1
 
 # Default command for Django app (can be overridden for celery workers)
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120", "website.wsgi:application"]
