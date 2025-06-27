@@ -52,10 +52,22 @@ if DEBUG:
 ALLOWED_HOSTS = [
     "airel.vip",
     "api.airel.vip",
+    "localhost",
+    "127.0.0.1",
 ]
 RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
+# Add Coolify hostname if deployed there
+COOLIFY_URL = os.environ.get("COOLIFY_URL")
+if COOLIFY_URL:
+    # Extract hostname from URL
+    from urllib.parse import urlparse
+
+    parsed = urlparse(COOLIFY_URL)
+    if parsed.hostname:
+        ALLOWED_HOSTS.append(parsed.hostname)
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
@@ -254,7 +266,9 @@ AWS_S3_FILE_OVERWRITE = False
 
 # Celery Configuration
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
-CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get(
+    "CELERY_RESULT_BACKEND", "redis://localhost:6379/0"
+)
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
