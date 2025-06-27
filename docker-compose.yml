@@ -22,7 +22,7 @@ services:
     web:
         build: .
         ports:
-            - "8000:8000"
+            - "8001:8000" # Temporarily use 8001 externally to avoid conflict
         environment:
             - DJANGO_SETTINGS_MODULE=website.settings
             - PYTHONPATH=/app
