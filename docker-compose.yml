@@ -21,10 +21,10 @@ services:
     # Django web application
     web:
         build: .
-        expose:
-            - "8000" # Tell Coolify this service handles external traffic
+        # expose:
+        #     - "8000" # Tell Coolify this service handles external traffic
         ports:
-            - "8000:8000" # Temporarily add back for Coolify routing
+            - "8001:8000" # Temporarily add back for Coolify routing
         labels:
             - "coolify.managed=true"
             - "coolify.http.enabled=true"
