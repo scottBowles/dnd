@@ -4,8 +4,8 @@ services:
     # Redis service for Celery broker and result backend
     redis:
         image: redis:7-alpine
-        ports:
-            - "6379:6379"
+        # ports: # Removed - Coolify handles external access
+        #     - "6379:6379"
         command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
         volumes:
             - redis_data:/data
@@ -21,8 +21,8 @@ services:
     # Django web application
     web:
         build: .
-        ports:
-            - "8000:8000"
+        # ports: # Removed - Coolify handles external routing
+        #     - "8000:8000"
         environment:
             - DJANGO_SETTINGS_MODULE=website.settings
             - PYTHONPATH=/app
@@ -118,8 +118,8 @@ services:
             - REDIS_HOSTS=local:redis:6379
             - HTTP_USER=${REDIS_COMMANDER_USER:-admin}
             - HTTP_PASSWORD=${REDIS_COMMANDER_PASSWORD:-admin}
-        ports:
-            - "8081:8081"
+        # ports: # Removed for Coolify - only needed for local development
+        #     - "8081:8081"
         depends_on:
             redis:
                 condition: service_healthy
@@ -131,8 +131,8 @@ services:
     flower:
         build: .
         command: ["celery", "-A", "website", "flower", "--port=5555"]
-        ports:
-            - "5555:5555"
+        # ports: # Removed for Coolify - only needed for local development
+        #     - "5555:5555"
         environment:
             - CELERY_BROKER_URL=redis://redis:6379/0
             - CELERY_RESULT_BACKEND=redis://redis:6379/0
