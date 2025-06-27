@@ -22,7 +22,7 @@ services:
     web:
         build: .
         ports:
-            - "8000:8000" # Coolify needs this for Docker Compose routing
+            - "8001:8000" # Use 8001 externally to avoid conflict with existing service
         # expose:
         #     - "8000" # Tell Coolify this service handles external traffic
         # labels:
