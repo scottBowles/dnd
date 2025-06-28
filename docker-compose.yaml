@@ -21,8 +21,8 @@ services:
     # Django web application
     web:
         build: .
-        ports:
-            - "8000:8000" # Simple port mapping for fresh service
+        expose:
+            - "8000" # Coolify will handle external routing
         environment:
             - DJANGO_SETTINGS_MODULE=website.settings
             - PYTHONPATH=/app
