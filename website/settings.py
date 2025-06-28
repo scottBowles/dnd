@@ -217,10 +217,15 @@ CORS_ALLOWED_ORIGINS = (
         "http://localhost:5174",
         "http://127.0.0.1:5174",
         "https://airel.onrender.com",
+        "https://airel.vip",
         "https://api.airel.vip",
     ]
     if DEBUG
-    else ["https://airel.onrender.com", "https://api.airel.vip"]
+    else [
+        "https://airel.onrender.com",
+        "https://airel.vip",
+        "https://api.airel.vip",
+    ]
 )
 
 AUTH_USER_MODEL = "nucleus.User"
