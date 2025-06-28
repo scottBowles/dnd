@@ -21,14 +21,8 @@ services:
     # Django web application
     web:
         build: .
-        # ports:
-        #     - "8001:8000" # Use 8001 externally to avoid conflict with existing service
-        expose:
-            - "8000"
-        labels:
-            - "traefik.enable=true"
-            - "traefik.http.routers.web.rule=Host(`api.airel.vip`)"
-            - "traefik.http.services.web.loadbalancer.server.port=8000"
+        ports:
+            - "8000:8000" # Simple port mapping for fresh service
         environment:
             - DJANGO_SETTINGS_MODULE=website.settings
             - PYTHONPATH=/app
