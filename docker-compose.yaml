@@ -25,7 +25,6 @@ services:
             - "8000" # Coolify will handle external routing
         command: >
             sh -c "python manage.py migrate &&
-                   python manage.py collectstatic --noinput &&
                    python manage.py algolia_reindex &&
                    gunicorn website.wsgi:application --bind 0.0.0.0:8000 --workers 3"
         environment:
