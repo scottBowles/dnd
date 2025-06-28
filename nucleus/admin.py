@@ -98,10 +98,14 @@ class GameLogAdmin(admin.ModelAdmin):
         if not self._can_generate_log(gamelog, request):
             return redirect(request.path.replace("generate-session-log-concat/", ""))
         try:
-            TranscriptionService.generate_session_log_from_transcripts(
+            service = TranscriptionService()
+            result = service.generate_session_log_async(
                 gamelog, method="concat"
             )
-            messages.success(request, "Session log (concat) generated and saved.")
+            if hasattr(result, 'id'):  # Celery AsyncResult
+                messages.success(request, f"Session log (concat) generation started. Task ID: {result.id}")
+            else:
+                messages.success(request, "Session log (concat) generated and saved.")
         except Exception as e:
             messages.error(request, f"Error generating session log: {e}")
         return redirect(request.path.replace("generate-session-log-concat/", ""))
@@ -114,10 +118,14 @@ class GameLogAdmin(admin.ModelAdmin):
         if not self._can_generate_log(gamelog, request):
             return redirect(request.path.replace("generate-session-log-segment/", ""))
         try:
-            TranscriptionService.generate_session_log_from_transcripts(
+            service = TranscriptionService()
+            result = service.generate_session_log_async(
                 gamelog, method="segment"
             )
-            messages.success(request, "Session log (segment) generated and saved.")
+            if hasattr(result, 'id'):  # Celery AsyncResult
+                messages.success(request, f"Session log (segment) generation started. Task ID: {result.id}")
+            else:
+                messages.success(request, "Session log (segment) generated and saved.")
         except Exception as e:
             messages.error(request, f"Error generating session log: {e}")
         return redirect(request.path.replace("generate-session-log-segment/", ""))
@@ -176,6 +184,8 @@ class GameLogAdmin(admin.ModelAdmin):
             if not audio_files:
                 messages.warning(request, f"No audio files found for {gamelog}.")
                 continue
+            
+            async_tasks = []
             for audio in audio_files:
                 if (
                     hasattr(audio, "audio_transcripts")
@@ -188,20 +198,37 @@ class GameLogAdmin(admin.ModelAdmin):
                 audio.transcription_status = "processing"
                 audio.save(update_fields=["transcription_status"])
                 try:
-                    transcribe_session_audio(
+                    result = transcribe_session_audio(
                         audio,
                         session_notes=session_notes,
                         previous_transcript=previous_transcript,
                     )
-                    audio.transcription_status = "completed"
-                    audio.save(update_fields=["transcription_status"])
+                    # Check if result is a Celery AsyncResult (async processing)
+                    if hasattr(result, 'id'):  # Celery AsyncResult
+                        async_tasks.append((audio, result.id))
+                        # Don't immediately mark as completed since it's async
+                    elif result:  # Synchronous processing success
+                        audio.transcription_status = "completed"
+                        audio.save(update_fields=["transcription_status"])
+                    else:  # Synchronous processing failure
+                        audio.transcription_status = "failed"
+                        audio.save(update_fields=["transcription_status"])
                 except Exception as e:
                     audio.transcription_status = "failed"
                     audio.save(update_fields=["transcription_status"])
                     messages.error(request, f"Failed to transcribe {audio}: {e}")
-            messages.success(
-                request, f"Transcription attempted for all audio files in {gamelog}."
-            )
+            
+            if async_tasks:
+                task_info = ", ".join([f"{audio.original_filename} (Task: {task_id})" for audio, task_id in async_tasks])
+                messages.success(
+                    request, 
+                    f"Transcription started for {len(async_tasks)} audio files in {gamelog}. "
+                    f"Tasks: {task_info}. Check Celery worker logs for progress."
+                )
+            else:
+                messages.success(
+                    request, f"Transcription attempted for all audio files in {gamelog}."
+                )
 
     def transcribe_audio_files_action(self, request, queryset):
         """
@@ -329,21 +356,36 @@ class SessionAudioAdmin(admin.ModelAdmin):
         Admin action to transcribe selected SessionAudio files.
         """
         count = 0
+        async_count = 0
         for audio in queryset:
             audio.transcription_status = "processing"
             audio.save(update_fields=["transcription_status"])
             try:
                 result = transcribe_session_audio(audio)
-                if result:
+                # Check if result is a Celery AsyncResult (async processing)
+                if hasattr(result, 'id'):  # Celery AsyncResult
+                    async_count += 1
+                    # Don't immediately mark as completed since it's async
+                elif result:  # Synchronous processing success
                     audio.transcription_status = "completed"
-                else:
+                    audio.save(update_fields=["transcription_status"])
+                else:  # Synchronous processing failure
                     audio.transcription_status = "failed"
+                    audio.save(update_fields=["transcription_status"])
             except Exception as e:
                 audio.transcription_status = "failed"
-            audio.save(update_fields=["transcription_status"])
+                audio.save(update_fields=["transcription_status"])
             count += 1
-        self.message_user(
-            request, f"Transcription triggered for {count} audio file(s)."
-        )
+        
+        if async_count > 0:
+            self.message_user(
+                request, 
+                f"Transcription started for {count} audio file(s). "
+                f"{async_count} are being processed asynchronously - check worker logs for progress."
+            )
+        else:
+            self.message_user(
+                request, f"Transcription triggered for {count} audio file(s)."
+            )
 
     transcribe_selected_audio.short_description = "Transcribe selected audio files"

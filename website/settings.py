@@ -52,10 +52,22 @@ if DEBUG:
 ALLOWED_HOSTS = [
     "airel.vip",
     "api.airel.vip",
+    "localhost",
+    "127.0.0.1",
 ]
 RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
+# Add Coolify hostname if deployed there
+COOLIFY_URL = os.environ.get("COOLIFY_URL")
+if COOLIFY_URL:
+    # Extract hostname from URL
+    from urllib.parse import urlparse
+
+    parsed = urlparse(COOLIFY_URL)
+    if parsed.hostname:
+        ALLOWED_HOSTS.append(parsed.hostname)
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
@@ -88,6 +100,7 @@ INSTALLED_APPS = [
     "nucleus",
     "transcription",
     "storages",
+    "django_celery_beat",
 ]
 
 MIDDLEWARE = [
@@ -213,10 +226,15 @@ CORS_ALLOWED_ORIGINS = (
         "http://localhost:5174",
         "http://127.0.0.1:5174",
         "https://airel.onrender.com",
+        "https://airel.vip",
         "https://api.airel.vip",
     ]
     if DEBUG
-    else ["https://airel.onrender.com", "https://api.airel.vip"]
+    else [
+        "https://airel.onrender.com",
+        "https://airel.vip",
+        "https://api.airel.vip",
+    ]
 )
 
 AUTH_USER_MODEL = "nucleus.User"
@@ -259,3 +277,28 @@ AWS_S3_SIGNATURE_VERSION = "s3v4"
 AWS_S3_ADDRESSING_STYLE = "virtual"
 AWS_DEFAULT_ACL = None
 AWS_S3_FILE_OVERWRITE = False
+
+# Celery Configuration
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get(
+    "CELERY_RESULT_BACKEND", "redis://localhost:6379/0"
+)
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+
+# Celery task routing
+CELERY_TASK_ROUTES = {
+    "transcription.tasks.*": {"queue": "transcription"},
+}
+
+# Celery worker configuration
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TASK_ACKS_LATE = True
+CELERY_WORKER_DISABLE_RATE_LIMITS = False
+
+# Celery task time limits (2 hours for transcription tasks processing multiple large files)
+CELERY_TASK_SOFT_TIME_LIMIT = 7200  # 2 hours (120 minutes)
+CELERY_TASK_TIME_LIMIT = 7500  # 2 hours 5 minutes (125 minutes, hard limit)
