@@ -1,4 +1,4 @@
-from strawberry.tools import merge_types
+from strawberry import merge_types
 from strawberry_django_plus import gql
 from gqlauth.user.queries import UserQueries
 from gqlauth.user import relay as mutations
