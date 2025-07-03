@@ -27,6 +27,7 @@ services:
             sh -c "pip install --upgrade pip &&
                    python manage.py migrate &&
                    python manage.py algolia_reindex &&
+                   python manage.py collectstatic --noinput || echo "Static files collection skipped (likely missing env vars)" &&
                    gunicorn website.wsgi:application --bind 0.0.0.0:8000 --workers 3"
         environment:
             - DJANGO_SETTINGS_MODULE=website.settings

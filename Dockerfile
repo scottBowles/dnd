@@ -36,7 +36,7 @@ RUN mkdir -p /app/logs /app/staticfiles \
     && chmod +x /app/manage.py
 
 # Collect static files for production
-RUN python manage.py collectstatic --noinput || echo "Static files collection skipped (likely missing env vars)"
+# RUN python manage.py collectstatic --noinput || echo "Static files collection skipped (likely missing env vars)"
 
 # Switch to non-root user
 USER appuser
