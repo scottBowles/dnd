@@ -1,6 +1,7 @@
 import strawberry
 from strawberry.tools import merge_types
 from gqlauth.user.queries import UserQueries
+from gqlauth.core.middlewares import JwtSchema
 from gqlauth.user import relay as mutations
 from strawberry_django.optimizer import DjangoOptimizerExtension
 
@@ -80,7 +81,7 @@ queries = (
     SkillQuery,
     TraitQuery,
     UserQuery,
-    UserQueries,  # new from gqlauth
+    UserQueries,
     NodeQuery,
 )
 
@@ -109,6 +110,6 @@ mutations = (
 Query = merge_types("Query", queries)
 Mutation = merge_types("Mutation", mutations)
 
-schema = strawberry.Schema(
+schema = JwtSchema(
     query=Query, mutation=Mutation, extensions=[DjangoOptimizerExtension]
 )
