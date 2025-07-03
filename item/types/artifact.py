@@ -1,9 +1,13 @@
-from typing import Annotated, Iterable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated, Iterable
+
+import strawberry
+import strawberry_django
+from strawberry import auto, relay
+from strawberry_django.mutations import resolvers
+
 from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
+from nucleus.relay import ListConnectionWithTotalCount
 from nucleus.types import Entity, EntityInput, EntityInputPartial
-from strawberry_django_plus import gql
-from strawberry_django_plus.gql import relay, auto
-from strawberry_django_plus.mutations import resolvers
 
 from .. import models
 
@@ -11,15 +15,15 @@ if TYPE_CHECKING:
     from item.types import Artifact, Item
 
 
-@gql.django.type(models.Artifact)
+@strawberry_django.type(models.Artifact)
 class Artifact(Entity, relay.Node):
-    items: relay.Connection[
-        Annotated["Item", gql.lazy("item.types")]
-    ] = gql.django.connection()
+    items: ListConnectionWithTotalCount[
+        Annotated["Item", strawberry.lazy("item.types")]
+    ] = strawberry_django.connection()
     notes: auto
 
 
-@gql.django.input(models.Artifact)
+@strawberry_django.input(models.Artifact)
 class ArtifactInput(EntityInput):
     items: auto
     notes: auto
@@ -31,8 +35,8 @@ class ArtifactInput(EntityInput):
     related_races: auto
 
 
-@gql.django.partial(models.Artifact)
-class ArtifactInputPartial(EntityInputPartial, gql.NodeInput):
+@strawberry_django.partial(models.Artifact)
+class ArtifactInputPartial(EntityInputPartial, strawberry_django.NodeInput):
     items: auto
     notes: auto
     related_artifacts: auto
@@ -43,12 +47,11 @@ class ArtifactInputPartial(EntityInputPartial, gql.NodeInput):
     related_races: auto
 
 
-@gql.type
+@strawberry.type
 class ArtifactQuery:
-    artifact: Optional[Artifact] = gql.django.field()
-    artifacts: relay.Connection[Artifact] = gql.django.connection()
+    artifacts: ListConnectionWithTotalCount[Artifact] = strawberry_django.connection()
 
-    @gql.django.connection
+    @strawberry_django.connection(ListConnectionWithTotalCount[Artifact])
     def Artifacts_connection_filtered(self, name_startswith: str) -> Iterable[Artifact]:
         # Note that this resolver is special. It should not resolve the connection, but
         # the iterable of nodes itself. Thus, any arguments defined here will be appended
@@ -57,13 +60,15 @@ class ArtifactQuery:
         return models.Artifact.objects.filter(name__startswith=name_startswith)
 
 
-@gql.type
+@strawberry.type
 class ArtifactMutation:
-    create_artifact: Artifact = gql.django.create_mutation(
+    create_artifact: Artifact = strawberry_django.mutations.create(
         ArtifactInput, permission_classes=[IsStaff]
     )
 
-    @gql.django.mutation(permission_classes=[IsStaff, IsLockUserOrSuperuserIfLocked])
+    @strawberry_django.mutation(
+        permission_classes=[IsStaff, IsLockUserOrSuperuserIfLocked]
+    )
     def update_artifact(
         self,
         info,
@@ -78,27 +83,30 @@ class ArtifactMutation:
         artifact.release_lock(info.context.request.user)
         return artifact
 
-    delete_artifact: Artifact = gql.django.delete_mutation(
-        gql.NodeInput, permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked]
+    delete_artifact: Artifact = strawberry_django.mutations.delete(
+        strawberry_django.NodeInput,
+        permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked],
     )
 
-    @gql.django.input_mutation(permission_classes=[IsStaff])
+    @strawberry_django.input_mutation(permission_classes=[IsStaff])
     def artifact_add_image(
-        self, info, id: gql.relay.GlobalID, image_id: str
+        self, info, id: strawberry.relay.GlobalID, image_id: str
     ) -> Artifact:
         obj = id.resolve_node(info)
         obj.image_ids = obj.image_ids + [image_id]
         obj.save()
         return obj
 
-    @gql.django.input_mutation(permission_classes=[IsStaff])
-    def artifact_lock(self, info, id: gql.relay.GlobalID) -> Artifact:
+    @strawberry_django.input_mutation(permission_classes=[IsStaff])
+    def artifact_lock(self, info, id: strawberry.relay.GlobalID) -> Artifact:
         artifact = id.resolve_node(info)
         artifact = artifact.lock(info.context.request.user)
         return artifact
 
-    @gql.django.input_mutation(permission_classes=[IsLockUserOrSuperuserIfLocked])
-    def artifact_release_lock(self, info, id: gql.relay.GlobalID) -> Artifact:
+    @strawberry_django.input_mutation(
+        permission_classes=[IsLockUserOrSuperuserIfLocked]
+    )
+    def artifact_release_lock(self, info, id: strawberry.relay.GlobalID) -> Artifact:
         artifact = id.resolve_node(info)
         artifact = artifact.release_lock(info.context.request.user)
         return artifact

@@ -1,9 +1,13 @@
-from typing import Annotated, Iterable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated, Iterable, Optional
+
+import strawberry
+import strawberry_django
+from strawberry import auto, relay
+from strawberry_django.mutations import resolvers
+
 from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
+from nucleus.relay import ListConnectionWithTotalCount
 from nucleus.types import Entity, EntityInput, EntityInputPartial
-from strawberry_django_plus import gql
-from strawberry_django_plus.gql import relay, auto
-from strawberry_django_plus.mutations import resolvers
 
 from .. import models
 
@@ -11,56 +15,56 @@ if TYPE_CHECKING:
     from item.types import Artifact, Item
 
 
-@gql.django.type(models.ArmorTraits)
+@strawberry_django.type(models.ArmorTraits)
 class ArmorTraits(relay.Node):
     ac_bonus: auto
 
 
-@gql.django.input(models.ArmorTraits)
+@strawberry_django.input(models.ArmorTraits)
 class ArmorTraitsInput:
     ac_bonus: auto
     delete: Optional[bool] = False
 
 
-@gql.django.type(models.WeaponTraits)
+@strawberry_django.type(models.WeaponTraits)
 class WeaponTraits(relay.Node):
     attack_bonus: auto
 
 
-@gql.django.input(models.WeaponTraits)
+@strawberry_django.input(models.WeaponTraits)
 class WeaponTraitsInput:
     attack_bonus: auto
     delete: Optional[bool] = False
 
 
-@gql.django.type(models.EquipmentTraits)
+@strawberry_django.type(models.EquipmentTraits)
 class EquipmentTraits(relay.Node):
     brief_description: auto
 
 
-@gql.django.input(models.EquipmentTraits)
+@strawberry_django.input(models.EquipmentTraits)
 class EquipmentTraitsInput:
     brief_description: auto
     delete: Optional[bool] = False
 
 
-@gql.django.type(models.Item)
+@strawberry_django.type(models.Item)
 class Item(Entity, relay.Node):
-    artifacts: relay.Connection[
-        Annotated["Artifact", gql.lazy("item.types")]
-    ] = gql.django.connection()
-    armor: Optional[ArmorTraits] = gql.django.field(
+    artifacts: ListConnectionWithTotalCount[
+        Annotated["Artifact", strawberry.lazy("item.types")]
+    ] = strawberry_django.connection()
+    armor: Optional[ArmorTraits] = strawberry_django.field(
         resolver=lambda self, info: getattr(self, "armor", None)
     )
-    weapon: Optional[WeaponTraits] = gql.django.field(
+    weapon: Optional[WeaponTraits] = strawberry_django.field(
         resolver=lambda self, info: getattr(self, "weapon", None)
     )
-    equipment: Optional[EquipmentTraits] = gql.django.field(
+    equipment: Optional[EquipmentTraits] = strawberry_django.field(
         resolver=lambda self, info: getattr(self, "equipment", None)
     )
 
 
-@gql.django.input(models.Item)
+@strawberry_django.input(models.Item)
 class ItemInput(EntityInput):
     artifacts: auto
     related_artifacts: auto
@@ -74,8 +78,8 @@ class ItemInput(EntityInput):
     equipment: Optional[EquipmentTraitsInput]
 
 
-@gql.django.partial(models.Item)
-class ItemInputPartial(EntityInputPartial, gql.NodeInput):
+@strawberry_django.partial(models.Item)
+class ItemInputPartial(EntityInputPartial, strawberry_django.NodeInput):
     artifacts: auto
     related_artifacts: auto
     related_associations: auto
@@ -88,12 +92,11 @@ class ItemInputPartial(EntityInputPartial, gql.NodeInput):
     equipment: Optional[EquipmentTraitsInput]
 
 
-@gql.type
+@strawberry.type
 class ItemQuery:
-    item: Optional[Item] = gql.django.field()
-    items: relay.Connection[Item] = gql.django.connection()
+    items: ListConnectionWithTotalCount[Item] = strawberry_django.connection()
 
-    @gql.django.connection
+    @strawberry_django.connection(ListConnectionWithTotalCount[Item])
     def Items_connection_filtered(self, name_startswith: str) -> Iterable[Item]:
         # Note that this resolver is special. It should not resolve the connection, but
         # the iterable of nodes itself. Thus, any arguments defined here will be appended
@@ -102,9 +105,9 @@ class ItemQuery:
         return models.Item.objects.filter(name__startswith=name_startswith)
 
 
-@gql.type
+@strawberry.type
 class ItemMutation:
-    @gql.django.mutation(permission_classes=[IsStaff])
+    @strawberry_django.mutation(permission_classes=[IsStaff])
     def create_item(self, info, input: ItemInput) -> Item:
         """
         Create an item with traits if present.
@@ -139,11 +142,13 @@ class ItemMutation:
         # Return the item
         return item
 
-    @gql.django.mutation(permission_classes=[IsStaff, IsLockUserOrSuperuserIfLocked])
+    @strawberry_django.mutation(
+        permission_classes=[IsStaff, IsLockUserOrSuperuserIfLocked]
+    )
     def update_item(self, info, input: ItemInputPartial) -> Item:
         # Collect data from input
         data = vars(input)
-        node_id: gql.relay.GlobalID = data.pop("id")
+        node_id: strawberry.relay.GlobalID = data.pop("id")
         armor_data = data.pop("armor", None)
         weapon_data = data.pop("weapon", None)
         equipment_data = data.pop("equipment", None)
@@ -202,25 +207,30 @@ class ItemMutation:
 
         return item
 
-    delete_item: Item = gql.django.delete_mutation(
-        gql.NodeInput, permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked]
+    delete_item: Item = strawberry_django.mutations.delete(
+        strawberry_django.NodeInput,
+        permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked],
     )
 
-    @gql.django.input_mutation(permission_classes=[IsStaff])
-    def item_add_image(self, info, id: gql.relay.GlobalID, image_id: str) -> Item:
+    @strawberry_django.input_mutation(permission_classes=[IsStaff])
+    def item_add_image(
+        self, info, id: strawberry.relay.GlobalID, image_id: str
+    ) -> Item:
         obj = id.resolve_node(info)
         obj.image_ids = obj.image_ids + [image_id]
         obj.save()
         return obj
 
-    @gql.django.input_mutation(permission_classes=[IsStaff])
-    def item_lock(self, info, id: gql.relay.GlobalID) -> Item:
+    @strawberry_django.input_mutation(permission_classes=[IsStaff])
+    def item_lock(self, info, id: strawberry.relay.GlobalID) -> Item:
         item = id.resolve_node(info)
         item = item.lock(info.context.request.user)
         return item
 
-    @gql.django.input_mutation(permission_classes=[IsLockUserOrSuperuserIfLocked])
-    def item_release_lock(self, info, id: gql.relay.GlobalID) -> Item:
+    @strawberry_django.input_mutation(
+        permission_classes=[IsLockUserOrSuperuserIfLocked]
+    )
+    def item_release_lock(self, info, id: strawberry.relay.GlobalID) -> Item:
         item = id.resolve_node(info)
         item = item.release_lock(info.context.request.user)
         return item

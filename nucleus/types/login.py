@@ -1,16 +1,16 @@
-from google.oauth2 import id_token
-from google.auth.transport import requests
-from strawberry_django_plus import gql
+import strawberry
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from google.auth.transport import requests
+from google.oauth2 import id_token
 from gqlauth.jwt.types_ import ObtainJSONWebTokenType
 
 user_model = get_user_model()
 
 
-@gql.type
+@strawberry.type
 class LoginMutation:
-    @gql.mutation
+    @strawberry.mutation
     def google_login(self, google_token: str) -> ObtainJSONWebTokenType:
         print("google_login start")
         # take in the google_token

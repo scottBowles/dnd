@@ -1,38 +1,40 @@
-from typing import Iterable, Optional
-from strawberry_django_plus import gql
-from strawberry_django_plus.gql import relay, auto
+from typing import Iterable
+
+import strawberry
+import strawberry_django
+from strawberry import auto, relay
 
 from nucleus.permissions import IsStaff, IsSuperuser
+from nucleus.relay import ListConnectionWithTotalCount
 
 from .. import models
 
 
-@gql.django.type(models.AbilityScoreIncrease)
+@strawberry_django.type(models.AbilityScoreIncrease)
 class AbilityScoreIncrease(relay.Node):
     ability_score: auto
     increase: auto
 
 
-@gql.django.input(models.AbilityScoreIncrease)
+@strawberry_django.input(models.AbilityScoreIncrease)
 class AbilityScoreIncreaseInput:
     ability_score: auto
     increase: auto
 
 
-@gql.django.partial(models.AbilityScoreIncrease)
-class AbilityScoreIncreaseInputPartial(gql.NodeInput):
+@strawberry_django.partial(models.AbilityScoreIncrease)
+class AbilityScoreIncreaseInputPartial(strawberry_django.NodeInput):
     ability_score: auto
     increase: auto
 
 
-@gql.type
+@strawberry.type
 class AbilityScoreIncreaseQuery:
-    ability_score_increase: Optional[AbilityScoreIncrease] = gql.django.field()
-    ability_score_increases: relay.Connection[
-        AbilityScoreIncrease
-    ] = gql.django.connection()
+    ability_score_increases: ListConnectionWithTotalCount[AbilityScoreIncrease] = (
+        strawberry_django.connection()
+    )
 
-    @gql.django.connection
+    @strawberry_django.connection(ListConnectionWithTotalCount[AbilityScoreIncrease])
     def AbilityScoreIncreases_connection_filtered(
         self, name_startswith: str
     ) -> Iterable[AbilityScoreIncrease]:
@@ -45,14 +47,20 @@ class AbilityScoreIncreaseQuery:
         )
 
 
-@gql.type
+@strawberry.type
 class AbilityScoreIncreaseMutation:
-    create_ability_score_increase: AbilityScoreIncrease = gql.django.create_mutation(
-        AbilityScoreIncreaseInput, permission_classes=[IsStaff]
+    create_ability_score_increase: AbilityScoreIncrease = (
+        strawberry_django.mutations.create(
+            AbilityScoreIncreaseInput, permission_classes=[IsStaff]
+        )
     )
-    update_ability_score_increase: AbilityScoreIncrease = gql.django.update_mutation(
-        AbilityScoreIncreaseInputPartial, permission_classes=[IsStaff]
+    update_ability_score_increase: AbilityScoreIncrease = (
+        strawberry_django.mutations.update(
+            AbilityScoreIncreaseInputPartial, permission_classes=[IsStaff]
+        )
     )
-    delete_ability_score_increase: AbilityScoreIncrease = gql.django.delete_mutation(
-        gql.NodeInput, permission_classes=[IsSuperuser]
+    delete_ability_score_increase: AbilityScoreIncrease = (
+        strawberry_django.mutations.delete(
+            strawberry_django.NodeInput, permission_classes=[IsSuperuser]
+        )
     )

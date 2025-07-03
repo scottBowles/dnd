@@ -1,37 +1,39 @@
-from typing import Iterable, Optional
-from strawberry_django_plus import gql
-from strawberry_django_plus.gql import relay, auto
+from typing import Iterable
+
+import strawberry
+import strawberry_django
+from strawberry import auto, relay
 
 from nucleus.permissions import IsStaff, IsSuperuser
+from nucleus.relay import ListConnectionWithTotalCount
 
 from .. import models
 from .language import Language
 
 
-@gql.django.type(models.Script)
+@strawberry_django.type(models.Script)
 class Script(relay.Node):
     name: auto
-    languages: relay.Connection[Language] = gql.django.connection()
+    languages: ListConnectionWithTotalCount[Language] = strawberry_django.connection()
 
 
-@gql.django.input(models.Script)
+@strawberry_django.input(models.Script)
 class ScriptInput:
     name: auto
     languages: auto
 
 
-@gql.django.partial(models.Script)
-class ScriptInputPartial(gql.NodeInput):
+@strawberry_django.partial(models.Script)
+class ScriptInputPartial(strawberry_django.NodeInput):
     name: auto
     languages: auto
 
 
-@gql.type
+@strawberry.type
 class ScriptQuery:
-    script: Optional[Script] = gql.django.field()
-    scripts: relay.Connection[Script] = gql.django.connection()
+    scripts: ListConnectionWithTotalCount[Script] = strawberry_django.connection()
 
-    @gql.django.connection
+    @strawberry_django.connection(ListConnectionWithTotalCount[Script])
     def Scripts_connection_filtered(self, name_startswith: str) -> Iterable[Script]:
         # Note that this resolver is special. It should not resolve the connection, but
         # the iterable of nodes itself. Thus, any arguments defined here will be appended
@@ -40,14 +42,14 @@ class ScriptQuery:
         return models.Script.objects.filter(name__startswith=name_startswith)
 
 
-@gql.type
+@strawberry.type
 class ScriptMutation:
-    create_script: Script = gql.django.create_mutation(
+    create_script: Script = strawberry_django.mutations.create(
         ScriptInput, permission_classes=[IsStaff]
     )
-    update_script: Script = gql.django.update_mutation(
+    update_script: Script = strawberry_django.mutations.update(
         ScriptInputPartial, permission_classes=[IsStaff]
     )
-    delete_script: Script = gql.django.delete_mutation(
-        gql.NodeInput, permission_classes=[IsSuperuser]
+    delete_script: Script = strawberry_django.mutations.delete(
+        strawberry_django.NodeInput, permission_classes=[IsSuperuser]
     )

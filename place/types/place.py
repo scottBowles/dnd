@@ -1,18 +1,21 @@
 from typing import TYPE_CHECKING, Iterable, Optional
+
+import strawberry
+import strawberry_django
+from strawberry import auto, relay
+from strawberry_django.mutations import resolvers
+
 from association import models
 from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
+from nucleus.relay import ListConnectionWithTotalCount
 from nucleus.types import Entity, EntityInput, EntityInputPartial
-from strawberry_django_plus import gql
-from strawberry_django_plus.gql import relay, auto
-from strawberry_django_plus.mutations import resolvers
-
 from place import models
 
 if TYPE_CHECKING:
     from place.types.place import Place
 
 
-@gql.django.type(models.Place)
+@strawberry_django.type(models.Place)
 class Place(Entity, relay.Node):
     place_type: auto
     parent: Optional["Place"]
@@ -20,10 +23,10 @@ class Place(Entity, relay.Node):
     exports: auto
     common_races: auto
     associations: auto
-    children: relay.Connection["Place"] = gql.django.connection()
+    children: ListConnectionWithTotalCount["Place"] = strawberry_django.connection()
 
 
-@gql.django.input(models.Place)
+@strawberry_django.input(models.Place)
 class PlaceInput(EntityInput):
     place_type: auto
     children: auto
@@ -36,8 +39,8 @@ class PlaceInput(EntityInput):
     related_races: auto
 
 
-@gql.django.partial(models.Place)
-class PlaceInputPartial(EntityInputPartial, gql.NodeInput):
+@strawberry_django.partial(models.Place)
+class PlaceInputPartial(EntityInputPartial, strawberry_django.NodeInput):
     place_type: auto
     children: auto
     parent: auto
@@ -49,12 +52,11 @@ class PlaceInputPartial(EntityInputPartial, gql.NodeInput):
     related_races: auto
 
 
-@gql.type
+@strawberry.type
 class PlaceQuery:
-    place: Optional[Place] = gql.django.field()
-    places: relay.Connection[Place] = gql.django.connection()
+    places: ListConnectionWithTotalCount[Place] = strawberry_django.connection()
 
-    @gql.django.connection
+    @strawberry_django.connection(ListConnectionWithTotalCount[Place])
     def Places_connection_filtered(self, name_startswith: str) -> Iterable[Place]:
         # Note that this resolver is special. It should not resolve the connection, but
         # the iterable of nodes itself. Thus, any arguments defined here will be appended
@@ -63,13 +65,15 @@ class PlaceQuery:
         return models.Place.objects.filter(name__startswith=name_startswith)
 
 
-@gql.type
+@strawberry.type
 class PlaceMutation:
-    create_place: Place = gql.django.create_mutation(
+    create_place: Place = strawberry_django.mutations.create(
         PlaceInput, permission_classes=[IsStaff]
     )
 
-    @gql.django.mutation(permission_classes=[IsStaff, IsLockUserOrSuperuserIfLocked])
+    @strawberry_django.mutation(
+        permission_classes=[IsStaff, IsLockUserOrSuperuserIfLocked]
+    )
     def update_place(
         self,
         info,
@@ -82,25 +86,30 @@ class PlaceMutation:
         place.release_lock(info.context.request.user)
         return place
 
-    delete_place: Place = gql.django.delete_mutation(
-        gql.NodeInput, permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked]
+    delete_place: Place = strawberry_django.mutations.delete(
+        strawberry_django.NodeInput,
+        permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked],
     )
 
-    @gql.django.input_mutation(permission_classes=[IsStaff])
-    def place_add_image(self, info, id: gql.relay.GlobalID, image_id: str) -> Place:
+    @strawberry_django.input_mutation(permission_classes=[IsStaff])
+    def place_add_image(
+        self, info, id: strawberry.relay.GlobalID, image_id: str
+    ) -> Place:
         obj = id.resolve_node(info)
         obj.image_ids = obj.image_ids + [image_id]
         obj.save()
         return obj
 
-    @gql.django.input_mutation(permission_classes=[IsStaff])
-    def place_lock(self, info, id: gql.relay.GlobalID) -> Place:
+    @strawberry_django.input_mutation(permission_classes=[IsStaff])
+    def place_lock(self, info, id: strawberry.relay.GlobalID) -> Place:
         place = id.resolve_node(info)
         place = place.lock(info.context.request.user)
         return place
 
-    @gql.django.input_mutation(permission_classes=[IsLockUserOrSuperuserIfLocked])
-    def place_release_lock(self, info, id: gql.relay.GlobalID) -> Place:
+    @strawberry_django.input_mutation(
+        permission_classes=[IsLockUserOrSuperuserIfLocked]
+    )
+    def place_release_lock(self, info, id: strawberry.relay.GlobalID) -> Place:
         place = id.resolve_node(info)
         place = place.release_lock(info.context.request.user)
         return place

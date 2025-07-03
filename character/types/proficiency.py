@@ -1,8 +1,11 @@
-from typing import Annotated, Iterable, Optional, TYPE_CHECKING
-from strawberry_django_plus import gql
-from strawberry_django_plus.gql import relay, auto
+from typing import TYPE_CHECKING, Annotated, Iterable
+
+import strawberry
+import strawberry_django
+from strawberry import auto, relay
 
 from nucleus.permissions import IsStaff, IsSuperuser
+from nucleus.relay import ListConnectionWithTotalCount
 
 from .. import models
 
@@ -10,17 +13,17 @@ if TYPE_CHECKING:
     from character.types.character import Character
 
 
-@gql.django.type(models.Proficiency)
+@strawberry_django.type(models.Proficiency)
 class Proficiency(relay.Node):
     name: auto
     proficiency_type: auto
     description: auto
-    characters: relay.Connection[
-        Annotated["Character", gql.lazy("character.types.character")]
-    ] = gql.django.connection()
+    characters: ListConnectionWithTotalCount[
+        Annotated["Character", strawberry.lazy("character.types.character")]
+    ] = strawberry_django.connection()
 
 
-@gql.django.input(models.Proficiency)
+@strawberry_django.input(models.Proficiency)
 class ProficiencyInput:
     name: auto
     proficiency_type: auto
@@ -28,20 +31,21 @@ class ProficiencyInput:
     characters: auto
 
 
-@gql.django.partial(models.Proficiency)
-class ProficiencyInputPartial(gql.NodeInput):
+@strawberry_django.partial(models.Proficiency)
+class ProficiencyInputPartial(strawberry_django.NodeInput):
     name: auto
     proficiency_type: auto
     description: auto
     characters: auto
 
 
-@gql.type
+@strawberry.type
 class ProficiencyQuery:
-    proficiency: Optional[Proficiency] = gql.django.field()
-    proficiencies: relay.Connection[Proficiency] = gql.django.connection()
+    proficiencies: ListConnectionWithTotalCount[Proficiency] = (
+        strawberry_django.connection()
+    )
 
-    @gql.django.connection
+    @strawberry_django.connection(ListConnectionWithTotalCount[Proficiency])
     def Proficiencys_connection_filtered(
         self, name_startswith: str
     ) -> Iterable[Proficiency]:
@@ -52,14 +56,14 @@ class ProficiencyQuery:
         return models.Proficiency.objects.filter(name__startswith=name_startswith)
 
 
-@gql.type
+@strawberry.type
 class ProficiencyMutation:
-    create_proficiency: Proficiency = gql.django.create_mutation(
+    create_proficiency: Proficiency = strawberry_django.mutations.create(
         ProficiencyInput, permission_classes=[IsStaff]
     )
-    update_proficiency: Proficiency = gql.django.update_mutation(
+    update_proficiency: Proficiency = strawberry_django.mutations.update(
         ProficiencyInputPartial, permission_classes=[IsStaff]
     )
-    delete_proficiency: Proficiency = gql.django.delete_mutation(
-        gql.NodeInput, permission_classes=[IsSuperuser]
+    delete_proficiency: Proficiency = strawberry_django.mutations.delete(
+        strawberry_django.NodeInput, permission_classes=[IsSuperuser]
     )

@@ -45,6 +45,6 @@ urlpatterns = [
         "graphiql/",
         csrf_exempt(GraphQLView.as_view(schema=schema, graphiql=settings.DEBUG)),
     ),
-    path("graphql/", GraphQLView.as_view(schema=schema)),
+    path("graphql/", csrf_exempt(GraphQLView.as_view(schema=schema))),
     # path("graphql/", AsyncGraphQLView.as_view(schema=schema)),
 ]

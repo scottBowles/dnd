@@ -1,9 +1,13 @@
-from typing import Annotated, Iterable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated, Iterable
+
+import strawberry
+import strawberry_django
+from strawberry import auto, relay
+from strawberry_django.mutations import resolvers
+
 from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
+from nucleus.relay import ListConnectionWithTotalCount
 from nucleus.types import Entity, EntityInput, EntityInputPartial
-from strawberry_django_plus import gql
-from strawberry_django_plus.gql import relay, auto
-from strawberry_django_plus.mutations import resolvers
 
 from .. import models
 
@@ -12,14 +16,14 @@ if TYPE_CHECKING:
     from race.types.race import Race
 
 
-@gql.django.type(models.Race)
+@strawberry_django.type(models.Race)
 class Race(Entity, relay.Node):
-    characters: relay.Connection[
-        Annotated["Character", gql.lazy("character.types.character")]
-    ] = gql.django.connection()
+    characters: ListConnectionWithTotalCount[
+        Annotated["Character", strawberry.lazy("character.types.character")]
+    ] = strawberry_django.connection()
 
 
-@gql.django.input(models.Race)
+@strawberry_django.input(models.Race)
 class RaceInput(EntityInput):
     characters: auto
     related_artifacts: auto
@@ -30,8 +34,8 @@ class RaceInput(EntityInput):
     related_races: auto
 
 
-@gql.django.partial(models.Race)
-class RaceInputPartial(EntityInputPartial, gql.NodeInput):
+@strawberry_django.partial(models.Race)
+class RaceInputPartial(EntityInputPartial, strawberry_django.NodeInput):
     characters: auto
     related_artifacts: auto
     related_associations: auto
@@ -41,12 +45,11 @@ class RaceInputPartial(EntityInputPartial, gql.NodeInput):
     related_races: auto
 
 
-@gql.type
+@strawberry.type
 class RaceQuery:
-    race: Optional[Race] = gql.django.field()
-    races: relay.Connection[Race] = gql.django.connection()
+    races: ListConnectionWithTotalCount[Race] = strawberry_django.connection()
 
-    @gql.django.connection
+    @strawberry_django.connection(ListConnectionWithTotalCount[Race])
     def Races_connection_filtered(self, name_startswith: str) -> Iterable[Race]:
         # Note that this resolver is special. It should not resolve the connection, but
         # the iterable of nodes itself. Thus, any arguments defined here will be appended
@@ -55,13 +58,15 @@ class RaceQuery:
         return models.Race.objects.filter(name__startswith=name_startswith)
 
 
-@gql.type
+@strawberry.type
 class RaceMutation:
-    create_race: Race = gql.django.create_mutation(
+    create_race: Race = strawberry_django.mutations.create(
         RaceInput, permission_classes=[IsStaff]
     )
 
-    @gql.django.mutation(permission_classes=[IsStaff, IsLockUserOrSuperuserIfLocked])
+    @strawberry_django.mutation(
+        permission_classes=[IsStaff, IsLockUserOrSuperuserIfLocked]
+    )
     def update_race(
         self,
         info,
@@ -74,25 +79,30 @@ class RaceMutation:
         race.release_lock(info.context.request.user)
         return race
 
-    delete_race: Race = gql.django.delete_mutation(
-        gql.NodeInput, permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked]
+    delete_race: Race = strawberry_django.mutations.delete(
+        strawberry_django.NodeInput,
+        permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked],
     )
 
-    @gql.django.input_mutation(permission_classes=[IsStaff])
-    def race_add_image(self, info, id: gql.relay.GlobalID, image_id: str) -> Race:
+    @strawberry_django.input_mutation(permission_classes=[IsStaff])
+    def race_add_image(
+        self, info, id: strawberry.relay.GlobalID, image_id: str
+    ) -> Race:
         obj = id.resolve_node(info)
         obj.image_ids = obj.image_ids + [image_id]
         obj.save()
         return obj
 
-    @gql.django.input_mutation(permission_classes=[IsStaff])
-    def race_lock(self, info, id: gql.relay.GlobalID) -> Race:
+    @strawberry_django.input_mutation(permission_classes=[IsStaff])
+    def race_lock(self, info, id: strawberry.relay.GlobalID) -> Race:
         race = id.resolve_node(info)
         race = race.lock(info.context.request.user)
         return race
 
-    @gql.django.input_mutation(permission_classes=[IsLockUserOrSuperuserIfLocked])
-    def race_release_lock(self, info, id: gql.relay.GlobalID) -> Race:
+    @strawberry_django.input_mutation(
+        permission_classes=[IsLockUserOrSuperuserIfLocked]
+    )
+    def race_release_lock(self, info, id: strawberry.relay.GlobalID) -> Race:
         race = id.resolve_node(info)
         race = race.release_lock(info.context.request.user)
         return race

@@ -1,5 +1,5 @@
 from typing import Any
-from strawberry_django_plus.gql import BasePermission
+from strawberry import BasePermission
 from strawberry.types import Info
 
 

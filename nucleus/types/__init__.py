@@ -1,4 +1,4 @@
-from strawberry import merge_types
+from strawberry.tools import merge_types
 
 from .entity import *
 from .gamelog import *

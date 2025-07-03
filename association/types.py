@@ -1,24 +1,28 @@
-from typing import Annotated, Iterable, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated, Iterable, Optional
+
+import strawberry
+import strawberry_django
+from strawberry import auto, relay
+from strawberry_django.mutations import resolvers
+
 from association import models
-from strawberry_django_plus import gql
-from strawberry_django_plus.mutations import resolvers
-from strawberry_django_plus.gql import relay, auto
 from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
 from nucleus.types import Entity, EntityInput, EntityInputPartial
+from nucleus.relay import ListConnectionWithTotalCount
 
 if TYPE_CHECKING:
-    from character.types.character import Character
     from association.types import Association
+    from character.types.character import Character
 
 
-@gql.django.type(models.Association)
+@strawberry_django.type(models.Association)
 class Association(Entity, relay.Node):
-    characters: relay.Connection[
-        Annotated["Character", gql.lazy("character.types.character")]
-    ] = gql.django.connection()
+    characters: ListConnectionWithTotalCount[
+        Annotated["Character", strawberry.lazy("character.types.character")]
+    ] = strawberry_django.connection()
 
 
-@gql.django.input(models.Association)
+@strawberry_django.input(models.Association)
 class AssociationInput(EntityInput):
     characters: auto
     related_artifacts: auto
@@ -29,8 +33,8 @@ class AssociationInput(EntityInput):
     related_races: auto
 
 
-@gql.django.partial(models.Association)
-class AssociationInputPartial(EntityInputPartial, gql.NodeInput):
+@strawberry_django.partial(models.Association)
+class AssociationInputPartial(EntityInputPartial, strawberry_django.NodeInput):
     characters: auto
     related_artifacts: auto
     related_associations: auto
@@ -40,12 +44,13 @@ class AssociationInputPartial(EntityInputPartial, gql.NodeInput):
     related_races: auto
 
 
-@gql.type
+@strawberry.type
 class AssociationQuery:
-    association: Optional[Association] = gql.django.field()
-    associations: relay.Connection[Association] = gql.django.connection()
+    associations: ListConnectionWithTotalCount[Association] = (
+        strawberry_django.connection()
+    )
 
-    @gql.django.connection
+    @strawberry_django.connection(ListConnectionWithTotalCount[Association])
     def associations_connection_filtered(
         self, name_startswith: str
     ) -> Iterable[Association]:
@@ -56,14 +61,16 @@ class AssociationQuery:
         return models.Association.objects.filter(name__startswith=name_startswith)
 
 
-@gql.type
+@strawberry.type
 class AssociationMutation:
-    create_association: Association = gql.django.create_mutation(
+    create_association: Association = strawberry_django.mutations.create(
         AssociationInput,
         permission_classes=[IsStaff],
     )
 
-    @gql.django.mutation(permission_classes=[IsStaff, IsLockUserOrSuperuserIfLocked])
+    @strawberry_django.mutation(
+        permission_classes=[IsStaff, IsLockUserOrSuperuserIfLocked]
+    )
     def update_association(
         self,
         info,
@@ -78,32 +85,36 @@ class AssociationMutation:
         association.release_lock(info.context.request.user)
         return association
 
-    delete_association: Association = gql.django.delete_mutation(
-        gql.NodeInput,
+    delete_association: Association = strawberry_django.mutations.delete(
+        strawberry_django.NodeInput,
         permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked],
     )
 
-    @gql.django.input_mutation(permission_classes=[IsStaff])
+    @strawberry_django.input_mutation(permission_classes=[IsStaff])
     def association_add_image(
-        self, info, id: gql.relay.GlobalID, image_id: str
+        self, info, id: strawberry.relay.GlobalID, image_id: str
     ) -> Association:
         obj = id.resolve_node(info)
         obj.image_ids = obj.image_ids + [image_id]
         obj.save()
         return obj
 
-    @gql.django.input_mutation(permission_classes=[IsStaff])
+    @strawberry_django.input_mutation(permission_classes=[IsStaff])
     def association_lock(
         self,
         info,
-        id: gql.relay.GlobalID,
+        id: strawberry.relay.GlobalID,
     ) -> Association:
         association = id.resolve_node(info)
         association = association.lock(info.context.request.user)
         return association
 
-    @gql.django.input_mutation(permission_classes=[IsLockUserOrSuperuserIfLocked])
-    def association_release_lock(self, info, id: gql.relay.GlobalID) -> Association:
+    @strawberry_django.input_mutation(
+        permission_classes=[IsLockUserOrSuperuserIfLocked]
+    )
+    def association_release_lock(
+        self, info, id: strawberry.relay.GlobalID
+    ) -> Association:
         association = id.resolve_node(info)
         association = association.release_lock(info.context.request.user)
         return association

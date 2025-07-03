@@ -1,8 +1,11 @@
-from typing import Annotated, Iterable, Optional, TYPE_CHECKING
-from strawberry_django_plus import gql
-from strawberry_django_plus.gql import relay, auto
+from typing import TYPE_CHECKING, Annotated, Iterable
+
+import strawberry
+import strawberry_django
+from strawberry import auto, relay
 
 from nucleus.permissions import IsStaff, IsSuperuser
+from nucleus.relay import ListConnectionWithTotalCount
 
 from .. import models
 
@@ -10,33 +13,32 @@ if TYPE_CHECKING:
     from .script import Script
 
 
-@gql.django.type(models.Language)
+@strawberry_django.type(models.Language)
 class Language(relay.Node):
     name: auto
     description: auto
-    script: Annotated["Script", gql.lazy(".script")]
+    script: Annotated["Script", strawberry.lazy(".script")]
 
 
-@gql.django.input(models.Language)
+@strawberry_django.input(models.Language)
 class LanguageInput:
     name: auto
     description: auto
     script: auto
 
 
-@gql.django.partial(models.Language)
-class LanguageInputPartial(gql.NodeInput):
+@strawberry_django.partial(models.Language)
+class LanguageInputPartial(strawberry_django.NodeInput):
     name: auto
     description: auto
     script: auto
 
 
-@gql.type
+@strawberry.type
 class LanguageQuery:
-    language: Optional[Language] = gql.django.field()
-    languages: relay.Connection[Language] = gql.django.connection()
+    languages: ListConnectionWithTotalCount[Language] = strawberry_django.connection()
 
-    @gql.django.connection
+    @strawberry_django.connection(ListConnectionWithTotalCount[Language])
     def Languages_connection_filtered(self, name_startswith: str) -> Iterable[Language]:
         # Note that this resolver is special. It should not resolve the connection, but
         # the iterable of nodes itself. Thus, any arguments defined here will be appended
@@ -45,14 +47,14 @@ class LanguageQuery:
         return models.Language.objects.filter(name__startswith=name_startswith)
 
 
-@gql.type
+@strawberry.type
 class LanguageMutation:
-    create_language: Language = gql.django.create_mutation(
+    create_language: Language = strawberry_django.mutations.create(
         LanguageInput, permission_classes=[IsStaff]
     )
-    update_language: Language = gql.django.update_mutation(
+    update_language: Language = strawberry_django.mutations.update(
         LanguageInputPartial, permission_classes=[IsStaff]
     )
-    delete_language: Language = gql.django.delete_mutation(
-        gql.NodeInput, permission_classes=[IsSuperuser]
+    delete_language: Language = strawberry_django.mutations.delete(
+        strawberry_django.NodeInput, permission_classes=[IsSuperuser]
     )

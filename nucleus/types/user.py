@@ -1,10 +1,13 @@
-from typing import Optional
+import strawberry
+import strawberry_django
+from strawberry import auto, relay
+
+from nucleus.relay import ListConnectionWithTotalCount
+
 from .. import models
-from strawberry_django_plus import gql
-from strawberry_django_plus.gql import relay, auto
 
 
-@gql.django.type(models.User)
+@strawberry_django.type(models.User)
 class User(relay.Node):
     isDM: auto
     last_activity: auto
@@ -18,13 +21,12 @@ class User(relay.Node):
     last_login: auto
 
 
-@gql.type
+@strawberry.type
 class UserQuery:
-    user: Optional[User] = gql.django.field()
-    users: relay.Connection[User] = gql.django.connection()
+    users: ListConnectionWithTotalCount[User] = strawberry_django.connection()
 
 
-@gql.django.input(models.User)
+@strawberry_django.input(models.User)
 class UserInput:
     username: auto
     password: auto
@@ -33,8 +35,8 @@ class UserInput:
     email: auto
 
 
-@gql.django.partial(models.User)
-class UserInputPartial(gql.NodeInput):
+@strawberry_django.partial(models.User)
+class UserInputPartial(strawberry_django.NodeInput):
     username: auto
     password: auto
     first_name: auto
@@ -42,10 +44,10 @@ class UserInputPartial(gql.NodeInput):
     email: auto
 
 
-@gql.type
+@strawberry.type
 class UserMutation:
     # Eventually we'll want to use something like this, but until we have auth working, we'll leave these off
     pass
-    # create_game_log: User = gql.django.create_mutation(UserInput)
-    # update_game_log: User = gql.django.update_mutation(UserInputPartial)
-    # delete_game_log: User = gql.django.delete_mutation(gql.NodeInput)
+    # create_game_log: User = strawberry_django.mutations.create(UserInput)
+    # update_game_log: User = strawberry_django.mutations.update(UserInputPartial)
+    # delete_game_log: User = strawberry_django.mutations.delete(strawberry_django.NodeInput)

@@ -1,8 +1,11 @@
-from typing import Annotated, Iterable, Optional, TYPE_CHECKING
-from strawberry_django_plus import gql
-from strawberry_django_plus.gql import relay, auto
+from typing import TYPE_CHECKING, Annotated, Iterable
+
+import strawberry
+import strawberry_django
+from strawberry import auto, relay
 
 from nucleus.permissions import IsStaff, IsSuperuser
+from nucleus.relay import ListConnectionWithTotalCount
 
 from .. import models
 
@@ -10,35 +13,34 @@ if TYPE_CHECKING:
     from character.types.character import Character
 
 
-@gql.django.type(models.Feature)
+@strawberry_django.type(models.Feature)
 class Feature(relay.Node):
     name: auto
     description: auto
-    characters: relay.Connection[
-        Annotated["Character", gql.lazy("character.types.character")]
-    ] = gql.django.connection()
+    characters: ListConnectionWithTotalCount[
+        Annotated["Character", strawberry.lazy("character.types.character")]
+    ] = strawberry_django.connection()
 
 
-@gql.django.input(models.Feature)
+@strawberry_django.input(models.Feature)
 class FeatureInput:
     name: auto
     description: auto
     characters: auto
 
 
-@gql.django.partial(models.Feature)
-class FeatureInputPartial(gql.NodeInput):
+@strawberry_django.partial(models.Feature)
+class FeatureInputPartial(strawberry_django.NodeInput):
     name: auto
     description: auto
     characters: auto
 
 
-@gql.type
+@strawberry.type
 class FeatureQuery:
-    feature: Optional[Feature] = gql.django.field()
-    features: relay.Connection[Feature] = gql.django.connection()
+    features: ListConnectionWithTotalCount[Feature] = strawberry_django.connection()
 
-    @gql.django.connection
+    @strawberry_django.connection(ListConnectionWithTotalCount[Feature])
     def Features_connection_filtered(self, name_startswith: str) -> Iterable[Feature]:
         # Note that this resolver is special. It should not resolve the connection, but
         # the iterable of nodes itself. Thus, any arguments defined here will be appended
@@ -47,14 +49,14 @@ class FeatureQuery:
         return models.Feature.objects.filter(name__startswith=name_startswith)
 
 
-@gql.type
+@strawberry.type
 class FeatureMutation:
-    create_feature: Feature = gql.django.create_mutation(
+    create_feature: Feature = strawberry_django.mutations.create(
         FeatureInput, permission_classes=[IsStaff]
     )
-    update_feature: Feature = gql.django.update_mutation(
+    update_feature: Feature = strawberry_django.mutations.update(
         FeatureInputPartial, permission_classes=[IsStaff]
     )
-    delete_feature: Feature = gql.django.delete_mutation(
-        gql.NodeInput, permission_classes=[IsSuperuser]
+    delete_feature: Feature = strawberry_django.mutations.delete(
+        strawberry_django.NodeInput, permission_classes=[IsSuperuser]
     )

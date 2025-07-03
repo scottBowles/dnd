@@ -1,36 +1,38 @@
-from typing import Iterable, Optional
-from strawberry_django_plus import gql
-from strawberry_django_plus.gql import relay, auto
+from typing import Iterable
+
+import strawberry
+import strawberry_django
+from strawberry import auto, relay
 
 from nucleus.permissions import IsStaff, IsSuperuser
+from nucleus.relay import ListConnectionWithTotalCount
 
 from .. import models
 
 
-@gql.django.type(models.Trait)
+@strawberry_django.type(models.Trait)
 class Trait(relay.Node):
     name: auto
     description: auto
 
 
-@gql.django.input(models.Trait)
+@strawberry_django.input(models.Trait)
 class TraitInput:
     name: auto
     description: auto
 
 
-@gql.django.partial(models.Trait)
-class TraitInputPartial(gql.NodeInput):
+@strawberry_django.partial(models.Trait)
+class TraitInputPartial(strawberry_django.NodeInput):
     name: auto
     description: auto
 
 
-@gql.type
+@strawberry.type
 class TraitQuery:
-    trait: Optional[Trait] = gql.django.field()
-    traits: relay.Connection[Trait] = gql.django.connection()
+    traits: ListConnectionWithTotalCount[Trait] = strawberry_django.connection()
 
-    @gql.django.connection
+    @strawberry_django.connection(ListConnectionWithTotalCount[Trait])
     def Traits_connection_filtered(self, name_startswith: str) -> Iterable[Trait]:
         # Note that this resolver is special. It should not resolve the connection, but
         # the iterable of nodes itself. Thus, any arguments defined here will be appended
@@ -39,14 +41,14 @@ class TraitQuery:
         return models.Trait.objects.filter(name__startswith=name_startswith)
 
 
-@gql.type
+@strawberry.type
 class TraitMutation:
-    create_trait: Trait = gql.django.create_mutation(
+    create_trait: Trait = strawberry_django.mutations.create(
         TraitInput, permission_classes=[IsStaff]
     )
-    update_trait: Trait = gql.django.update_mutation(
+    update_trait: Trait = strawberry_django.mutations.update(
         TraitInputPartial, permission_classes=[IsStaff]
     )
-    delete_trait: Trait = gql.django.delete_mutation(
-        gql.NodeInput, permission_classes=[IsSuperuser]
+    delete_trait: Trait = strawberry_django.mutations.delete(
+        strawberry_django.NodeInput, permission_classes=[IsSuperuser]
     )

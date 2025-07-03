@@ -1,8 +1,8 @@
-from strawberry import merge_types
-from strawberry_django_plus import gql
+import strawberry
+from strawberry.tools import merge_types
 from gqlauth.user.queries import UserQueries
 from gqlauth.user import relay as mutations
-from strawberry_django_plus.optimizer import DjangoOptimizerExtension
+from strawberry_django.optimizer import DjangoOptimizerExtension
 
 
 from association.types import AssociationQuery, AssociationMutation
@@ -41,7 +41,7 @@ from race.types import (
 )
 
 
-@gql.type
+@strawberry.type
 class GqlAuthMutation:
     # include what-ever mutations you want.
     verify_token = mutations.VerifyToken.field
@@ -109,6 +109,6 @@ mutations = (
 Query = merge_types("Query", queries)
 Mutation = merge_types("Mutation", mutations)
 
-schema = gql.Schema(
+schema = strawberry.Schema(
     query=Query, mutation=Mutation, extensions=[DjangoOptimizerExtension]
 )
