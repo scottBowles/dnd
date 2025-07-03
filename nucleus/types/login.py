@@ -12,7 +12,6 @@ user_model = get_user_model()
 class LoginMutation:
     @strawberry.mutation
     def google_login(self, google_token: str) -> ObtainJSONWebTokenType:
-        print("google_login start")
         # take in the google_token
         # verify the google_token
         # if the google_token is invalid, an error is thrown
@@ -22,14 +21,9 @@ class LoginMutation:
         idinfo = id_token.verify_oauth2_token(
             google_token, requests.Request(), settings.GOOGLE_SSO_CLIENT_ID
         )
-        print("email: ", idinfo["email"])
         user = user_model.objects.filter(email=idinfo["email"]).first()
-        if user:
-            print("user found")
-            print("user: ", user)
 
         if not user:
-            print("user not found")
             username = idinfo["email"].split("@")[0].split("+")[0]
             user = user_model.objects.create_user(
                 email=idinfo["email"],
@@ -38,8 +32,6 @@ class LoginMutation:
                 last_name=idinfo["family_name"],
                 # password="",  # set unusable password?
             )
-            print("user created")
-            print("user: ", user)
 
         # same return as gqlauth's token_auth mutation
         return ObtainJSONWebTokenType.from_user(user)
