@@ -24,8 +24,7 @@ services:
         expose:
             - "8000" # Coolify will handle external routing
         command: >
-            sh -c "pip install --upgrade pip &&
-                   python manage.py migrate &&
+            sh -c "python manage.py migrate &&
                    python manage.py algolia_reindex &&
                    python manage.py collectstatic --noinput &&
                    gunicorn website.wsgi:application --bind 0.0.0.0:8000 --workers 3"
@@ -51,8 +50,6 @@ services:
             redis:
                 condition: service_healthy
         restart: unless-stopped
-        volumes:
-            - static_volume:/app/staticfiles
         healthcheck:
             test: ["CMD", "curl", "-f", "http://localhost:8000/healthcheck/"]
             interval: 30s
@@ -155,5 +152,4 @@ services:
 
 volumes:
     redis_data:
-    static_volume:
     # beat_schedule:  # Uncomment when enabling celery-beat service
