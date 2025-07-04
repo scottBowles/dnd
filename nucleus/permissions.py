@@ -33,7 +33,7 @@ class IsLockUserOrSuperuserIfLocked(BasePermission):
     def has_permission(self, source: Any, info: Info, input, **kwargs) -> bool:
         try:
             global_id = input.get("id")
-            node = global_id.resolve_node(info)
+            node = global_id.resolve_node_sync(info)
 
             return (
                 node is None

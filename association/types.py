@@ -78,7 +78,7 @@ class AssociationMutation:
     ) -> Association:
         data = vars(input)
         node_id = data.pop("id")
-        association: models.Association = node_id.resolve_node(
+        association: models.Association = node_id.resolve_node_sync(
             info, ensure_type=models.Association
         )
         resolvers.update(info, association, resolvers.parse_input(info, data))
@@ -94,7 +94,7 @@ class AssociationMutation:
     def association_add_image(
         self, info, id: strawberry.relay.GlobalID, image_id: str
     ) -> Association:
-        obj = id.resolve_node(info)
+        obj = id.resolve_node_sync(info)
         obj.image_ids = obj.image_ids + [image_id]
         obj.save()
         return obj
@@ -105,7 +105,7 @@ class AssociationMutation:
         info,
         id: strawberry.relay.GlobalID,
     ) -> Association:
-        association = id.resolve_node(info)
+        association = id.resolve_node_sync(info)
         association = association.lock(info.context.request.user)
         return association
 
@@ -115,6 +115,6 @@ class AssociationMutation:
     def association_release_lock(
         self, info, id: strawberry.relay.GlobalID
     ) -> Association:
-        association = id.resolve_node(info)
+        association = id.resolve_node_sync(info)
         association = association.release_lock(info.context.request.user)
         return association

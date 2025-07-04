@@ -156,7 +156,7 @@ class GameLogQuery:
     def ai_log_suggestions(
         self, info, id: strawberry.relay.GlobalID
     ) -> GameLogAiSummary:
-        gamelog = id.resolve_node(info, ensure_type=models.GameLog)
+        gamelog = id.resolve_node_sync(info, ensure_type=models.GameLog)
         aiLogSummary = gamelog.get_ai_log_suggestions()
         return aiLogSummary
 
@@ -166,7 +166,7 @@ class GameLogQuery:
     ) -> CombinedGameLogAiSummary:
         from ..models import CombinedAiLogSuggestion
 
-        gamelog = id.resolve_node(info, ensure_type=models.GameLog)
+        gamelog = id.resolve_node_sync(info, ensure_type=models.GameLog)
         return CombinedAiLogSuggestion(gamelog)
 
 
@@ -190,7 +190,9 @@ class GameLogMutation:
     ) -> GameLog:
         data = vars(input)
         node_id = data.pop("id")
-        gameLog: models.GameLog = node_id.resolve_node(info, ensure_type=models.GameLog)
+        gameLog: models.GameLog = node_id.resolve_node_sync(
+            info, ensure_type=models.GameLog
+        )
         resolvers.update(info, gameLog, resolvers.parse_input(info, data))
         gameLog.release_lock(info.context.request.user)
         return gameLog
@@ -206,7 +208,7 @@ class GameLogMutation:
         info,
         id: strawberry.relay.GlobalID,
     ) -> GameLog:
-        gamelog = id.resolve_node(info, ensure_type=models.GameLog)
+        gamelog = id.resolve_node_sync(info, ensure_type=models.GameLog)
         gamelog = gamelog.lock(info.context.request.user)
         return gamelog
 
@@ -214,7 +216,7 @@ class GameLogMutation:
         permission_classes=[IsLockUserOrSuperuserIfLocked]
     )
     def gamelog_release_lock(self, info, id: strawberry.relay.GlobalID) -> GameLog:
-        gamelog = id.resolve_node(info, ensure_type=models.GameLog)
+        gamelog = id.resolve_node_sync(info, ensure_type=models.GameLog)
         gamelog = gamelog.release_lock(info.context.request.user)
         return gamelog
 
@@ -232,7 +234,7 @@ class GameLogMutation:
         places: List[str],
         races: List[str],
     ) -> GameLog:
-        gamelog = id.resolve_node(info, ensure_type=models.GameLog)
+        gamelog = id.resolve_node_sync(info, ensure_type=models.GameLog)
         gamelog.ailogsuggestion_set.create(
             title=title,
             brief=brief,

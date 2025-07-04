@@ -152,7 +152,7 @@ class ItemMutation:
         armor_data = data.pop("armor", None)
         weapon_data = data.pop("weapon", None)
         equipment_data = data.pop("equipment", None)
-        item: models.Item = node_id.resolve_node(info, ensure_type=models.Item)
+        item: models.Item = node_id.resolve_node_sync(info, ensure_type=models.Item)
 
         # Create or update traits if present and assign to the item
         if armor_data:
@@ -216,14 +216,14 @@ class ItemMutation:
     def item_add_image(
         self, info, id: strawberry.relay.GlobalID, image_id: str
     ) -> Item:
-        obj = id.resolve_node(info)
+        obj = id.resolve_node_sync(info)
         obj.image_ids = obj.image_ids + [image_id]
         obj.save()
         return obj
 
     @strawberry_django.input_mutation(permission_classes=[IsStaff])
     def item_lock(self, info, id: strawberry.relay.GlobalID) -> Item:
-        item = id.resolve_node(info)
+        item = id.resolve_node_sync(info)
         item = item.lock(info.context.request.user)
         return item
 
@@ -231,6 +231,6 @@ class ItemMutation:
         permission_classes=[IsLockUserOrSuperuserIfLocked]
     )
     def item_release_lock(self, info, id: strawberry.relay.GlobalID) -> Item:
-        item = id.resolve_node(info)
+        item = id.resolve_node_sync(info)
         item = item.release_lock(info.context.request.user)
         return item

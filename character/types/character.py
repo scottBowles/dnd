@@ -96,7 +96,7 @@ class CharacterMutation:
     ) -> Character:
         data = vars(input)
         node_id = data.pop("id")
-        character: models.Character = node_id.resolve_node(
+        character: models.Character = node_id.resolve_node_sync(
             info, ensure_type=models.Character
         )
         resolvers.update(info, character, resolvers.parse_input(info, data))
@@ -112,14 +112,14 @@ class CharacterMutation:
     def character_add_image(
         self, info, id: strawberry.relay.GlobalID, image_id: str
     ) -> Character:
-        obj = id.resolve_node(info)
+        obj = id.resolve_node_sync(info)
         obj.image_ids = obj.image_ids + [image_id]
         obj.save()
         return obj
 
     @strawberry_django.input_mutation(permission_classes=[IsStaff])
     def character_lock(self, info, id: strawberry.relay.GlobalID) -> Character:
-        character = id.resolve_node(info)
+        character = id.resolve_node_sync(info)
         character = character.lock(info.context.request.user)
         return character
 
@@ -127,6 +127,6 @@ class CharacterMutation:
         permission_classes=[IsLockUserOrSuperuserIfLocked]
     )
     def character_release_lock(self, info, id: strawberry.relay.GlobalID) -> Character:
-        character = id.resolve_node(info)
+        character = id.resolve_node_sync(info)
         character = character.release_lock(info.context.request.user)
         return character

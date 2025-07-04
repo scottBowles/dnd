@@ -140,10 +140,10 @@ class EntityMutation:
         info,
         input: Annotated["AddEntityLogInput", strawberry.lazy("nucleus.types.gamelog")],
     ) -> relay.Node:
-        entity = input.entity_id.resolve_node(info)
+        entity = input.entity_id.resolve_node_sync(info)
 
         if input.log_id is not strawberry.UNSET:
-            log = input.log_id.resolve_node(info)
+            log = input.log_id.resolve_node_sync(info)
         else:
             google_id = models.GameLog.get_id_from_url(input.log_url)
             log = models.GameLog.objects.get_or_create(google_id=google_id)[0]
@@ -160,22 +160,22 @@ class EntityMutation:
             "RemoveEntityLogInput", strawberry.lazy("nucleus.types.gamelog")
         ],
     ) -> relay.Node:
-        log = input.log_id.resolve_node(info)
-        entity = input.entity_id.resolve_node(info)
+        log = input.log_id.resolve_node_sync(info)
+        entity = input.entity_id.resolve_node_sync(info)
         entity.logs.remove(log)
         entity.save()
         return entity
 
     @strawberry.mutation(permission_classes=[IsStaff])
     def entity_add_image(self, info, input: EntityAddImageInput) -> relay.Node:
-        obj = input.id.resolve_node(info)
+        obj = input.id.resolve_node_sync(info)
         obj.image_ids = obj.image_ids + [input.image_id]
         obj.save()
         return obj
 
     @strawberry.mutation(permission_classes=[IsStaff])
     def entity_add_alias(self, info, input: EntityAddAliasInput) -> relay.Node:
-        obj = input.id.resolve_node(info)
+        obj = input.id.resolve_node_sync(info)
         try:
             obj.aliases.get(name=input.alias)
             return obj
@@ -186,12 +186,12 @@ class EntityMutation:
 
     @strawberry.mutation(permission_classes=[IsStaff])
     def lock(self, info, input: strawberry_django.NodeInput) -> Lockable:
-        obj = input.id.resolve_node(info)
+        obj = input.id.resolve_node_sync(info)
         obj.lock(info.context.request.user)
         return obj
 
     @strawberry.mutation(permission_classes=[IsStaff])
     def unlock(self, info, input: strawberry_django.NodeInput) -> Lockable:
-        obj = input.id.resolve_node(info)
+        obj = input.id.resolve_node_sync(info)
         obj.release_lock(info.context.request.user)
         return obj

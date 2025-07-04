@@ -74,7 +74,7 @@ class RaceMutation:
     ) -> Race:
         data = vars(input)
         node_id = data.pop("id")
-        race: models.Race = node_id.resolve_node(info, ensure_type=models.Race)
+        race: models.Race = node_id.resolve_node_sync(info, ensure_type=models.Race)
         resolvers.update(info, race, resolvers.parse_input(info, data))
         race.release_lock(info.context.request.user)
         return race
@@ -88,14 +88,14 @@ class RaceMutation:
     def race_add_image(
         self, info, id: strawberry.relay.GlobalID, image_id: str
     ) -> Race:
-        obj = id.resolve_node(info)
+        obj = id.resolve_node_sync(info)
         obj.image_ids = obj.image_ids + [image_id]
         obj.save()
         return obj
 
     @strawberry_django.input_mutation(permission_classes=[IsStaff])
     def race_lock(self, info, id: strawberry.relay.GlobalID) -> Race:
-        race = id.resolve_node(info)
+        race = id.resolve_node_sync(info)
         race = race.lock(info.context.request.user)
         return race
 
@@ -103,6 +103,6 @@ class RaceMutation:
         permission_classes=[IsLockUserOrSuperuserIfLocked]
     )
     def race_release_lock(self, info, id: strawberry.relay.GlobalID) -> Race:
-        race = id.resolve_node(info)
+        race = id.resolve_node_sync(info)
         race = race.release_lock(info.context.request.user)
         return race

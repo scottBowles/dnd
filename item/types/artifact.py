@@ -76,7 +76,7 @@ class ArtifactMutation:
     ) -> Artifact:
         data = vars(input)
         node_id = data.pop("id")
-        artifact: models.Artifact = node_id.resolve_node(
+        artifact: models.Artifact = node_id.resolve_node_sync(
             info, ensure_type=models.Artifact
         )
         resolvers.update(info, artifact, resolvers.parse_input(info, data))
@@ -92,14 +92,14 @@ class ArtifactMutation:
     def artifact_add_image(
         self, info, id: strawberry.relay.GlobalID, image_id: str
     ) -> Artifact:
-        obj = id.resolve_node(info)
+        obj = id.resolve_node_sync(info)
         obj.image_ids = obj.image_ids + [image_id]
         obj.save()
         return obj
 
     @strawberry_django.input_mutation(permission_classes=[IsStaff])
     def artifact_lock(self, info, id: strawberry.relay.GlobalID) -> Artifact:
-        artifact = id.resolve_node(info)
+        artifact = id.resolve_node_sync(info)
         artifact = artifact.lock(info.context.request.user)
         return artifact
 
@@ -107,6 +107,6 @@ class ArtifactMutation:
         permission_classes=[IsLockUserOrSuperuserIfLocked]
     )
     def artifact_release_lock(self, info, id: strawberry.relay.GlobalID) -> Artifact:
-        artifact = id.resolve_node(info)
+        artifact = id.resolve_node_sync(info)
         artifact = artifact.release_lock(info.context.request.user)
         return artifact
