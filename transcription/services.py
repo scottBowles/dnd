@@ -898,30 +898,32 @@ Session log:
     def _is_large_processing_job(self, session_audio) -> bool:
         """
         Determine if this is likely a large processing job that should use Celery.
-        
+
         Args:
             session_audio: SessionAudio instance to evaluate
-            
+
         Returns:
             True if this appears to be a large job that should use async processing
         """
         try:
             # If file size is available, use that as the primary indicator
-            if hasattr(session_audio, 'file') and session_audio.file:
+            if hasattr(session_audio, "file") and session_audio.file:
                 file_size_mb = session_audio.file.size / (1024 * 1024)
                 # Files larger than 50MB are likely to be long audio files
                 if file_size_mb > 50:
                     return True
-            
+
             # Check if the filename suggests it's a long recording
-            filename = getattr(session_audio, 'original_filename', '') or str(session_audio.file.name if hasattr(session_audio, 'file') else '')
+            filename = getattr(session_audio, "original_filename", "") or str(
+                session_audio.file.name if hasattr(session_audio, "file") else ""
+            )
             filename_lower = filename.lower()
-            
+
             # Look for indicators of long recordings in filename
-            long_indicators = ['hour', 'session', 'full', 'complete', 'entire']
+            long_indicators = ["hour", "session", "full", "complete", "entire"]
             if any(indicator in filename_lower for indicator in long_indicators):
                 return True
-                
+
             return False
         except Exception:
             # If we can't determine file size, err on the side of caution
@@ -934,21 +936,25 @@ Session log:
         session_notes: str = "",
         use_celery: bool = True,
     ):
+        print("process_session_audio_async called with use_celery =", use_celery)
         """
         Process a SessionAudio instance asynchronously using Celery.
-        
+
         Args:
             session_audio: The SessionAudio instance to process
             previous_transcript: Previous transcript text for context
             session_notes: Session notes for context
             use_celery: Whether to use Celery for async processing
-            
+
         Returns:
             AsyncResult if using Celery, otherwise result of synchronous processing
         """
         if use_celery:
             try:
                 from .tasks import process_session_audio_task
+
+                print(".   about to call process_session_audio_task.delay")
+
                 return process_session_audio_task.delay(
                     session_audio.id, previous_transcript, session_notes
                 )
@@ -961,7 +967,7 @@ Session log:
                         "Please ensure Celery workers are running for large file processing. "
                         "You can start a worker with: celery -A website worker --loglevel=info"
                     )
-                
+
                 # Fallback to synchronous processing for smaller files
                 return self.process_session_audio(
                     session_audio, previous_transcript, session_notes
@@ -980,36 +986,37 @@ Session log:
     ):
         """
         Generate a session log asynchronously using Celery.
-        
+
         Args:
             gamelog: The GameLog instance
             method: Method to use for log generation ('concat' or 'segment')
             model: OpenAI model to use
             use_celery: Whether to use Celery for async processing
-            
+
         Returns:
             AsyncResult if using Celery, otherwise result of synchronous processing
         """
         if use_celery:
             try:
                 from .tasks import generate_session_log_task
-                return generate_session_log_task.delay(
-                    gamelog.id, method, model
-                )
+
+                return generate_session_log_task.delay(gamelog.id, method, model)
             except ImportError:
                 # Fallback to synchronous processing if Celery is not available
                 return self.generate_session_log_from_transcripts(
                     gamelog, model, method
                 )
         else:
-            return self.generate_session_log_from_transcripts(
-                gamelog, model, method
-            )
+            return self.generate_session_log_from_transcripts(gamelog, model, method)
 
 
 def transcribe_session_audio(
-    session_audio: SessionAudio, session_notes: str = "", previous_transcript: str = "", use_celery: bool = True
+    session_audio: SessionAudio,
+    session_notes: str = "",
+    previous_transcript: str = "",
+    use_celery: bool = True,
 ):
+    print("transcribe_session_audio called with use_celery =", use_celery)
     """
     Process a SessionAudio instance using the model-driven transcription logic.
     By default, uses async processing via Celery for better performance and scalability.
