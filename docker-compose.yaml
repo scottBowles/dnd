@@ -11,7 +11,7 @@ services:
             - redis_data:/data
         restart: unless-stopped
         environment:
-            - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+            - REDIS_PASSWORD=${REDIS_PASSWORD}
         healthcheck:
             test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
             interval: 10s
