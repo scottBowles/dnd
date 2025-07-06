@@ -100,13 +100,14 @@ class GameLogAdmin(admin.ModelAdmin):
             return redirect(request.path.replace("generate-session-log-concat/", ""))
         try:
             service = TranscriptionService()
+            use_celery = settings.CELERY_BROKER_URL
             result = service.generate_session_log_async(
-                gamelog, method="concat", use_celery=settings.CELERY_BROKER_URL
+                gamelog, method="concat", use_celery=use_celery
             )
-            if hasattr(result, "id"):  # Celery AsyncResult
+            if use_celery:  # Celery AsyncResult
                 messages.success(
                     request,
-                    f"Session log (concat) generation started. Task ID: {result.id}",
+                    f"Session log (concat) generation started.",
                 )
             else:
                 messages.success(request, "Session log (concat) generated and saved.")
@@ -194,7 +195,8 @@ class GameLogAdmin(admin.ModelAdmin):
                 messages.warning(request, f"No audio files found for {gamelog}.")
                 continue
 
-            async_tasks = []
+            use_celery = bool(settings.CELERY_BROKER_URL)
+            async_tasks = 0
             for audio in audio_files:
                 if (
                     hasattr(audio, "audio_transcripts")
@@ -211,11 +213,11 @@ class GameLogAdmin(admin.ModelAdmin):
                         audio,
                         session_notes=session_notes,
                         previous_transcript=previous_transcript,
-                        use_celery=bool(settings.CELERY_BROKER_URL),
+                        use_celery=use_celery,
                     )
                     # Check if result is a Celery AsyncResult (async processing)
-                    if hasattr(result, "id"):  # Celery AsyncResult
-                        async_tasks.append((audio, result.id))
+                    if use_celery:
+                        async_tasks += 1
                         # Don't immediately mark as completed since it's async
                     elif result:  # Synchronous processing success
                         audio.transcription_status = "completed"
@@ -229,16 +231,10 @@ class GameLogAdmin(admin.ModelAdmin):
                     messages.error(request, f"Failed to transcribe {audio}: {e}")
 
             if async_tasks:
-                task_info = ", ".join(
-                    [
-                        f"{audio.original_filename} (Task: {task_id})"
-                        for audio, task_id in async_tasks
-                    ]
-                )
                 messages.success(
                     request,
-                    f"Transcription started for {len(async_tasks)} audio files in {gamelog}. "
-                    f"Tasks: {task_info}. Check Celery worker logs for progress.",
+                    f"Transcription started for {async_tasks} audio files in {gamelog}. "
+                    f"Check Celery worker logs for progress.",
                 )
             else:
                 messages.success(

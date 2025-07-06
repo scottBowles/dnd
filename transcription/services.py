@@ -953,9 +953,9 @@ Session log:
             try:
                 from .tasks import process_session_audio_task
 
-                print(".   about to call process_session_audio_task.delay")
+                print(".   about to call process_session_audio_task.delay_on_commit")
 
-                return process_session_audio_task.delay(
+                return process_session_audio_task.delay_on_commit(
                     session_audio.id, previous_transcript, session_notes
                 )
             except ImportError:
@@ -1000,7 +1000,9 @@ Session log:
             try:
                 from .tasks import generate_session_log_task
 
-                return generate_session_log_task.delay(gamelog.id, method, model)
+                return generate_session_log_task.delay_on_commit(
+                    gamelog.id, method, model
+                )
             except ImportError:
                 # Fallback to synchronous processing if Celery is not available
                 return self.generate_session_log_from_transcripts(
