@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import User, GameLog, AiLogSuggestion, SessionAudio
@@ -100,10 +101,13 @@ class GameLogAdmin(admin.ModelAdmin):
         try:
             service = TranscriptionService()
             result = service.generate_session_log_async(
-                gamelog, method="concat"
+                gamelog, method="concat", use_celery=settings.CELERY_BROKER_URL
             )
-            if hasattr(result, 'id'):  # Celery AsyncResult
-                messages.success(request, f"Session log (concat) generation started. Task ID: {result.id}")
+            if hasattr(result, "id"):  # Celery AsyncResult
+                messages.success(
+                    request,
+                    f"Session log (concat) generation started. Task ID: {result.id}",
+                )
             else:
                 messages.success(request, "Session log (concat) generated and saved.")
         except Exception as e:
@@ -120,10 +124,13 @@ class GameLogAdmin(admin.ModelAdmin):
         try:
             service = TranscriptionService()
             result = service.generate_session_log_async(
-                gamelog, method="segment"
+                gamelog, method="segment", use_celery=settings.CELERY_BROKER_URL
             )
-            if hasattr(result, 'id'):  # Celery AsyncResult
-                messages.success(request, f"Session log (segment) generation started. Task ID: {result.id}")
+            if hasattr(result, "id"):  # Celery AsyncResult
+                messages.success(
+                    request,
+                    f"Session log (segment) generation started. Task ID: {result.id}",
+                )
             else:
                 messages.success(request, "Session log (segment) generated and saved.")
         except Exception as e:
@@ -167,6 +174,7 @@ class GameLogAdmin(admin.ModelAdmin):
     copy_text_for_ai_suggestions.short_description = "Copy text for ai titles"
 
     def _transcribe_audio_files_for_gamelogs(self, request, gamelogs):
+        print("_transcribe_audio_files_for_gamelogs called with gamelogs:", gamelogs)
         """
         Shared logic for transcribing audio files for one or more GameLogs.
         """
@@ -181,10 +189,11 @@ class GameLogAdmin(admin.ModelAdmin):
                     getattr(gamelog.last_game_log, "log_text", "") or ""
                 )
             audio_files = gamelog.session_audio_files.all()
+            print(".   audio_files:", audio_files)
             if not audio_files:
                 messages.warning(request, f"No audio files found for {gamelog}.")
                 continue
-            
+
             async_tasks = []
             for audio in audio_files:
                 if (
@@ -202,9 +211,10 @@ class GameLogAdmin(admin.ModelAdmin):
                         audio,
                         session_notes=session_notes,
                         previous_transcript=previous_transcript,
+                        use_celery=bool(settings.CELERY_BROKER_URL),
                     )
                     # Check if result is a Celery AsyncResult (async processing)
-                    if hasattr(result, 'id'):  # Celery AsyncResult
+                    if hasattr(result, "id"):  # Celery AsyncResult
                         async_tasks.append((audio, result.id))
                         # Don't immediately mark as completed since it's async
                     elif result:  # Synchronous processing success
@@ -217,17 +227,23 @@ class GameLogAdmin(admin.ModelAdmin):
                     audio.transcription_status = "failed"
                     audio.save(update_fields=["transcription_status"])
                     messages.error(request, f"Failed to transcribe {audio}: {e}")
-            
+
             if async_tasks:
-                task_info = ", ".join([f"{audio.original_filename} (Task: {task_id})" for audio, task_id in async_tasks])
+                task_info = ", ".join(
+                    [
+                        f"{audio.original_filename} (Task: {task_id})"
+                        for audio, task_id in async_tasks
+                    ]
+                )
                 messages.success(
-                    request, 
+                    request,
                     f"Transcription started for {len(async_tasks)} audio files in {gamelog}. "
-                    f"Tasks: {task_info}. Check Celery worker logs for progress."
+                    f"Tasks: {task_info}. Check Celery worker logs for progress.",
                 )
             else:
                 messages.success(
-                    request, f"Transcription attempted for all audio files in {gamelog}."
+                    request,
+                    f"Transcription attempted for all audio files in {gamelog}.",
                 )
 
     def transcribe_audio_files_action(self, request, queryset):
@@ -237,6 +253,7 @@ class GameLogAdmin(admin.ModelAdmin):
         self._transcribe_audio_files_for_gamelogs(request, queryset)
 
     def transcribe_audio_files_detail_view(self, request, object_id):
+        print("transcribe_audio_files_detail_view called with object_id:", object_id)
         gamelog = self.get_object(request, object_id)
         if not gamelog:
             messages.error(request, "GameLog not found.")
@@ -363,7 +380,7 @@ class SessionAudioAdmin(admin.ModelAdmin):
             try:
                 result = transcribe_session_audio(audio)
                 # Check if result is a Celery AsyncResult (async processing)
-                if hasattr(result, 'id'):  # Celery AsyncResult
+                if hasattr(result, "id"):  # Celery AsyncResult
                     async_count += 1
                     # Don't immediately mark as completed since it's async
                 elif result:  # Synchronous processing success
@@ -376,12 +393,12 @@ class SessionAudioAdmin(admin.ModelAdmin):
                 audio.transcription_status = "failed"
                 audio.save(update_fields=["transcription_status"])
             count += 1
-        
+
         if async_count > 0:
             self.message_user(
-                request, 
+                request,
                 f"Transcription started for {count} audio file(s). "
-                f"{async_count} are being processed asynchronously - check worker logs for progress."
+                f"{async_count} are being processed asynchronously - check worker logs for progress.",
             )
         else:
             self.message_user(
