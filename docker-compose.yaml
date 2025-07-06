@@ -33,9 +33,9 @@ services:
             - PYTHONPATH=/app
             - PYTHONUNBUFFERED=1
             - PYTHONDONTWRITEBYTECODE=1
-            - REDIS_URL="redis://redis:6379/0"
-            - CELERY_BROKER_URL="redis://redis:6379/0"
-            - CELERY_RESULT_BACKEND="redis://redis:6379/0"
+            - REDIS_URL=redis://redis:6379/0
+            - CELERY_BROKER_URL=redis://redis:6379/0
+            - CELERY_RESULT_BACKEND=redis://redis:6379/0
             - SECRET_KEY=${SECRET_KEY}
             - DEBUG=${DEBUG:-False}
             - DATABASE_URL=${DATABASE_URL}
@@ -75,9 +75,9 @@ services:
             - PYTHONPATH=/app
             - PYTHONUNBUFFERED=1
             - PYTHONDONTWRITEBYTECODE=1
-            - REDIS_URL="redis://redis:6379/0"
-            - CELERY_BROKER_URL="redis://redis:6379/0"
-            - CELERY_RESULT_BACKEND="redis://redis:6379/0"
+            - REDIS_URL=redis://redis:6379/0
+            - CELERY_BROKER_URL=redis://redis:6379/0
+            - CELERY_RESULT_BACKEND=redis://redis:6379/0
             - SECRET_KEY=${SECRET_KEY}
             - DEBUG=${DEBUG:-False}
             - DATABASE_URL=${DATABASE_URL}
@@ -139,8 +139,8 @@ services:
         # ports: # Removed for Coolify - only needed for local development
         #     - "5555:5555"
         environment:
-            - CELERY_BROKER_URL="redis://redis:6379/0"
-            - CELERY_RESULT_BACKEND="redis://redis:6379/0"
+            - CELERY_BROKER_URL=redis://redis:6379/0
+            - CELERY_RESULT_BACKEND=redis://redis:6379/0
             - FLOWER_BASIC_AUTH=${FLOWER_USER:-admin}:${FLOWER_PASSWORD:-admin}
         depends_on:
             redis:
