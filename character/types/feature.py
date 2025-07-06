@@ -5,7 +5,7 @@ import strawberry_django
 from strawberry import auto, relay
 
 from nucleus.permissions import IsStaff, IsSuperuser
-from nucleus.relay import ListConnectionWithTotalCount
+from strawberry_django.relay import DjangoListConnection
 
 from .. import models
 
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class Feature(relay.Node):
     name: auto
     description: auto
-    characters: ListConnectionWithTotalCount[
+    characters: DjangoListConnection[
         Annotated["Character", strawberry.lazy("character.types.character")]
     ] = strawberry_django.connection()
 
@@ -38,9 +38,9 @@ class FeatureInputPartial(strawberry_django.NodeInput):
 
 @strawberry.type
 class FeatureQuery:
-    features: ListConnectionWithTotalCount[Feature] = strawberry_django.connection()
+    features: DjangoListConnection[Feature] = strawberry_django.connection()
 
-    @strawberry_django.connection(ListConnectionWithTotalCount[Feature])
+    @strawberry_django.connection(DjangoListConnection[Feature])
     def Features_connection_filtered(self, name_startswith: str) -> Iterable[Feature]:
         # Note that this resolver is special. It should not resolve the connection, but
         # the iterable of nodes itself. Thus, any arguments defined here will be appended

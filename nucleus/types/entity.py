@@ -8,7 +8,7 @@ from strawberry import relay
 
 from nucleus import models
 from nucleus.permissions import IsStaff
-from nucleus.relay import ListConnectionWithTotalCount
+from strawberry_django.relay import DjangoListConnection
 
 from .user import User
 
@@ -54,29 +54,29 @@ class Entity(Lockable):
     thumbnail_id: Optional[str]
     created: datetime.datetime
     updated: datetime.datetime
-    logs: ListConnectionWithTotalCount[
+    logs: DjangoListConnection[
         Annotated["GameLog", strawberry.lazy("nucleus.types.gamelog")]
     ] = strawberry_django.connection()
     lock_user: Optional[User]
     lock_time: Optional[datetime.datetime]
     locked_by_self: bool = strawberry.field(resolver=locked_by_self)
-    aliases: ListConnectionWithTotalCount[Alias] = strawberry_django.connection()
-    related_artifacts: ListConnectionWithTotalCount[
+    aliases: DjangoListConnection[Alias] = strawberry_django.connection()
+    related_artifacts: DjangoListConnection[
         Annotated["Artifact", strawberry.lazy("item.types.artifact")]
     ] = strawberry_django.connection()
-    related_associations: ListConnectionWithTotalCount[
+    related_associations: DjangoListConnection[
         Annotated["Association", strawberry.lazy("association.types")]
     ] = strawberry_django.connection()
-    related_characters: ListConnectionWithTotalCount[
+    related_characters: DjangoListConnection[
         Annotated["Character", strawberry.lazy("character.types.character")]
     ] = strawberry_django.connection()
-    related_items: ListConnectionWithTotalCount[
+    related_items: DjangoListConnection[
         Annotated["Item", strawberry.lazy("item.types.item")]
     ] = strawberry_django.connection()
-    related_places: ListConnectionWithTotalCount[
+    related_places: DjangoListConnection[
         Annotated["Place", strawberry.lazy("place.types.place")]
     ] = strawberry_django.connection()
-    related_races: ListConnectionWithTotalCount[
+    related_races: DjangoListConnection[
         Annotated["Race", strawberry.lazy("race.types.race")]
     ] = strawberry_django.connection()
 

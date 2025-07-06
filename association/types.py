@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Annotated, Iterable, Optional
+from typing import TYPE_CHECKING, Annotated, Iterable
 
 import strawberry
 import strawberry_django
@@ -8,7 +8,7 @@ from strawberry_django.mutations import resolvers
 from association import models
 from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
 from nucleus.types import Entity, EntityInput, EntityInputPartial
-from nucleus.relay import ListConnectionWithTotalCount
+from strawberry_django.relay import DjangoListConnection
 
 if TYPE_CHECKING:
     from association.types import Association
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 @strawberry_django.type(models.Association)
 class Association(Entity, relay.Node):
-    characters: ListConnectionWithTotalCount[
+    characters: DjangoListConnection[
         Annotated["Character", strawberry.lazy("character.types.character")]
     ] = strawberry_django.connection()
 
@@ -46,11 +46,9 @@ class AssociationInputPartial(EntityInputPartial, strawberry_django.NodeInput):
 
 @strawberry.type
 class AssociationQuery:
-    associations: ListConnectionWithTotalCount[Association] = (
-        strawberry_django.connection()
-    )
+    associations: DjangoListConnection[Association] = strawberry_django.connection()
 
-    @strawberry_django.connection(ListConnectionWithTotalCount[Association])
+    @strawberry_django.connection(DjangoListConnection[Association])
     def associations_connection_filtered(
         self, name_startswith: str
     ) -> Iterable[Association]:

@@ -6,7 +6,7 @@ from strawberry import relay
 
 from association import models
 from nucleus.permissions import IsStaff, IsSuperuser
-from nucleus.relay import ListConnectionWithTotalCount
+from strawberry_django.relay import DjangoListConnection
 from nucleus.types import Entity, EntityInput, EntityInputPartial
 from place import models
 
@@ -28,9 +28,9 @@ class ExportInputPartial(EntityInputPartial, strawberry_django.NodeInput):
 
 @strawberry.type
 class ExportQuery:
-    exports: ListConnectionWithTotalCount[Export] = strawberry_django.connection()
+    exports: DjangoListConnection[Export] = strawberry_django.connection()
 
-    @strawberry_django.connection(ListConnectionWithTotalCount[Export])
+    @strawberry_django.connection(DjangoListConnection[Export])
     def Exports_connection_filtered(self, name_startswith: str) -> Iterable[Export]:
         # Note that this resolver is special. It should not resolve the connection, but
         # the iterable of nodes itself. Thus, any arguments defined here will be appended

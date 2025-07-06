@@ -5,7 +5,7 @@ import strawberry_django
 from strawberry import auto, relay
 
 from nucleus.permissions import IsStaff, IsSuperuser
-from nucleus.relay import ListConnectionWithTotalCount
+from strawberry_django.relay import DjangoListConnection
 
 from .. import models
 from .language import Language
@@ -14,7 +14,7 @@ from .language import Language
 @strawberry_django.type(models.Script)
 class Script(relay.Node):
     name: auto
-    languages: ListConnectionWithTotalCount[Language] = strawberry_django.connection()
+    languages: DjangoListConnection[Language] = strawberry_django.connection()
 
 
 @strawberry_django.input(models.Script)
@@ -31,9 +31,9 @@ class ScriptInputPartial(strawberry_django.NodeInput):
 
 @strawberry.type
 class ScriptQuery:
-    scripts: ListConnectionWithTotalCount[Script] = strawberry_django.connection()
+    scripts: DjangoListConnection[Script] = strawberry_django.connection()
 
-    @strawberry_django.connection(ListConnectionWithTotalCount[Script])
+    @strawberry_django.connection(DjangoListConnection[Script])
     def Scripts_connection_filtered(self, name_startswith: str) -> Iterable[Script]:
         # Note that this resolver is special. It should not resolve the connection, but
         # the iterable of nodes itself. Thus, any arguments defined here will be appended

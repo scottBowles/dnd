@@ -5,7 +5,7 @@ import strawberry_django
 from strawberry import auto, relay
 
 from nucleus.permissions import IsStaff, IsSuperuser
-from nucleus.relay import ListConnectionWithTotalCount
+from strawberry_django.relay import DjangoListConnection
 
 from .. import models
 
@@ -18,7 +18,7 @@ class Proficiency(relay.Node):
     name: auto
     proficiency_type: auto
     description: auto
-    characters: ListConnectionWithTotalCount[
+    characters: DjangoListConnection[
         Annotated["Character", strawberry.lazy("character.types.character")]
     ] = strawberry_django.connection()
 
@@ -41,11 +41,9 @@ class ProficiencyInputPartial(strawberry_django.NodeInput):
 
 @strawberry.type
 class ProficiencyQuery:
-    proficiencies: ListConnectionWithTotalCount[Proficiency] = (
-        strawberry_django.connection()
-    )
+    proficiencies: DjangoListConnection[Proficiency] = strawberry_django.connection()
 
-    @strawberry_django.connection(ListConnectionWithTotalCount[Proficiency])
+    @strawberry_django.connection(DjangoListConnection[Proficiency])
     def Proficiencys_connection_filtered(
         self, name_startswith: str
     ) -> Iterable[Proficiency]:

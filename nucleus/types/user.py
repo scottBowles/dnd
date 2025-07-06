@@ -2,7 +2,7 @@ import strawberry
 import strawberry_django
 from strawberry import auto, relay
 
-from nucleus.relay import ListConnectionWithTotalCount
+from strawberry_django.relay import DjangoListConnection
 
 from .. import models
 
@@ -23,7 +23,7 @@ class User(relay.Node):
 
 @strawberry.type
 class UserQuery:
-    users: ListConnectionWithTotalCount[User] = strawberry_django.connection()
+    users: DjangoListConnection[User] = strawberry_django.connection()
 
 
 @strawberry_django.input(models.User)

@@ -6,7 +6,7 @@ from strawberry import auto, relay
 from strawberry_django.mutations import resolvers
 
 from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
-from nucleus.relay import ListConnectionWithTotalCount
+from strawberry_django.relay import DjangoListConnection
 from nucleus.types import Entity, EntityInput, EntityInputPartial
 from race.types import Race
 
@@ -24,13 +24,9 @@ if TYPE_CHECKING:
 class Character(Entity, relay.Node):
     size: auto
     race: Optional[Race]
-    features_and_traits: ListConnectionWithTotalCount[Feature] = (
-        strawberry_django.connection()
-    )
-    proficiencies: ListConnectionWithTotalCount[Proficiency] = (
-        strawberry_django.connection()
-    )
-    associations: ListConnectionWithTotalCount[
+    features_and_traits: DjangoListConnection[Feature] = strawberry_django.connection()
+    proficiencies: DjangoListConnection[Proficiency] = strawberry_django.connection()
+    associations: DjangoListConnection[
         Annotated["Association", strawberry.lazy("association.types")]
     ] = strawberry_django.connection()
 
@@ -67,9 +63,9 @@ class CharacterInputPartial(EntityInputPartial, strawberry_django.NodeInput):
 
 @strawberry.type
 class CharacterQuery:
-    characters: ListConnectionWithTotalCount[Character] = strawberry_django.connection()
+    characters: DjangoListConnection[Character] = strawberry_django.connection()
 
-    @strawberry_django.connection(ListConnectionWithTotalCount[Character])
+    @strawberry_django.connection(DjangoListConnection[Character])
     def Characters_connection_filtered(
         self, name_startswith: str
     ) -> Iterable[Character]:

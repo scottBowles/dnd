@@ -6,7 +6,7 @@ from strawberry import auto, relay
 from strawberry_django.mutations import resolvers
 
 from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
-from nucleus.relay import ListConnectionWithTotalCount
+from strawberry_django.relay import DjangoListConnection
 from nucleus.types import Entity, EntityInput, EntityInputPartial
 
 from .. import models
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 @strawberry_django.type(models.Race)
 class Race(Entity, relay.Node):
-    characters: ListConnectionWithTotalCount[
+    characters: DjangoListConnection[
         Annotated["Character", strawberry.lazy("character.types.character")]
     ] = strawberry_django.connection()
 
@@ -47,9 +47,9 @@ class RaceInputPartial(EntityInputPartial, strawberry_django.NodeInput):
 
 @strawberry.type
 class RaceQuery:
-    races: ListConnectionWithTotalCount[Race] = strawberry_django.connection()
+    races: DjangoListConnection[Race] = strawberry_django.connection()
 
-    @strawberry_django.connection(ListConnectionWithTotalCount[Race])
+    @strawberry_django.connection(DjangoListConnection[Race])
     def Races_connection_filtered(self, name_startswith: str) -> Iterable[Race]:
         # Note that this resolver is special. It should not resolve the connection, but
         # the iterable of nodes itself. Thus, any arguments defined here will be appended

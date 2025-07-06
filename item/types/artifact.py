@@ -6,7 +6,7 @@ from strawberry import auto, relay
 from strawberry_django.mutations import resolvers
 
 from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
-from nucleus.relay import ListConnectionWithTotalCount
+from strawberry_django.relay import DjangoListConnection
 from nucleus.types import Entity, EntityInput, EntityInputPartial
 
 from .. import models
@@ -17,9 +17,9 @@ if TYPE_CHECKING:
 
 @strawberry_django.type(models.Artifact)
 class Artifact(Entity, relay.Node):
-    items: ListConnectionWithTotalCount[
-        Annotated["Item", strawberry.lazy("item.types")]
-    ] = strawberry_django.connection()
+    items: DjangoListConnection[Annotated["Item", strawberry.lazy("item.types")]] = (
+        strawberry_django.connection()
+    )
     notes: auto
 
 
@@ -49,9 +49,9 @@ class ArtifactInputPartial(EntityInputPartial, strawberry_django.NodeInput):
 
 @strawberry.type
 class ArtifactQuery:
-    artifacts: ListConnectionWithTotalCount[Artifact] = strawberry_django.connection()
+    artifacts: DjangoListConnection[Artifact] = strawberry_django.connection()
 
-    @strawberry_django.connection(ListConnectionWithTotalCount[Artifact])
+    @strawberry_django.connection(DjangoListConnection[Artifact])
     def Artifacts_connection_filtered(self, name_startswith: str) -> Iterable[Artifact]:
         # Note that this resolver is special. It should not resolve the connection, but
         # the iterable of nodes itself. Thus, any arguments defined here will be appended

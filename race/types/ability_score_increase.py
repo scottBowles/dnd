@@ -5,7 +5,7 @@ import strawberry_django
 from strawberry import auto, relay
 
 from nucleus.permissions import IsStaff, IsSuperuser
-from nucleus.relay import ListConnectionWithTotalCount
+from strawberry_django.relay import DjangoListConnection
 
 from .. import models
 
@@ -30,11 +30,11 @@ class AbilityScoreIncreaseInputPartial(strawberry_django.NodeInput):
 
 @strawberry.type
 class AbilityScoreIncreaseQuery:
-    ability_score_increases: ListConnectionWithTotalCount[AbilityScoreIncrease] = (
+    ability_score_increases: DjangoListConnection[AbilityScoreIncrease] = (
         strawberry_django.connection()
     )
 
-    @strawberry_django.connection(ListConnectionWithTotalCount[AbilityScoreIncrease])
+    @strawberry_django.connection(DjangoListConnection[AbilityScoreIncrease])
     def AbilityScoreIncreases_connection_filtered(
         self, name_startswith: str
     ) -> Iterable[AbilityScoreIncrease]:

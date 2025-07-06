@@ -7,7 +7,7 @@ from strawberry import auto, relay
 from strawberry_django.mutations import resolvers
 
 from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
-from nucleus.relay import ListConnectionWithTotalCount
+from strawberry_django.relay import DjangoListConnection
 from nucleus.types.entity import Lockable, locked_by_self
 from nucleus.types.user import User
 
@@ -76,29 +76,29 @@ class GameLog(Lockable, relay.Node):
     brief: auto
     synopsis: auto
     summary: auto
-    places_set_in: ListConnectionWithTotalCount[
+    places_set_in: DjangoListConnection[
         Annotated["Place", strawberry.lazy("place.types.place")]
     ] = strawberry_django.connection()
     lock_user: Optional[User]
     lock_time: Optional[datetime.datetime]
     locked_by_self: bool = strawberry.field(resolver=locked_by_self)
 
-    artifacts: ListConnectionWithTotalCount[
+    artifacts: DjangoListConnection[
         Annotated["Artifact", strawberry.lazy("item.types.artifact")]
     ] = strawberry_django.connection()
-    associations: ListConnectionWithTotalCount[
+    associations: DjangoListConnection[
         Annotated["Association", strawberry.lazy("association.types")]
     ] = strawberry_django.connection()
-    characters: ListConnectionWithTotalCount[
+    characters: DjangoListConnection[
         Annotated["Character", strawberry.lazy("character.types.character")]
     ] = strawberry_django.connection()
-    items: ListConnectionWithTotalCount[
+    items: DjangoListConnection[
         Annotated["Item", strawberry.lazy("item.types.item")]
     ] = strawberry_django.connection()
-    places: ListConnectionWithTotalCount[
+    places: DjangoListConnection[
         Annotated["Place", strawberry.lazy("place.types.place")]
     ] = strawberry_django.connection()
-    races: ListConnectionWithTotalCount[
+    races: DjangoListConnection[
         Annotated["Race", strawberry.lazy("race.types.race")]
     ] = strawberry_django.connection()
     ai_suggestions: Optional[CombinedGameLogAiSummary] = strawberry.field(
@@ -148,7 +148,7 @@ class GameLogOrder:
 
 @strawberry.type
 class GameLogQuery:
-    game_logs: ListConnectionWithTotalCount[GameLog] = strawberry_django.connection(
+    game_logs: DjangoListConnection[GameLog] = strawberry_django.connection(
         order=GameLogOrder
     )
 

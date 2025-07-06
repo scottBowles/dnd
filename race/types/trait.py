@@ -5,7 +5,7 @@ import strawberry_django
 from strawberry import auto, relay
 
 from nucleus.permissions import IsStaff, IsSuperuser
-from nucleus.relay import ListConnectionWithTotalCount
+from strawberry_django.relay import DjangoListConnection
 
 from .. import models
 
@@ -30,9 +30,9 @@ class TraitInputPartial(strawberry_django.NodeInput):
 
 @strawberry.type
 class TraitQuery:
-    traits: ListConnectionWithTotalCount[Trait] = strawberry_django.connection()
+    traits: DjangoListConnection[Trait] = strawberry_django.connection()
 
-    @strawberry_django.connection(ListConnectionWithTotalCount[Trait])
+    @strawberry_django.connection(DjangoListConnection[Trait])
     def Traits_connection_filtered(self, name_startswith: str) -> Iterable[Trait]:
         # Note that this resolver is special. It should not resolve the connection, but
         # the iterable of nodes itself. Thus, any arguments defined here will be appended

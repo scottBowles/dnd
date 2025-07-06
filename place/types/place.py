@@ -7,7 +7,7 @@ from strawberry_django.mutations import resolvers
 
 from association import models
 from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
-from nucleus.relay import ListConnectionWithTotalCount
+from strawberry_django.relay import DjangoListConnection
 from nucleus.types import Entity, EntityInput, EntityInputPartial
 from place import models
 
@@ -23,7 +23,7 @@ class Place(Entity, relay.Node):
     exports: auto
     common_races: auto
     associations: auto
-    children: ListConnectionWithTotalCount["Place"] = strawberry_django.connection()
+    children: DjangoListConnection["Place"] = strawberry_django.connection()
 
 
 @strawberry_django.input(models.Place)
@@ -54,9 +54,9 @@ class PlaceInputPartial(EntityInputPartial, strawberry_django.NodeInput):
 
 @strawberry.type
 class PlaceQuery:
-    places: ListConnectionWithTotalCount[Place] = strawberry_django.connection()
+    places: DjangoListConnection[Place] = strawberry_django.connection()
 
-    @strawberry_django.connection(ListConnectionWithTotalCount[Place])
+    @strawberry_django.connection(DjangoListConnection[Place])
     def Places_connection_filtered(self, name_startswith: str) -> Iterable[Place]:
         # Note that this resolver is special. It should not resolve the connection, but
         # the iterable of nodes itself. Thus, any arguments defined here will be appended
