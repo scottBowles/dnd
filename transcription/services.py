@@ -15,6 +15,7 @@ from django.conf import settings
 from django.db.models import Max
 from django.utils import timezone
 from pydub import AudioSegment
+from pydub.effects import speedup
 
 from association.models import Association
 from character.models import Character
@@ -299,28 +300,62 @@ class AudioProcessingService:
         except (FileNotFoundError, OSError):
             return 0.0
 
+    @staticmethod
+    def speed_up_audio(audio: AudioSegment, speed_factor: float = 2.0) -> AudioSegment:
+        """
+        Speed up audio by the given factor.
+        
+        Args:
+            audio: The AudioSegment to speed up
+            speed_factor: The factor to speed up by (2.0 = 2x speed)
+            
+        Returns:
+            AudioSegment with increased speed
+        """
+        # Speed up audio using pydub's speedup function
+        return speedup(audio, playback_speed=speed_factor)
+
     def split_audio_file(
         self, file_path: Path, character_name: str = "Unknown"
     ) -> List[Path]:
         """
         Split an audio file into chunks if it exceeds the size limit.
+        Speeds up audio to 2x before processing.
         Returns a list of chunk file paths.
         """
         import tempfile
 
         file_size_mb = AudioProcessingService.get_file_size_mb(file_path)
 
-        if file_size_mb <= self.config.max_file_size_mb:
-            print(f"✅ {file_path.name} ({file_size_mb:.1f}MB) is within size limit")
-            return [file_path]
-
-        print(f"📂 Splitting {file_path.name} ({file_size_mb:.1f}MB) into chunks...")
+        print(f"📂 Processing {file_path.name} ({file_size_mb:.1f}MB)...")
 
         try:
+            # Load audio and speed it up to 2x
             audio = AudioSegment.from_file(file_path)
+            print(f"  ⏩ Speeding up audio to 2x (original duration: {len(audio)/1000:.1f}s)")
+            audio = self.speed_up_audio(audio, 2.0)
+            print(f"  ⏩ New duration after speedup: {len(audio)/1000:.1f}s")
+
+            # Check if we need to split after speeding up
+            if file_size_mb <= self.config.max_file_size_mb:
+                print(f"✅ Audio is within size limit, creating sped-up version...")
+                # Create a sped-up version of the file
+                with tempfile.NamedTemporaryFile(delete=False, suffix=file_path.suffix) as temp_file:
+                    temp_path = Path(temp_file.name)
+                    audio.export(temp_path, format=file_path.suffix[1:])
+                    return [temp_path]
+
+            print(f"📂 Splitting sped-up audio into chunks...")
             chunk_length_ms = self.config.chunk_duration_minutes * 60 * 1000
             total_length_ms = len(audio)
             num_chunks = math.ceil(total_length_ms / chunk_length_ms)
+
+            chunk_paths = []
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_dir_path = Path(temp_dir)
+                for i in range(num_chunks):
+                    start_time = i * chunk_length_ms
+                    end_time = min((i + 1) * chunk_length_ms, total_length_ms)
 
             chunk_paths = []
             with tempfile.TemporaryDirectory() as temp_dir:
@@ -351,7 +386,7 @@ class AudioProcessingService:
                 return result_paths
 
         except Exception as e:
-            print(f"❌ Failed to split {file_path.name}: {e}")
+            print(f"❌ Failed to process {file_path.name}: {e}")
             return [file_path]
 
 

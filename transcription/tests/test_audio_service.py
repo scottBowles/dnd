@@ -51,20 +51,32 @@ class AudioProcessingServiceTests(TestCase):
         self.assertEqual(size, 0.0)
 
     @patch("transcription.services.AudioSegment")
-    def test_split_audio_file_under_limit(self, mock_audio_segment):
-        """Test that small files are not split."""
+    @patch("transcription.services.speedup")
+    def test_split_audio_file_under_limit(self, mock_speedup, mock_audio_segment):
+        """Test that small files are processed but not split."""
         test_file = self.temp_path / "small.mp3"
         test_file.write_text("small content")  # Very small file
 
+        # Mock the audio processing chain
+        mock_audio = Mock()
+        mock_audio_segment.from_file.return_value = mock_audio
+        mock_sped_up_audio = Mock()
+        mock_speedup.return_value = mock_sped_up_audio
+
         result = self.service.split_audio_file(test_file, "TestCharacter")
 
-        # Should return original file without splitting
+        # Should return 1 file (sped-up version)
         self.assertEqual(len(result), 1)
-        self.assertEqual(result[0], test_file)
-        mock_audio_segment.from_file.assert_not_called()
+        # Should have called AudioSegment.from_file to load the audio
+        mock_audio_segment.from_file.assert_called_once_with(test_file)
+        # Should have called speedup to speed up the audio
+        mock_speedup.assert_called_once_with(mock_audio, 2.0)
+        # Should have called export to create the sped-up file
+        mock_sped_up_audio.export.assert_called_once()
 
     @patch("transcription.services.AudioSegment")
-    def test_split_audio_file_over_limit(self, mock_audio_segment):
+    @patch("transcription.services.speedup")
+    def test_split_audio_file_over_limit(self, mock_speedup, mock_audio_segment):
         """Test that large files are split into chunks."""
         # Create a large test file (larger than 1MB limit in config)
         test_file = self.temp_path / "large.mp3"
@@ -81,6 +93,12 @@ class AudioProcessingServiceTests(TestCase):
             return_value=120000
         )  # 2 minutes in milliseconds
 
+        # Mock sped-up audio
+        mock_sped_up_audio = Mock()
+        type(mock_sped_up_audio).__len__ = Mock(
+            return_value=120000
+        )  # Same duration for simplicity in test
+
         # Mock chunk creation and export
         mock_chunk = Mock()
 
@@ -90,15 +108,18 @@ class AudioProcessingServiceTests(TestCase):
             chunk_path.write_text("mock chunk content")
 
         mock_chunk.export.side_effect = mock_export_side_effect
-        mock_audio.__getitem__ = Mock(return_value=mock_chunk)
+        mock_sped_up_audio.__getitem__ = Mock(return_value=mock_chunk)
 
         mock_audio_segment.from_file.return_value = mock_audio
+        mock_speedup.return_value = mock_sped_up_audio
 
         result = self.service.split_audio_file(test_file, "TestCharacter")
 
         # Should create 2 chunks (2 minutes / 1 minute per chunk)
         self.assertEqual(len(result), 2)
         mock_audio_segment.from_file.assert_called_once_with(test_file)
+        # Should have called speedup to speed up the audio
+        mock_speedup.assert_called_once_with(mock_audio, 2.0)
         # Verify that export was called for each chunk
         self.assertEqual(mock_chunk.export.call_count, 2)
 
