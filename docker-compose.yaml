@@ -4,8 +4,8 @@ services:
     # Redis service for Celery broker and result backend
     redis:
         image: redis:7-alpine
-        # ports: # Removed - Coolify handles external access
-        #     - "6379:6379"
+        ports: # Removed - Coolify handles external access
+            - "6379:6379"
         command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
         volumes:
             - redis_data:/data
