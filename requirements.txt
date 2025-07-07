@@ -67,3 +67,4 @@ celery==5.5.3
 redis==6.2.0
 django-celery-beat==2.8.1
 flower==2.0.1
+tiktoken==0.9.0
