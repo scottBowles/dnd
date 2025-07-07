@@ -10,14 +10,14 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "website.settings")
 
 app = Celery(
     "website",
-    broker=os.environ.get("CELERY_BROKER_URL"),
-    backend=os.environ.get("CELERY_RESULT_BACKEND"),
+    # broker=os.environ.get("CELERY_BROKER_URL"),
+    # backend=os.environ.get("CELERY_RESULT_BACKEND"),
 )
 
-import logging
+# import logging
 
-logger = logging.getLogger("celery")
-logger.setLevel(logging.DEBUG)
+# logger = logging.getLogger("celery")
+# logger.setLevel(logging.DEBUG)
 
 
 # Using a string here means the worker doesn't have to serialize
@@ -30,6 +30,6 @@ app.config_from_object("django.conf:settings", namespace="CELERY")
 app.autodiscover_tasks()
 
 
-@app.task(bind=True, ignore_result=True)
-def debug_task(self):
-    print(f"Request: {self.request!r}")
+# @app.task(bind=True, ignore_result=True)
+# def debug_task(self):
+#     print(f"Request: {self.request!r}")

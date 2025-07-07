@@ -28,74 +28,65 @@ services:
                    python manage.py algolia_reindex &&
                    python manage.py collectstatic --noinput &&
                    gunicorn website.wsgi:application --bind 0.0.0.0:8000 --workers 3"
-        environment:
-            - DJANGO_SETTINGS_MODULE=website.settings
-            - PYTHONPATH=/app
-            - PYTHONUNBUFFERED=1
-            - PYTHONDONTWRITEBYTECODE=1
-            - REDIS_URL=${REDIS_URL}
-            - CELERY_BROKER_URL=${CELERY_BROKER_URL}
-            - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
-            - SECRET_KEY=${SECRET_KEY}
-            - DEBUG=${DEBUG:-False}
-            - DATABASE_URL=${DATABASE_URL}
-            - OPENAI_API_KEY=${OPENAI_API_KEY}
-            - CLOUDFLARE_R2_ACCESS_KEY_ID=${CLOUDFLARE_R2_ACCESS_KEY_ID}
-            - CLOUDFLARE_R2_SECRET_ACCESS_KEY=${CLOUDFLARE_R2_SECRET_ACCESS_KEY}
-            - CLOUDFLARE_R2_BUCKET_NAME=${CLOUDFLARE_R2_BUCKET_NAME}
-            - CLOUDFLARE_R2_ACCOUNT_ID=${CLOUDFLARE_R2_ACCOUNT_ID}
-            - ALGOLIA_APPLICATION_ID=${ALGOLIA_APPLICATION_ID}
-            - ALGOLIA_API_KEY=${ALGOLIA_API_KEY}
+        # environment:
+        #     - DJANGO_SETTINGS_MODULE=website.settings
+        #     - PYTHONPATH=/app
+        #     - PYTHONUNBUFFERED=1
+        #     - PYTHONDONTWRITEBYTECODE=1
+        #     - REDIS_URL=${REDIS_URL}
+        #     - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+        #     - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+        #     - SECRET_KEY=${SECRET_KEY}
+        #     - DEBUG=${DEBUG:-False}
+        #     - DATABASE_URL=${DATABASE_URL}
+        #     - OPENAI_API_KEY=${OPENAI_API_KEY}
+        #     - CLOUDFLARE_R2_ACCESS_KEY_ID=${CLOUDFLARE_R2_ACCESS_KEY_ID}
+        #     - CLOUDFLARE_R2_SECRET_ACCESS_KEY=${CLOUDFLARE_R2_SECRET_ACCESS_KEY}
+        #     - CLOUDFLARE_R2_BUCKET_NAME=${CLOUDFLARE_R2_BUCKET_NAME}
+        #     - CLOUDFLARE_R2_ACCOUNT_ID=${CLOUDFLARE_R2_ACCOUNT_ID}
+        #     - ALGOLIA_APPLICATION_ID=${ALGOLIA_APPLICATION_ID}
+        #     - ALGOLIA_API_KEY=${ALGOLIA_API_KEY}
         # depends_on:
         #     redis:
         #         condition: service_healthy
-        restart: unless-stopped
-        healthcheck:
-            test: ["CMD", "curl", "-f", "http://localhost:8000/healthcheck/"]
-            interval: 30s
-            timeout: 10s
-            retries: 3
-            start_period: 40s
+        # restart: unless-stopped
+        # healthcheck:
+        #     test: ["CMD", "curl", "-f", "http://localhost:8000/healthcheck/"]
+        #     interval: 30s
+        #     timeout: 10s
+        #     retries: 3
+        #     start_period: 40s
 
     # Celery worker service for background tasks
     celery-worker:
         build: .
-        command:
-            [
-                "celery",
-                "-A",
-                "website",
-                "worker",
-                "--loglevel=info",
-                "--concurrency=6",
-                "--prefetch-multiplier=1",
-            ]
-        environment:
-            - DJANGO_SETTINGS_MODULE=website.settings
-            - PYTHONPATH=/app
-            - PYTHONUNBUFFERED=1
-            - PYTHONDONTWRITEBYTECODE=1
-            - REDIS_URL=${REDIS_URL}
-            - CELERY_BROKER_URL=${CELERY_BROKER_URL}
-            - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
-            - SECRET_KEY=${SECRET_KEY}
-            - DEBUG=${DEBUG:-False}
-            - DATABASE_URL=${DATABASE_URL}
-            - OPENAI_API_KEY=${OPENAI_API_KEY}
-            - CLOUDFLARE_R2_ACCESS_KEY_ID=${CLOUDFLARE_R2_ACCESS_KEY_ID}
-            - CLOUDFLARE_R2_SECRET_ACCESS_KEY=${CLOUDFLARE_R2_SECRET_ACCESS_KEY}
-            - CLOUDFLARE_R2_BUCKET_NAME=${CLOUDFLARE_R2_BUCKET_NAME}
-            - CLOUDFLARE_R2_ACCOUNT_ID=${CLOUDFLARE_R2_ACCOUNT_ID}
+        command: celery -A website worker --loglevel=info
+        # environment:
+        #     - DJANGO_SETTINGS_MODULE=website.settings
+        #     - PYTHONPATH=/app
+        #     - PYTHONUNBUFFERED=1
+        #     - PYTHONDONTWRITEBYTECODE=1
+        #     - REDIS_URL=${REDIS_URL}
+        #     - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+        #     - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+        #     - SECRET_KEY=${SECRET_KEY}
+        #     - DEBUG=${DEBUG:-False}
+        #     - DATABASE_URL=${DATABASE_URL}
+        #     - OPENAI_API_KEY=${OPENAI_API_KEY}
+        #     - CLOUDFLARE_R2_ACCESS_KEY_ID=${CLOUDFLARE_R2_ACCESS_KEY_ID}
+        #     - CLOUDFLARE_R2_SECRET_ACCESS_KEY=${CLOUDFLARE_R2_SECRET_ACCESS_KEY}
+        #     - CLOUDFLARE_R2_BUCKET_NAME=${CLOUDFLARE_R2_BUCKET_NAME}
+        #     - CLOUDFLARE_R2_ACCOUNT_ID=${CLOUDFLARE_R2_ACCOUNT_ID}
         # depends_on:
         #     redis:
         #         condition: service_healthy
-        restart: unless-stopped
-        healthcheck:
-            test: ["CMD", "celery", "-A", "website", "inspect", "ping"]
-            interval: 30s
-            timeout: 10s
-            retries: 3
-            start_period: 40s
+        # restart: unless-stopped
+        # healthcheck:
+        #     test: ["CMD", "celery", "-A", "website", "inspect", "ping"]
+        #     interval: 30s
+        #     timeout: 10s
+        #     retries: 3
+        #     start_period: 40s
 
     # Celery beat service for scheduled tasks (optional - commented out for now)
     # Uncomment when you need scheduled tasks

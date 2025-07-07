@@ -300,24 +300,28 @@ AWS_DEFAULT_ACL = None
 AWS_S3_FILE_OVERWRITE = False
 
 # Celery Configuration
-CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL")
-CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND")
+CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
-CELERY_RESULT_SERIALIZER = "json"
-CELERY_TIMEZONE = TIME_ZONE
-CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
-# Celery task routing
-CELERY_TASK_ROUTES = {
-    "transcription.tasks.*": {"queue": "transcription"},
-}
+# CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL")
+# CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND")
+# CELERY_ACCEPT_CONTENT = ["json"]
+# CELERY_TASK_SERIALIZER = "json"
+# CELERY_RESULT_SERIALIZER = "json"
+# CELERY_TIMEZONE = TIME_ZONE
+# CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
-# Celery worker configuration
-CELERY_WORKER_PREFETCH_MULTIPLIER = 1
-CELERY_TASK_ACKS_LATE = True
-CELERY_WORKER_DISABLE_RATE_LIMITS = False
+# # Celery task routing
+# CELERY_TASK_ROUTES = {
+#     "transcription.tasks.*": {"queue": "transcription"},
+# }
 
-# Celery task time limits (2 hours for transcription tasks processing multiple large files)
-CELERY_TASK_SOFT_TIME_LIMIT = 7200  # 2 hours (120 minutes)
-CELERY_TASK_TIME_LIMIT = 7500  # 2 hours 5 minutes (125 minutes, hard limit)
+# # Celery worker configuration
+# CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+# CELERY_TASK_ACKS_LATE = True
+# CELERY_WORKER_DISABLE_RATE_LIMITS = False
+
+# # Celery task time limits (2 hours for transcription tasks processing multiple large files)
+# CELERY_TASK_SOFT_TIME_LIMIT = 7200  # 2 hours (120 minutes)
+# CELERY_TASK_TIME_LIMIT = 7500  # 2 hours 5 minutes (125 minutes, hard limit)
