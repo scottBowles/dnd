@@ -33,9 +33,9 @@ services:
             - PYTHONPATH=/app
             - PYTHONUNBUFFERED=1
             - PYTHONDONTWRITEBYTECODE=1
-            - REDIS_URL=redis://redis:6379/0
-            - CELERY_BROKER_URL=redis://redis:6379/0
-            - CELERY_RESULT_BACKEND=redis://redis:6379/0
+            - REDIS_URL=${REDIS_URL}
+            - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+            - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
             - SECRET_KEY=${SECRET_KEY}
             - DEBUG=${DEBUG:-False}
             - DATABASE_URL=${DATABASE_URL}
@@ -75,9 +75,9 @@ services:
             - PYTHONPATH=/app
             - PYTHONUNBUFFERED=1
             - PYTHONDONTWRITEBYTECODE=1
-            - REDIS_URL=redis://redis:6379/0
-            - CELERY_BROKER_URL=redis://redis:6379/0
-            - CELERY_RESULT_BACKEND=redis://redis:6379/0
+            - REDIS_URL=${REDIS_URL}
+            - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+            - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
             - SECRET_KEY=${SECRET_KEY}
             - DEBUG=${DEBUG:-False}
             - DATABASE_URL=${DATABASE_URL}
