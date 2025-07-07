@@ -2,21 +2,21 @@ version: "3.8"
 
 services:
     # Redis service for Celery broker and result backend
-    redis:
-        image: redis:7-alpine
-        # ports: # Removed - Coolify handles external access
-        #     - "6379:6379"
-        command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
-        volumes:
-            - redis_data:/data
-        restart: unless-stopped
-        # environment:
-        #     - REDIS_PASSWORD=${REDIS_PASSWORD}
-        healthcheck:
-            test: ["CMD", "redis-cli", "ping"]
-            interval: 10s
-            timeout: 3s
-            retries: 5
+    # redis:
+    #     image: redis:7-alpine
+    #     # ports: # Removed - Coolify handles external access
+    #     #     - "6379:6379"
+    #     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    #     volumes:
+    #         - redis_data:/data
+    #     restart: unless-stopped
+    #     # environment:
+    #     #     - REDIS_PASSWORD=${REDIS_PASSWORD}
+    #     healthcheck:
+    #         test: ["CMD", "redis-cli", "ping"]
+    #         interval: 10s
+    #         timeout: 3s
+    #         retries: 5
 
     # Django web application
     web:
@@ -117,39 +117,38 @@ services:
     #     - beat_schedule:/tmp
 
     # Optional: Redis Commander for Redis GUI management (development only)
-    redis-commander:
-        image: rediscommander/redis-commander:latest
-        environment:
-            - REDIS_HOSTS=local:redis:6379
-            - HTTP_USER=${REDIS_COMMANDER_USER:-admin}
-            - HTTP_PASSWORD=${REDIS_COMMANDER_PASSWORD:-admin}
-        # ports: # Removed for Coolify - only needed for local development
-        #     - "8081:8081"
-        depends_on:
-            redis:
-                condition: service_healthy
-        restart: unless-stopped
-        profiles:
-            - dev
+    # redis-commander:
+    #     image: rediscommander/redis-commander:latest
+    #     environment:
+    #         - REDIS_HOSTS=local:redis:6379
+    #         - HTTP_USER=${REDIS_COMMANDER_USER:-admin}
+    #         - HTTP_PASSWORD=${REDIS_COMMANDER_PASSWORD:-admin}
+    #     # ports: # Removed for Coolify - only needed for local development
+    #     #     - "8081:8081"
+    #     depends_on:
+    #         redis:
+    #             condition: service_healthy
+    #     restart: unless-stopped
+    #     profiles:
+    #         - dev
 
-    # Optional: Flower for Celery monitoring (development/staging)
-    flower:
-        build: .
-        command: ["celery", "-A", "website", "flower", "--port=5555"]
-        # ports: # Removed for Coolify - only needed for local development
-        #     - "5555:5555"
-        environment:
-            - CELERY_BROKER_URL=redis://redis:6379/0
-            - CELERY_RESULT_BACKEND=redis://redis:6379/0
-            - FLOWER_BASIC_AUTH=${FLOWER_USER:-admin}:${FLOWER_PASSWORD:-admin}
-        depends_on:
-            redis:
-                condition: service_healthy
-        restart: unless-stopped
-        profiles:
-            - dev
-            - staging
-
-volumes:
-    redis_data:
-    # beat_schedule:  # Uncomment when enabling celery-beat service
+    # # Optional: Flower for Celery monitoring (development/staging)
+    # flower:
+    #     build: .
+    #     command: ["celery", "-A", "website", "flower", "--port=5555"]
+    #     # ports: # Removed for Coolify - only needed for local development
+    #     #     - "5555:5555"
+    #     environment:
+    #         - CELERY_BROKER_URL=redis://redis:6379/0
+    #         - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    #         - FLOWER_BASIC_AUTH=${FLOWER_USER:-admin}:${FLOWER_PASSWORD:-admin}
+    #     depends_on:
+    #         redis:
+    #             condition: service_healthy
+    #     restart: unless-stopped
+    #     profiles:
+    #         - dev
+    #         - staging
+# volumes:
+#     redis_data:
+# beat_schedule:  # Uncomment when enabling celery-beat service
