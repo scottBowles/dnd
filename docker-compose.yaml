@@ -60,7 +60,8 @@ services:
     # Celery worker service for background tasks
     celery-worker:
         build: .
-        command: celery -A website worker --loglevel=info
+        command: celery -A website worker --loglevel=info --concurrency=1
+
         # environment:
         #     - DJANGO_SETTINGS_MODULE=website.settings
         #     - PYTHONPATH=/app
