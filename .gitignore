@@ -3,6 +3,10 @@
 __pycache__
 *.pyc
 
+# Database files
+*.sqlite3
+db.sqlite3
+
 # Logs
 logs
 *.log
