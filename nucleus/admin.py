@@ -44,6 +44,7 @@ class GameLogAdmin(admin.ModelAdmin):
         "places_set_in",
         "audio_session_notes",
         "last_game_log",
+        "generated_log_text",
     )
     readonly_fields = (
         "copy_text_for_summary",
