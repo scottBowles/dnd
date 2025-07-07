@@ -8,7 +8,11 @@ from celery import Celery
 # Set the default Django settings module for the 'celery' program.
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "website.settings")
 
-app = Celery("website")
+app = Celery(
+    "website",
+    broker=os.environ.get("CELERY_BROKER_URL"),
+    backend=os.environ.get("CELERY_RESULT_BACKEND"),
+)
 
 import logging
 
