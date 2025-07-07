@@ -46,9 +46,9 @@ services:
             - CLOUDFLARE_R2_ACCOUNT_ID=${CLOUDFLARE_R2_ACCOUNT_ID}
             - ALGOLIA_APPLICATION_ID=${ALGOLIA_APPLICATION_ID}
             - ALGOLIA_API_KEY=${ALGOLIA_API_KEY}
-        depends_on:
-            redis:
-                condition: service_healthy
+        # depends_on:
+        #     redis:
+        #         condition: service_healthy
         restart: unless-stopped
         healthcheck:
             test: ["CMD", "curl", "-f", "http://localhost:8000/healthcheck/"]
@@ -86,9 +86,9 @@ services:
             - CLOUDFLARE_R2_SECRET_ACCESS_KEY=${CLOUDFLARE_R2_SECRET_ACCESS_KEY}
             - CLOUDFLARE_R2_BUCKET_NAME=${CLOUDFLARE_R2_BUCKET_NAME}
             - CLOUDFLARE_R2_ACCOUNT_ID=${CLOUDFLARE_R2_ACCOUNT_ID}
-        depends_on:
-            redis:
-                condition: service_healthy
+        # depends_on:
+        #     redis:
+        #         condition: service_healthy
         restart: unless-stopped
         healthcheck:
             test: ["CMD", "celery", "-A", "website", "inspect", "ping"]
