@@ -1479,7 +1479,8 @@ Session log:
             return f"{h:02}:{m:02}:{s:02}"
 
         combined = "\n".join(
-            f"[{format_time(seg['start'])}] [{seg['character']}] {seg['text']}"
+            f"[{seg['character']}] {seg['text']}"
+            # f"[{format_time(seg['start'])}] [{seg['character']}] {seg['text']}"
             for seg in segments
             if seg["text"]
         )
