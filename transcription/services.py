@@ -785,12 +785,14 @@ class TranscriptionService:
         """Process a SessionAudio instance, split if needed, and save all results to the database."""
         import tempfile
 
+        print(f"🔄 process_session_audio called for SessionAudio {session_audio.id}: {session_audio.original_filename}")
+
         # Check if transcript already exists to prevent duplicates
         if (
             hasattr(session_audio, "audio_transcripts")
             and session_audio.audio_transcripts.exists()
         ):
-            print(f"⚠️ Transcript already exists for {session_audio}, skipping processing")
+            print(f"⚠️ Transcript already exists for SessionAudio {session_audio.id}, skipping processing")
             return True
 
         start_time = time.time()
@@ -1519,7 +1521,7 @@ Session log:
         session_notes: str = "",
         use_celery: bool = True,
     ):
-        print("process_session_audio_async called with use_celery =", use_celery)
+        print(f"process_session_audio_async called for SessionAudio {session_audio.id} with use_celery = {use_celery}")
         """
         Process a SessionAudio instance asynchronously using Celery.
 
@@ -1536,9 +1538,10 @@ Session log:
             try:
                 from .tasks import process_session_audio_task
 
-                print(".   about to call process_session_audio_task.delay_on_commit")
+                print(f".   about to call process_session_audio_task.delay for SessionAudio {session_audio.id}")
 
-                return process_session_audio_task.delay_on_commit(
+                # Use regular delay instead of delay_on_commit to avoid potential duplicate task queueing
+                return process_session_audio_task.delay(
                     session_audio.id, previous_transcript, session_notes
                 )
             except ImportError:
@@ -1583,7 +1586,7 @@ Session log:
             try:
                 from .tasks import generate_session_log_task
 
-                return generate_session_log_task.delay_on_commit(
+                return generate_session_log_task.delay(
                     gamelog.id, method, model
                 )
             except ImportError:
@@ -1601,7 +1604,7 @@ def transcribe_session_audio(
     previous_transcript: str = "",
     use_celery: bool = True,
 ):
-    print("transcribe_session_audio called with use_celery =", use_celery)
+    print(f"transcribe_session_audio called for SessionAudio {session_audio.id} with use_celery = {use_celery}")
     """
     Process a SessionAudio instance using the model-driven transcription logic.
     By default, uses async processing via Celery for better performance and scalability.

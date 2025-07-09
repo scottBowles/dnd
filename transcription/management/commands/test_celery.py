@@ -24,7 +24,7 @@ class Command(BaseCommand):
         if options["async"]:
             self.stdout.write("Submitting async task...")
             try:
-                result = health_check_task.delay_on_commit()
+                result = health_check_task.delay()
                 self.stdout.write(
                     self.style.SUCCESS(
                         f"Task submitted successfully. Task ID: {result.id}"
