@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 def process_session_audio_task(
     self, session_audio_id, previous_transcript="", session_notes=""
 ):
-    print("process_session_audio_task called with session_audio_id =", session_audio_id)
+    print(f"process_session_audio_task called with session_audio_id = {session_audio_id}")
     """
     Process a SessionAudio instance asynchronously.
     
@@ -37,6 +37,7 @@ def process_session_audio_task(
         # Get the SessionAudio instance
         try:
             session_audio = SessionAudio.objects.get(id=session_audio_id)
+            print(f"Found SessionAudio: {session_audio.original_filename}")
         except ObjectDoesNotExist:
             logger.error(f"SessionAudio with ID {session_audio_id} not found")
             return False
@@ -53,13 +54,16 @@ def process_session_audio_task(
 
         if result:
             logger.info(f"Successfully processed SessionAudio ID: {session_audio_id}")
+            print(f"✅ Successfully processed SessionAudio {session_audio_id}")
         else:
             logger.warning(f"Failed to process SessionAudio ID: {session_audio_id}")
+            print(f"❌ Failed to process SessionAudio {session_audio_id}")
 
         return result
 
     except Exception as exc:
         logger.error(f"Error processing SessionAudio ID {session_audio_id}: {str(exc)}")
+        print(f"❌ Exception processing SessionAudio {session_audio_id}: {exc}")
 
         # Only retry for certain types of exceptions (network errors, temporary failures)
         # Don't retry for validation errors or business logic failures
