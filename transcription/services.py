@@ -1532,16 +1532,16 @@ Session log:
         encoding = tiktoken.encoding_for_model(model)
         num_tokens = len(encoding.encode(prompt))
         print(f"Estimated token count: {num_tokens} tokens")
-        # response = openai.ChatCompletion.create(
-        #     model=model,
-        #     messages=[{"role": "user", "content": prompt}],
-        #     temperature=0.3,
-        #     max_tokens=3500,
-        # )
-        # session_log = response["choices"][0]["message"]["content"].strip()
-        # gamelog.generated_log_text = session_log
-        # gamelog.save(update_fields=["generated_log_text"])
-        # return session_log
+        response = openai.ChatCompletion.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=3500,
+        )
+        session_log = response["choices"][0]["message"]["content"].strip()
+        gamelog.generated_log_text = session_log
+        gamelog.save(update_fields=["generated_log_text"])
+        return session_log
 
     def _is_large_processing_job(self, session_audio) -> bool:
         """
