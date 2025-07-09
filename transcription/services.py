@@ -1489,8 +1489,9 @@ Session log:
             if session_notes
             else ""
         )
+        USE_EXAMPLE_SECTION = False
         prompt = f"""
-You are a Dungeons & Dragons session chronicler. Given the following time-ordered, attributed transcript segments, produce a single, clean, in-game session log. 
+You are a Dungeons & Dragons session chronicler. Given the following attempt at time-ordered, attributed transcript segments, produce a single, clean, in-game session log. 
 - Remove all out-of-character banter, rules discussion, and non-game chatter.
 - Attribute dialogue to characters (e.g., 'Izar said, \"Let's attack!\"').
 - Write narration and events as they unfold in the story.
@@ -1499,8 +1500,8 @@ You are a Dungeons & Dragons session chronicler. Given the following time-ordere
 - Do not summarize or embellish. Give the session log in full, as it is in the transcripts.
 - The main players and characters are as follows: Greg is the DM; Noel plays Izar; Scott plays Ego aka Carlos; MJ aka Michael plays Hrothulf; Wes plays Darnit; Joel plays Dorinda.
 {notes_section}
-{example_section}
-Time-ordered transcript segments:
+{example_section if USE_EXAMPLE_SECTION else ""}
+Transcript segments:
 {combined}
 
 Session log:
