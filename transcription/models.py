@@ -36,13 +36,6 @@ class AudioTranscript(BaseModel):
 
     class Meta:
         ordering = ["character_name", "original_filename"]
-        # Prevent duplicate transcripts for the same session audio
-        constraints = [
-            models.UniqueConstraint(
-                fields=['session_audio'],
-                name='unique_transcript_per_session_audio'
-            )
-        ]
 
     def __str__(self):
         return f"{self.character_name} - {self.original_filename}"

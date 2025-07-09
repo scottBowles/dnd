@@ -369,24 +369,9 @@ class SessionAudioAdmin(admin.ModelAdmin):
         """
         Admin action to transcribe selected SessionAudio files.
         """
-        from django.contrib import messages
-        
         count = 0
         async_count = 0
-        skipped_count = 0
-        
         for audio in queryset:
-            # Check if transcript already exists to prevent duplicates
-            if (
-                hasattr(audio, "audio_transcripts")
-                and audio.audio_transcripts.exists()
-            ):
-                messages.info(
-                    request, f"Skipping {audio.original_filename}: transcript already exists."
-                )
-                skipped_count += 1
-                continue
-                
             audio.transcription_status = "processing"
             audio.save(update_fields=["transcription_status"])
             try:
@@ -404,19 +389,17 @@ class SessionAudioAdmin(admin.ModelAdmin):
             except Exception as e:
                 audio.transcription_status = "failed"
                 audio.save(update_fields=["transcription_status"])
-                messages.error(request, f"Failed to transcribe {audio.original_filename}: {e}")
             count += 1
 
         if async_count > 0:
-            message = f"Transcription started for {count} audio file(s). " \
-                     f"{async_count} are being processed asynchronously - check worker logs for progress."
-            if skipped_count > 0:
-                message += f" {skipped_count} file(s) were skipped (already transcribed)."
-            self.message_user(request, message)
+            self.message_user(
+                request,
+                f"Transcription started for {count} audio file(s). "
+                f"{async_count} are being processed asynchronously - check worker logs for progress.",
+            )
         else:
-            message = f"Transcription triggered for {count} audio file(s)."
-            if skipped_count > 0:
-                message += f" {skipped_count} file(s) were skipped (already transcribed)."
-            self.message_user(request, message)
+            self.message_user(
+                request, f"Transcription triggered for {count} audio file(s)."
+            )
 
     transcribe_selected_audio.short_description = "Transcribe selected audio files"
