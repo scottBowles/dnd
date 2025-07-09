@@ -5,10 +5,11 @@ Provides Whisper API integration with campaign-specific context enhancement.
 
 import math
 import os
+import re
 import time
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import openai
 from django.conf import settings
@@ -28,6 +29,104 @@ from .responses import WhisperResponse
 from .utils import ordinal
 
 
+class TranscriptCleaner:
+    """Utility for cleaning up repetitive patterns and noise in Whisper transcripts."""
+
+    @staticmethod
+    def clean_repetitive_text(text: str, max_repetitions: int = 3) -> str:
+        """
+        Remove repetitive patterns from transcript text.
+
+        Args:
+            text: The transcript text to clean
+            max_repetitions: Maximum allowed repetitions before removal
+
+        Returns:
+            Cleaned text with repetitive patterns reduced
+        """
+        if not text or not text.strip():
+            return text
+
+        # Pattern 1: Exact word repetitions (e.g., "Okay. Okay. Okay.")
+        # Match word followed by punctuation, repeated multiple times
+        pattern1 = r"\b(\w+[.,!?]*)\s*(?:\1\s*){" + str(max_repetitions) + r",}"
+        text = re.sub(
+            pattern1,
+            lambda m: (m.group(1) + " ") * max_repetitions,
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        # Pattern 2: Phrase repetitions (e.g., "in the, in the, in the")
+        # Match 2-4 word phrases repeated multiple times
+        pattern2 = r"\b((?:\w+\s*[,.]?\s*){1,4}?)(?:\1){" + str(max_repetitions) + r",}"
+        text = re.sub(
+            pattern2,
+            lambda m: m.group(1) * max_repetitions,
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        # Pattern 3: Single letter repetitions (e.g., "a a a a a")
+        pattern3 = r"\b(\w)\s*(?:\1\s*){" + str(max_repetitions) + r",}"
+        text = re.sub(pattern3, lambda m: m.group(1) + " ", text, flags=re.IGNORECASE)
+
+        # Clean up extra whitespace
+        text = re.sub(r"\s+", " ", text)
+        text = text.strip()
+
+        return text
+
+    @staticmethod
+    def detect_low_quality_segments(text: str, threshold: float = 0.3) -> bool:
+        """
+        Detect if a text segment appears to be low quality based on repetition ratio.
+
+        Args:
+            text: Text to analyze
+            threshold: Ratio of repetitive content that indicates low quality
+
+        Returns:
+            True if segment appears to be low quality
+        """
+        if not text or len(text.split()) < 10:
+            return False
+
+        words = text.lower().split()
+        word_count = len(words)
+        unique_words = len(set(words))
+
+        # Calculate repetition ratio
+        repetition_ratio = 1 - (unique_words / word_count)
+
+        return repetition_ratio > threshold
+
+    @staticmethod
+    def remove_low_quality_segments(text: str, threshold: float = 0.3) -> str:
+        """
+        Remove segments that appear to be low quality based on repetition.
+
+        Args:
+            text: Full transcript text
+            threshold: Repetition threshold for removal
+
+        Returns:
+            Text with low-quality segments removed
+        """
+        # Split on sentence boundaries
+        sentences = re.split(r"[.!?]+", text)
+        cleaned_sentences = []
+
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if sentence and not TranscriptCleaner.detect_low_quality_segments(
+                sentence, threshold
+            ):
+                cleaned_sentences.append(sentence)
+
+        return ". ".join(cleaned_sentences) + "." if cleaned_sentences else ""
+
+
 class TranscriptionConfig:
     """Configuration settings for transcription service."""
 
@@ -38,6 +137,10 @@ class TranscriptionConfig:
         delay_between_requests: int = 21,
         recent_threshold_days: int = 180,
         openai_api_key: Optional[str] = None,
+        enable_text_cleaning: bool = True,
+        enable_audio_preprocessing: bool = True,
+        repetition_detection_threshold: float = 0.4,
+        max_allowed_repetitions: int = 3,
     ):
         """Initialize configuration settings."""
 
@@ -54,6 +157,14 @@ class TranscriptionConfig:
         # API Settings
         self.delay_between_requests = delay_between_requests  # seconds
         self.recent_threshold_days = recent_threshold_days  # 6 months
+
+        # Text Processing Settings
+        self.enable_text_cleaning = enable_text_cleaning
+        self.repetition_detection_threshold = repetition_detection_threshold
+        self.max_allowed_repetitions = max_allowed_repetitions
+
+        # Audio Processing Settings
+        self.enable_audio_preprocessing = enable_audio_preprocessing
 
 
 class CampaignContextService:
@@ -299,9 +410,187 @@ class AudioProcessingService:
         except (FileNotFoundError, OSError):
             return 0.0
 
+    def preprocess_audio(
+        self, audio: AudioSegment
+    ) -> tuple[AudioSegment, List[Dict[str, float]]]:
+        """
+        Preprocess audio to reduce repetitive transcription issues while preserving timing information.
+
+        Args:
+            audio: AudioSegment to preprocess
+
+        Returns:
+            Tuple of (preprocessed_audio, time_offset_mapping)
+            time_offset_mapping: List of dicts with 'original_start', 'original_end', 'processed_start', 'processed_end'
+        """
+        try:
+            from pydub.silence import detect_silence
+
+            # Store original audio length for reference
+            original_duration_ms = len(audio)
+
+            # Normalize audio levels to reduce volume inconsistencies
+            # Use manual normalization since normalize() might not be available
+            max_possible_val = audio.max_possible_amplitude
+            current_max = audio.max
+            if current_max > 0:
+                normalization_factor = (
+                    max_possible_val / current_max * 0.8
+                )  # Don't max out
+                audio = audio + (20 * math.log10(normalization_factor))
+
+            # Apply noise reduction by detecting and removing very quiet segments
+            # This helps prevent Whisper from hallucinating content in silent areas
+            silence_threshold = int(audio.dBFS - 16)  # 16dB below average level
+
+            # Detect silence periods to get exact timing information
+            silence_ranges = detect_silence(
+                audio,
+                min_silence_len=2000,  # 2 seconds of silence
+                silence_thresh=silence_threshold,
+            )
+
+            if silence_ranges:
+                print(f"🔇 Detected {len(silence_ranges)} silence periods to remove")
+                for i, (start, end) in enumerate(silence_ranges):
+                    duration_s = (end - start) / 1000.0
+                    print(
+                        f"  Silence {i+1}: {start/1000.0:.2f}s - {end/1000.0:.2f}s ({duration_s:.2f}s)"
+                    )
+
+                # Build non-silent segments with exact timing
+                time_offset_mapping = []
+                processed_audio = AudioSegment.empty()
+                processed_position_ms = 0
+
+                # Create segments between silence periods
+                segments = []
+                last_end = 0
+
+                for silence_start, silence_end in silence_ranges:
+                    # Add the audio segment before this silence (if any)
+                    if silence_start > last_end:
+                        segments.append((last_end, silence_start))
+
+                    # Skip the long silence, but keep a small gap
+                    last_end = silence_end
+
+                # Add the final segment after the last silence
+                if last_end < original_duration_ms:
+                    segments.append((last_end, original_duration_ms))
+
+                # Process each non-silent segment
+                for i, (segment_start, segment_end) in enumerate(segments):
+                    # Extract the audio segment
+                    segment_audio = audio[segment_start:segment_end]
+                    segment_length_ms = segment_end - segment_start
+
+                    print(
+                        f"📄 Processing segment {i+1}: {segment_start/1000.0:.2f}s - {segment_end/1000.0:.2f}s ({segment_length_ms/1000.0:.2f}s)"
+                    )
+
+                    # Add some silence padding (keep_silence equivalent)
+                    if processed_audio:  # Not the first segment
+                        processed_audio += AudioSegment.silent(duration=500)
+                        processed_position_ms += 500
+
+                    # Add the segment to processed audio
+                    processed_audio += segment_audio
+
+                    # Create precise mapping entry
+                    mapping_entry = {
+                        "original_start": segment_start / 1000.0,  # Convert to seconds
+                        "original_end": segment_end / 1000.0,
+                        "processed_start": processed_position_ms / 1000.0,
+                        "processed_end": (processed_position_ms + segment_length_ms)
+                        / 1000.0,
+                    }
+                    time_offset_mapping.append(mapping_entry)
+
+                    print(
+                        f"  ⏱️  Mapping: Original {mapping_entry['original_start']:.2f}s-{mapping_entry['original_end']:.2f}s → Processed {mapping_entry['processed_start']:.2f}s-{mapping_entry['processed_end']:.2f}s"
+                    )
+
+                    processed_position_ms += segment_length_ms
+
+                total_original_ms = original_duration_ms
+                total_processed_ms = len(processed_audio)
+                time_saved_ms = total_original_ms - total_processed_ms
+
+                print(f"✅ Audio preprocessing complete:")
+                print(f"   Original: {total_original_ms/1000.0:.2f}s")
+                print(f"   Processed: {total_processed_ms/1000.0:.2f}s")
+                print(
+                    f"   Time saved: {time_saved_ms/1000.0:.2f}s ({time_saved_ms/total_original_ms*100:.1f}%)"
+                )
+                print(f"   Created {len(time_offset_mapping)} segment mappings")
+
+                return processed_audio, time_offset_mapping
+            else:
+                # No silence detected, return original with identity mapping
+                identity_mapping = [
+                    {
+                        "original_start": 0.0,
+                        "original_end": original_duration_ms / 1000.0,
+                        "processed_start": 0.0,
+                        "processed_end": original_duration_ms / 1000.0,
+                    }
+                ]
+                return audio, identity_mapping
+
+        except Exception as e:
+            print(f"⚠️ Audio preprocessing failed: {e}, using original audio")
+            # Return original audio with identity mapping
+            original_duration_ms = len(audio)
+            identity_mapping = [
+                {
+                    "original_start": 0.0,
+                    "original_end": original_duration_ms / 1000.0,
+                    "processed_start": 0.0,
+                    "processed_end": original_duration_ms / 1000.0,
+                }
+            ]
+            return audio, identity_mapping
+
+    @staticmethod
+    def convert_processed_to_original_timestamp(
+        processed_time: float, time_offset_mapping: List[Dict[str, float]]
+    ) -> float:
+        """
+        Convert a timestamp from processed audio back to original audio timeline.
+
+        Args:
+            processed_time: Time in seconds from the processed audio
+            time_offset_mapping: The mapping created during preprocessing
+
+        Returns:
+            Corresponding time in the original audio timeline
+        """
+        if not time_offset_mapping:
+            return processed_time
+
+        # Find the mapping segment that contains this processed time
+        for mapping in time_offset_mapping:
+            if mapping["processed_start"] <= processed_time <= mapping["processed_end"]:
+                # Calculate relative position within the segment
+                segment_progress = (processed_time - mapping["processed_start"]) / (
+                    mapping["processed_end"] - mapping["processed_start"]
+                )
+
+                # Apply to original timeline
+                original_duration = mapping["original_end"] - mapping["original_start"]
+                original_time = mapping["original_start"] + (
+                    segment_progress * original_duration
+                )
+
+                return original_time
+
+        # If not found in any segment, return the processed time as fallback
+        return processed_time
+
     def split_audio_file(
         self, file_path: Path, character_name: str = "Unknown"
-    ) -> List[Path]:
+    ) -> Tuple[List[Path], List[Dict]]:
         """
         Split an audio file into chunks if it exceeds the size limit.
         Returns a list of chunk file paths.
@@ -310,19 +599,42 @@ class AudioProcessingService:
 
         file_size_mb = AudioProcessingService.get_file_size_mb(file_path)
 
-        if file_size_mb <= self.config.max_file_size_mb:
-            print(f"✅ {file_path.name} ({file_size_mb:.1f}MB) is within size limit")
-            return [file_path]
-
-        print(f"📂 Splitting {file_path.name} ({file_size_mb:.1f}MB) into chunks...")
-
         try:
             audio = AudioSegment.from_file(file_path)
+            time_offset_mapping = None
+
+            # Always preprocess audio to get time offset mapping (if enabled)
+            if self.config.enable_audio_preprocessing:
+                audio, time_offset_mapping = self.preprocess_audio(audio)
+
+            # If file is within size limit, return with preprocessing metadata
+            if file_size_mb <= self.config.max_file_size_mb:
+                print(
+                    f"✅ {file_path.name} ({file_size_mb:.1f}MB) is within size limit"
+                )
+
+                # Create metadata entry for the single file
+                metadata = [
+                    {
+                        "path": file_path,
+                        "start_time_ms": 0,
+                        "end_time_ms": len(audio),
+                        "time_offset_mapping": time_offset_mapping,
+                    }
+                ]
+                return [file_path], metadata
+
+            print(
+                f"📂 Splitting {file_path.name} ({file_size_mb:.1f}MB) into chunks..."
+            )
+
             chunk_length_ms = self.config.chunk_duration_minutes * 60 * 1000
             total_length_ms = len(audio)
             num_chunks = math.ceil(total_length_ms / chunk_length_ms)
 
             chunk_paths = []
+            chunk_metadata = []  # Store metadata including time offset mappings
+
             with tempfile.TemporaryDirectory() as temp_dir:
                 temp_dir_path = Path(temp_dir)
                 for i in range(num_chunks):
@@ -337,22 +649,38 @@ class AudioProcessingService:
 
                     chunk_size_mb = AudioProcessingService.get_file_size_mb(chunk_path)
                     print(f"  ✅ Created {chunk_filename} ({chunk_size_mb:.1f}MB)")
+
+                    # Store chunk metadata
+                    chunk_info = {
+                        "path": chunk_path,
+                        "start_time_ms": start_time,
+                        "end_time_ms": end_time,
+                        "time_offset_mapping": time_offset_mapping,
+                    }
+                    chunk_metadata.append(chunk_info)
                     chunk_paths.append(chunk_path)
 
                 # Copy chunk files to a list of paths outside the context manager
                 result_paths = []
-                for chunk_path in chunk_paths:
+                result_metadata = []
+                for i, chunk_path in enumerate(chunk_paths):
                     # Move to a new NamedTemporaryFile to persist after context
                     with tempfile.NamedTemporaryFile(
                         delete=False, suffix=file_path.suffix
                     ) as f:
                         f.write(chunk_path.read_bytes())
                         result_paths.append(Path(f.name))
-                return result_paths
+
+                        # Update metadata with the new path
+                        updated_metadata = chunk_metadata[i].copy()
+                        updated_metadata["path"] = Path(f.name)
+                        result_metadata.append(updated_metadata)
+
+                return result_paths, result_metadata
 
         except Exception as e:
             print(f"❌ Failed to split {file_path.name}: {e}")
-            return [file_path]
+            return [file_path], []
 
 
 class TranscriptionService:
@@ -398,12 +726,16 @@ class TranscriptionService:
         file_size_mb = AudioProcessingService.get_file_size_mb(temp_path)
 
         # Split file if needed
-        chunk_paths = self.audio_service.split_audio_file(
+        chunk_paths, chunk_metadata = self.audio_service.split_audio_file(
             temp_path, Path(file_name).stem
         )
 
         if len(chunk_paths) == 1:
-            # File wasn't split, transcribe directly and save
+            # File wasn't split, get time_offset_mapping from metadata
+            time_offset_mapping = None
+            if chunk_metadata and chunk_metadata[0].get("time_offset_mapping"):
+                time_offset_mapping = chunk_metadata[0]["time_offset_mapping"]
+
             whisper_response = self._call_whisper_api(
                 temp_path,
                 character_name=Path(file_name).stem,
@@ -415,7 +747,7 @@ class TranscriptionService:
                 # Calculate processing time
                 processing_time = time.time() - start_time
 
-                # Save to database
+                # Save to database with time offset mapping if available
                 self._save_audio_transcript(
                     session_audio=session_audio,
                     file_path=temp_path,
@@ -425,6 +757,7 @@ class TranscriptionService:
                     was_split=False,
                     num_chunks=1,
                     processing_time=processing_time,
+                    time_offset_mapping=time_offset_mapping,
                 )
 
                 return True
@@ -442,6 +775,33 @@ class TranscriptionService:
                 # Calculate processing time
                 processing_time = time.time() - start_time
 
+                # Extract and combine time offset mapping from chunk metadata
+                combined_time_offset_mapping = None
+                if chunk_metadata and any(
+                    metadata.get("time_offset_mapping") for metadata in chunk_metadata
+                ):
+                    combined_time_offset_mapping = []
+                    chunk_duration_s = self.config.chunk_duration_minutes * 60
+
+                    for i, metadata in enumerate(chunk_metadata):
+                        chunk_mapping = metadata.get("time_offset_mapping")
+                        if chunk_mapping:
+                            # Adjust the mapping to account for chunk position in the overall file
+                            chunk_start_offset = i * chunk_duration_s
+                            for mapping_entry in chunk_mapping:
+                                adjusted_entry = {
+                                    "original_start": mapping_entry["original_start"]
+                                    + chunk_start_offset,
+                                    "original_end": mapping_entry["original_end"]
+                                    + chunk_start_offset,
+                                    "processed_start": mapping_entry["processed_start"]
+                                    + i
+                                    * chunk_duration_s,  # Processed chunks maintain sequential timing
+                                    "processed_end": mapping_entry["processed_end"]
+                                    + i * chunk_duration_s,
+                                }
+                                combined_time_offset_mapping.append(adjusted_entry)
+
                 # Save to database
                 audio_transcript = self._save_audio_transcript(
                     session_audio=session_audio,
@@ -452,6 +812,7 @@ class TranscriptionService:
                     was_split=True,
                     num_chunks=len(chunk_paths),
                     processing_time=processing_time,
+                    time_offset_mapping=combined_time_offset_mapping,
                 )
 
                 # Save chunk data to database
@@ -477,6 +838,7 @@ class TranscriptionService:
         was_split: bool,
         num_chunks: int,
         processing_time: float,
+        time_offset_mapping: Optional[List[Dict[str, float]]] = None,
     ) -> AudioTranscript:
         """Save audio transcript data to database."""
         from .responses import WhisperResponse
@@ -490,6 +852,12 @@ class TranscriptionService:
             transcript_text = whisper_response.get("text", "")
             raw_response = whisper_response
 
+        # Clean repetitive patterns from transcript text
+        if transcript_text and self.config.enable_text_cleaning:
+            transcript_text = TranscriptCleaner.clean_repetitive_text(
+                transcript_text, max_repetitions=self.config.max_allowed_repetitions
+            )
+
         # Get campaign context that was used
         campaign_context = self.context_service.get_campaign_context()
 
@@ -500,6 +868,33 @@ class TranscriptionService:
             if segments:
                 last_segment = max(segments, key=lambda s: s.get("end", 0))
                 duration_minutes = last_segment.get("end", 0) / 60
+
+        # If we have time offset mapping, convert segment timestamps back to original timeline
+        adjusted_segments = None
+        if (
+            time_offset_mapping
+            and isinstance(raw_response, dict)
+            and "segments" in raw_response
+        ):
+            adjusted_segments = []
+            for segment in raw_response["segments"]:
+                adjusted_segment = segment.copy()
+                adjusted_segment["start"] = (
+                    AudioProcessingService.convert_processed_to_original_timestamp(
+                        segment["start"], time_offset_mapping
+                    )
+                )
+                adjusted_segment["end"] = (
+                    AudioProcessingService.convert_processed_to_original_timestamp(
+                        segment["end"], time_offset_mapping
+                    )
+                )
+                adjusted_segments.append(adjusted_segment)
+
+            # Update the raw response with adjusted timestamps
+            raw_response = raw_response.copy()
+            raw_response["segments"] = adjusted_segments
+            raw_response["time_offset_mapping"] = time_offset_mapping
 
         audio_transcript = AudioTranscript.objects.create(
             session_audio=session_audio,
@@ -645,7 +1040,7 @@ class TranscriptionService:
                         previous_transcript,
                         session_notes,
                     ),
-                    temperature=0,
+                    temperature=0,  # Keep low to reduce hallucinations
                     language="en",
                 )
 
@@ -656,6 +1051,24 @@ class TranscriptionService:
                         f"⚠️ Invalid response format from Whisper API for {file_path.name}"
                     )
                     return None
+
+                # Check for low quality output and retry with different parameters if needed
+                if TranscriptCleaner.detect_low_quality_segments(
+                    whisper_response.text,
+                    threshold=self.config.repetition_detection_threshold,
+                ):
+                    print(
+                        f"⚠️ Low quality transcript detected for {file_path.name}, retrying with no prompt..."
+                    )
+                    # Retry without prompt to reduce hallucinations
+                    response = openai.Audio.transcribe(
+                        model="whisper-1",
+                        file=f,
+                        response_format="verbose_json",
+                        temperature=0,
+                        language="en",
+                    )
+                    whisper_response = WhisperResponse(response)
 
                 return whisper_response
 
@@ -823,11 +1236,20 @@ Session log:
         segments = []
         for t in transcripts:
             whisper = t.whisper_response or {}
+            time_offset_mapping = whisper.get("time_offset_mapping")
+
             for seg in whisper.get("segments", []):
+                # Use original timestamps if available, otherwise use the segment timestamps as-is
+                segment_start = seg.get("start", 0)
+                segment_end = seg.get("end", 0)
+
+                # If we have time offset mapping, the timestamps should already be converted
+                # during the save process, so we can use them directly
+
                 segments.append(
                     {
-                        "start": seg.get("start", 0),
-                        "end": seg.get("end", 0),
+                        "start": segment_start,
+                        "end": segment_end,
                         "text": seg.get("text", "").strip(),
                         "character": t.character_name,
                     }
@@ -1030,13 +1452,13 @@ def transcribe_session_audio(
     """
     Process a SessionAudio instance using the model-driven transcription logic.
     By default, uses async processing via Celery for better performance and scalability.
-    
+
     Args:
         session_audio: The SessionAudio instance to process
         session_notes: Session notes for context
         previous_transcript: Previous transcript text for context
         use_celery: Whether to use Celery for async processing (default: True)
-        
+
     Returns:
         AsyncResult if using Celery, otherwise boolean result of synchronous processing
     """
