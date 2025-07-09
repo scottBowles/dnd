@@ -29,7 +29,7 @@ class Item(Entity):
         return self.name
 
     def global_id(self):
-        return to_global_id("ItemNode", self.id)
+        return to_global_id("Item", self.id)
 
 
 class Artifact(Entity):
@@ -62,7 +62,7 @@ class Artifact(Entity):
     )
 
     def global_id(self):
-        return to_global_id("ArtifactNode", self.id)
+        return to_global_id("Artifact", self.id)
 
     def __str__(self):
         return self.name

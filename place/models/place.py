@@ -90,7 +90,7 @@ class Place(Entity):
     )
 
     def global_id(self):
-        return to_global_id("PlaceNode", self.id)
+        return to_global_id("Place", self.id)
 
     def __str__(self):
         return self.name

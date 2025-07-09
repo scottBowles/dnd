@@ -39,4 +39,4 @@ class Association(Entity):
         return self.name
 
     def global_id(self):
-        return to_global_id("AssociationNode", self.id)
+        return to_global_id("Association", self.id)

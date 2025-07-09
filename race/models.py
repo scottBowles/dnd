@@ -44,7 +44,7 @@ class Race(Entity):
     )
 
     def global_id(self):
-        return to_global_id("RaceNode", self.id)
+        return to_global_id("Race", self.id)
 
     def __str__(self):
         return self.name
