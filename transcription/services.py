@@ -139,7 +139,7 @@ class TranscriptionConfig:
         openai_api_key: Optional[str] = None,
         enable_text_cleaning: bool = True,
         enable_audio_preprocessing: bool = True,
-        repetition_detection_threshold: float = 0.4,
+        repetition_detection_threshold: float = 0.6,  # Increased from 0.4 to reduce false positives
         max_allowed_repetitions: int = 3,
     ):
         """Initialize configuration settings."""
@@ -603,12 +603,12 @@ class AudioProcessingService:
             audio = AudioSegment.from_file(file_path)
             time_offset_mapping = None
 
-            # Always preprocess audio to get time offset mapping (if enabled)
-            if self.config.enable_audio_preprocessing:
-                audio, time_offset_mapping = self.preprocess_audio(audio)
-
-            # If file is within size limit, return with preprocessing metadata
+            # If file is within size limit, preprocess and return single file
             if file_size_mb <= self.config.max_file_size_mb:
+                # Only preprocess audio for single files to get time offset mapping
+                if self.config.enable_audio_preprocessing:
+                    audio, time_offset_mapping = self.preprocess_audio(audio)
+                    
                 print(
                     f"✅ {file_path.name} ({file_size_mb:.1f}MB) is within size limit"
                 )
@@ -627,6 +627,7 @@ class AudioProcessingService:
             print(
                 f"📂 Splitting {file_path.name} ({file_size_mb:.1f}MB) into chunks..."
             )
+            print(f"   ⚠️ Skipping audio preprocessing for chunked files to improve performance")
 
             chunk_length_ms = self.config.chunk_duration_minutes * 60 * 1000
             total_length_ms = len(audio)
@@ -650,12 +651,12 @@ class AudioProcessingService:
                     chunk_size_mb = AudioProcessingService.get_file_size_mb(chunk_path)
                     print(f"  ✅ Created {chunk_filename} ({chunk_size_mb:.1f}MB)")
 
-                    # Store chunk metadata
+                    # Store chunk metadata without time offset mapping (not applicable for chunks)
                     chunk_info = {
                         "path": chunk_path,
                         "start_time_ms": start_time,
                         "end_time_ms": end_time,
-                        "time_offset_mapping": time_offset_mapping,
+                        "time_offset_mapping": None,  # No preprocessing for chunks
                     }
                     chunk_metadata.append(chunk_info)
                     chunk_paths.append(chunk_path)
@@ -709,120 +710,151 @@ class TranscriptionService:
         import tempfile
 
         start_time = time.time()
+        temp_path = None
+        chunk_paths = []
 
-        file_name = (
-            getattr(session_audio, "original_filename", None)
-            or Path(session_audio.file.name).name
-        )
-
-        # Save the uploaded file to a temp file for processing
-        with tempfile.NamedTemporaryFile(
-            suffix=Path(session_audio.file.name).suffix, delete=False
-        ) as temp_file:
-            for chunk in session_audio.file.chunks():
-                temp_file.write(chunk)
-            temp_path = Path(temp_file.name)
-
-        file_size_mb = AudioProcessingService.get_file_size_mb(temp_path)
-
-        # Split file if needed
-        chunk_paths, chunk_metadata = self.audio_service.split_audio_file(
-            temp_path, Path(file_name).stem
-        )
-
-        if len(chunk_paths) == 1:
-            # File wasn't split, get time_offset_mapping from metadata
-            time_offset_mapping = None
-            if chunk_metadata and chunk_metadata[0].get("time_offset_mapping"):
-                time_offset_mapping = chunk_metadata[0]["time_offset_mapping"]
-
-            whisper_response = self._call_whisper_api(
-                temp_path,
-                character_name=Path(file_name).stem,
-                previous_transcript=previous_transcript,
-                session_notes=session_notes,
+        try:
+            file_name = (
+                getattr(session_audio, "original_filename", None)
+                or Path(session_audio.file.name).name
             )
 
-            if whisper_response:
-                # Calculate processing time
-                processing_time = time.time() - start_time
+            # Save the uploaded file to a temp file for processing
+            with tempfile.NamedTemporaryFile(
+                suffix=Path(session_audio.file.name).suffix, delete=False
+            ) as temp_file:
+                for chunk in session_audio.file.chunks():
+                    temp_file.write(chunk)
+                temp_path = Path(temp_file.name)
 
-                # Save to database with time offset mapping if available
-                self._save_audio_transcript(
-                    session_audio=session_audio,
-                    file_path=temp_path,
-                    character_name=Path(file_name).stem,
-                    file_size_mb=file_size_mb,
-                    whisper_response=whisper_response,
-                    was_split=False,
-                    num_chunks=1,
-                    processing_time=processing_time,
-                    time_offset_mapping=time_offset_mapping,
-                )
+            file_size_mb = AudioProcessingService.get_file_size_mb(temp_path)
+            print(f"Processing {file_name} ({file_size_mb:.1f}MB)...")
 
-                return True
-            return False
-        else:
-            # File was split, transcribe chunks and save all outputs
-            combined_transcript = self._process_chunks(
-                chunk_paths,
-                character_name=Path(file_name).stem,
-                previous_transcript=previous_transcript,
-                session_notes=session_notes,
+            # Split file if needed
+            chunk_paths, chunk_metadata = self.audio_service.split_audio_file(
+                temp_path, Path(file_name).stem
             )
 
-            if combined_transcript:
-                # Calculate processing time
-                processing_time = time.time() - start_time
+            if len(chunk_paths) == 1:
+                # File wasn't split, get time_offset_mapping from metadata
+                time_offset_mapping = None
+                if chunk_metadata and chunk_metadata[0].get("time_offset_mapping"):
+                    time_offset_mapping = chunk_metadata[0]["time_offset_mapping"]
 
-                # Extract and combine time offset mapping from chunk metadata
-                combined_time_offset_mapping = None
-                if chunk_metadata and any(
-                    metadata.get("time_offset_mapping") for metadata in chunk_metadata
-                ):
-                    combined_time_offset_mapping = []
-                    chunk_duration_s = self.config.chunk_duration_minutes * 60
-
-                    for i, metadata in enumerate(chunk_metadata):
-                        chunk_mapping = metadata.get("time_offset_mapping")
-                        if chunk_mapping:
-                            # Adjust the mapping to account for chunk position in the overall file
-                            chunk_start_offset = i * chunk_duration_s
-                            for mapping_entry in chunk_mapping:
-                                adjusted_entry = {
-                                    "original_start": mapping_entry["original_start"]
-                                    + chunk_start_offset,
-                                    "original_end": mapping_entry["original_end"]
-                                    + chunk_start_offset,
-                                    "processed_start": mapping_entry["processed_start"]
-                                    + i
-                                    * chunk_duration_s,  # Processed chunks maintain sequential timing
-                                    "processed_end": mapping_entry["processed_end"]
-                                    + i * chunk_duration_s,
-                                }
-                                combined_time_offset_mapping.append(adjusted_entry)
-
-                # Save to database
-                audio_transcript = self._save_audio_transcript(
-                    session_audio=session_audio,
-                    file_path=temp_path,
+                whisper_response = self._call_whisper_api(
+                    temp_path,
                     character_name=Path(file_name).stem,
-                    file_size_mb=file_size_mb,
-                    whisper_response=combined_transcript,
-                    was_split=True,
-                    num_chunks=len(chunk_paths),
-                    processing_time=processing_time,
-                    time_offset_mapping=combined_time_offset_mapping,
+                    previous_transcript=previous_transcript,
+                    session_notes=session_notes,
                 )
 
-                # Save chunk data to database
-                self._save_transcript_chunks(
-                    audio_transcript, combined_transcript, chunk_paths
+                if whisper_response:
+                    # Calculate processing time
+                    processing_time = time.time() - start_time
+
+                    # Save to database with time offset mapping if available
+                    self._save_audio_transcript(
+                        session_audio=session_audio,
+                        file_path=temp_path,
+                        character_name=Path(file_name).stem,
+                        file_size_mb=file_size_mb,
+                        whisper_response=whisper_response,
+                        was_split=False,
+                        num_chunks=1,
+                        processing_time=processing_time,
+                        time_offset_mapping=time_offset_mapping,
+                    )
+
+                    print(f"✅ Successfully processed {file_name} in {processing_time:.1f}s")
+                    return True
+                else:
+                    print(f"❌ Failed to transcribe {file_name}")
+                    return False
+            else:
+                # File was split, transcribe chunks and save all outputs
+                combined_transcript = self._process_chunks(
+                    chunk_paths,
+                    character_name=Path(file_name).stem,
+                    previous_transcript=previous_transcript,
+                    session_notes=session_notes,
                 )
 
-                return True
+                if combined_transcript:
+                    # Calculate processing time
+                    processing_time = time.time() - start_time
 
+                    # Extract and combine time offset mapping from chunk metadata
+                    combined_time_offset_mapping = None
+                    if chunk_metadata and any(
+                        metadata.get("time_offset_mapping") for metadata in chunk_metadata
+                    ):
+                        combined_time_offset_mapping = []
+                        chunk_duration_s = self.config.chunk_duration_minutes * 60
+
+                        for i, metadata in enumerate(chunk_metadata):
+                            chunk_mapping = metadata.get("time_offset_mapping")
+                            if chunk_mapping:
+                                # Adjust the mapping to account for chunk position in the overall file
+                                chunk_start_offset = i * chunk_duration_s
+                                for mapping_entry in chunk_mapping:
+                                    adjusted_entry = {
+                                        "original_start": mapping_entry["original_start"]
+                                        + chunk_start_offset,
+                                        "original_end": mapping_entry["original_end"]
+                                        + chunk_start_offset,
+                                        "processed_start": mapping_entry["processed_start"]
+                                        + i
+                                        * chunk_duration_s,  # Processed chunks maintain sequential timing
+                                        "processed_end": mapping_entry["processed_end"]
+                                        + i * chunk_duration_s,
+                                    }
+                                    combined_time_offset_mapping.append(adjusted_entry)
+
+                    # Save to database
+                    audio_transcript = self._save_audio_transcript(
+                        session_audio=session_audio,
+                        file_path=temp_path,
+                        character_name=Path(file_name).stem,
+                        file_size_mb=file_size_mb,
+                        whisper_response=combined_transcript,
+                        was_split=True,
+                        num_chunks=len(chunk_paths),
+                        processing_time=processing_time,
+                        time_offset_mapping=combined_time_offset_mapping,
+                    )
+
+                    # Save chunk data to database
+                    self._save_transcript_chunks(
+                        audio_transcript, combined_transcript, chunk_paths
+                    )
+
+                    print(f"✅ Successfully processed {file_name} ({len(chunk_paths)} chunks) in {processing_time:.1f}s")
+                    return True
+                else:
+                    print(f"❌ Failed to process chunks for {file_name}")
+                    return False
+
+        except Exception as e:
+            print(f"❌ Error processing {session_audio}: {e}")
             return False
+
+        finally:
+            # Clean up temporary files
+            if temp_path and temp_path.exists():
+                try:
+                    temp_path.unlink()
+                    print(f"🗑️ Cleaned up temporary file: {temp_path}")
+                except Exception as e:
+                    print(f"⚠️ Failed to clean up temporary file {temp_path}: {e}")
+
+            # Clean up chunk files if they were created
+            for chunk_path in chunk_paths:
+                if chunk_path and chunk_path.exists():
+                    try:
+                        chunk_path.unlink()
+                        print(f"🗑️ Cleaned up chunk file: {chunk_path}")
+                    except Exception as e:
+                        print(f"⚠️ Failed to clean up chunk file {chunk_path}: {e}")
 
     # ========================================
     # Database Operations
@@ -1060,6 +1092,9 @@ class TranscriptionService:
                     print(
                         f"⚠️ Low quality transcript detected for {file_path.name}, retrying with no prompt..."
                     )
+                    # Reset file pointer to beginning before retry
+                    f.seek(0)
+                    
                     # Retry without prompt to reduce hallucinations
                     response = openai.Audio.transcribe(
                         model="whisper-1",
