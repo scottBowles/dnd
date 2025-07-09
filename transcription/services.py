@@ -1538,10 +1538,10 @@ Session log:
             try:
                 from .tasks import process_session_audio_task
 
-                print(f".   about to call process_session_audio_task.delay for SessionAudio {session_audio.id}")
+                print(f".   about to call process_session_audio_task.delay_on_commit for SessionAudio {session_audio.id}")
 
-                # Use regular delay instead of delay_on_commit to avoid potential duplicate task queueing
-                return process_session_audio_task.delay(
+                # Use delay_on_commit to ensure task is triggered after database transaction commits
+                return process_session_audio_task.delay_on_commit(
                     session_audio.id, previous_transcript, session_notes
                 )
             except ImportError:
@@ -1586,7 +1586,7 @@ Session log:
             try:
                 from .tasks import generate_session_log_task
 
-                return generate_session_log_task.delay(
+                return generate_session_log_task.delay_on_commit(
                     gamelog.id, method, model
                 )
             except ImportError:
