@@ -229,6 +229,7 @@ class TranscriptChunkAdmin(admin.ModelAdmin):
     """Admin interface for transcript chunks."""
 
     list_display = (
+        "id",
         "transcript_link",
         "chunk_number",
         "filename",
