@@ -660,19 +660,27 @@ class AudioProcessingService:
         for i, mapping in enumerate(time_offset_mapping):
             # Use < for end to avoid double-matching at boundaries, except for the last segment
             is_last_segment = i == len(time_offset_mapping) - 1
-            in_range = (
-                mapping["processed_start"] <= processed_time < mapping["processed_end"] or
-                (is_last_segment and mapping["processed_start"] <= processed_time <= mapping["processed_end"])
+            in_range = mapping["processed_start"] <= processed_time < mapping[
+                "processed_end"
+            ] or (
+                is_last_segment
+                and mapping["processed_start"]
+                <= processed_time
+                <= mapping["processed_end"]
             )
-            
+
             if in_range:
                 # Calculate relative position within the segment
-                processed_duration = mapping["processed_end"] - mapping["processed_start"]
+                processed_duration = (
+                    mapping["processed_end"] - mapping["processed_start"]
+                )
                 if processed_duration == 0:
                     # Handle zero-duration segments
                     return mapping["original_start"]
-                
-                segment_progress = (processed_time - mapping["processed_start"]) / processed_duration
+
+                segment_progress = (
+                    processed_time - mapping["processed_start"]
+                ) / processed_duration
 
                 # Apply to original timeline
                 original_duration = mapping["original_end"] - mapping["original_start"]
@@ -687,13 +695,13 @@ class AudioProcessingService:
 
     @staticmethod
     def convert_chunk_processed_to_original_timestamp(
-        processed_time: float, 
+        processed_time: float,
         chunk_start_time_s: float,
-        chunk_preprocessing_mapping: List[Dict[str, float]]
+        chunk_preprocessing_mapping: List[Dict[str, float]],
     ) -> float:
         """
         Convert a timestamp from a processed chunk back to the original file timeline.
-        
+
         This handles the compound mapping:
         1. Processed chunk time -> Original chunk time (via preprocessing mapping)
         2. Original chunk time -> Original file time (via chunk position)
@@ -711,13 +719,15 @@ class AudioProcessingService:
             return chunk_start_time_s + processed_time
 
         # Step 1: Convert from processed chunk time to original chunk time
-        chunk_original_time = AudioProcessingService.convert_processed_to_original_timestamp(
-            processed_time, chunk_preprocessing_mapping
+        chunk_original_time = (
+            AudioProcessingService.convert_processed_to_original_timestamp(
+                processed_time, chunk_preprocessing_mapping
+            )
         )
-        
+
         # Step 2: Convert from chunk time to original file time
         original_file_time = chunk_start_time_s + chunk_original_time
-        
+
         return original_file_time
 
     def split_audio_file(
@@ -740,7 +750,7 @@ class AudioProcessingService:
                 # Only preprocess audio for single files to get time offset mapping
                 if self.config.enable_audio_preprocessing:
                     audio, time_offset_mapping = self.preprocess_audio(audio)
-                    
+
                 print(
                     f"✅ {file_path.name} ({file_size_mb:.1f}MB) is within size limit"
                 )
@@ -785,26 +795,39 @@ class AudioProcessingService:
                     chunk_time_offset_mapping = None
                     if self.config.enable_audio_preprocessing:
                         try:
-                            processed_chunk, chunk_time_offset_mapping = self.preprocess_audio(chunk)
-                            
+                            processed_chunk, chunk_time_offset_mapping = (
+                                self.preprocess_audio(chunk)
+                            )
+
                             # Handle completely silent chunks
                             if len(processed_chunk) == 0:
-                                print(f"  ⚠️ Chunk {i+1} is completely silent after preprocessing, preserving minimal audio")
+                                print(
+                                    f"  ⚠️ Chunk {i+1} is completely silent after preprocessing, preserving minimal audio"
+                                )
                                 # Create a very short silent segment to maintain timeline
-                                processed_chunk = AudioSegment.silent(duration=100)  # 100ms
+                                processed_chunk = AudioSegment.silent(
+                                    duration=100
+                                )  # 100ms
                                 # Create identity mapping for the minimal audio
-                                chunk_time_offset_mapping = [{
-                                    "original_start": 0.0,
-                                    "original_end": (end_time - start_time) / 1000.0,
-                                    "processed_start": 0.0,
-                                    "processed_end": 0.1,  # 100ms
-                                }]
-                            
+                                chunk_time_offset_mapping = [
+                                    {
+                                        "original_start": 0.0,
+                                        "original_end": (end_time - start_time)
+                                        / 1000.0,
+                                        "processed_start": 0.0,
+                                        "processed_end": 0.1,  # 100ms
+                                    }
+                                ]
+
                             chunk = processed_chunk
-                            print(f"  🔄 Preprocessed chunk {i+1} ({len(chunk_time_offset_mapping)} segments mapped)")
-                            
+                            print(
+                                f"  🔄 Preprocessed chunk {i+1} ({len(chunk_time_offset_mapping)} segments mapped)"
+                            )
+
                         except Exception as e:
-                            print(f"  ⚠️ Failed to preprocess chunk {i+1}: {e}, using original")
+                            print(
+                                f"  ⚠️ Failed to preprocess chunk {i+1}: {e}, using original"
+                            )
                             chunk_time_offset_mapping = None
 
                     chunk.export(chunk_path, format=file_path.suffix[1:])
@@ -818,7 +841,8 @@ class AudioProcessingService:
                         "start_time_ms": start_time,
                         "end_time_ms": end_time,
                         "time_offset_mapping": chunk_time_offset_mapping,
-                        "chunk_start_time_s": start_time / 1000.0,  # For compound mapping
+                        "chunk_start_time_s": start_time
+                        / 1000.0,  # For compound mapping
                         "chunk_end_time_s": end_time / 1000.0,
                     }
                     chunk_metadata.append(chunk_info)
@@ -872,14 +896,18 @@ class TranscriptionService:
         """Process a SessionAudio instance, split if needed, and save all results to the database."""
         import tempfile
 
-        print(f"🔄 process_session_audio called for SessionAudio {session_audio.id}: {session_audio.original_filename}")
+        print(
+            f"🔄 process_session_audio called for SessionAudio {session_audio.pk}: {session_audio.original_filename}"
+        )
 
         # Check if transcript already exists to prevent duplicates
         if (
             hasattr(session_audio, "audio_transcripts")
             and session_audio.audio_transcripts.exists()
         ):
-            print(f"⚠️ Transcript already exists for SessionAudio {session_audio.id}, skipping processing")
+            print(
+                f"⚠️ Transcript already exists for SessionAudio {session_audio.pk}, skipping processing"
+            )
             return True
 
         start_time = time.time()
@@ -938,7 +966,9 @@ class TranscriptionService:
                         time_offset_mapping=time_offset_mapping,
                     )
 
-                    print(f"✅ Successfully processed {file_name} in {processing_time:.1f}s")
+                    print(
+                        f"✅ Successfully processed {file_name} in {processing_time:.1f}s"
+                    )
                     return True
                 else:
                     print(f"❌ Failed to transcribe {file_name}")
@@ -957,48 +987,66 @@ class TranscriptionService:
                     # Calculate processing time
                     processing_time = time.time() - start_time
 
-                    # Extract and combine time offset mapping from chunk metadata  
+                    # Extract and combine time offset mapping from chunk metadata
                     combined_time_offset_mapping = None
                     if chunk_metadata and any(
-                        metadata.get("time_offset_mapping") for metadata in chunk_metadata
+                        metadata.get("time_offset_mapping")
+                        for metadata in chunk_metadata
                     ):
                         combined_time_offset_mapping = []
-                        cumulative_processed_time = 0.0  # Track cumulative processed timeline
+                        cumulative_processed_time = (
+                            0.0  # Track cumulative processed timeline
+                        )
 
                         for i, metadata in enumerate(chunk_metadata):
                             chunk_mapping = metadata.get("time_offset_mapping")
                             chunk_start_time_s = metadata.get("chunk_start_time_s", 0)
-                            
+
                             if chunk_mapping:
                                 # Create combined mapping using chunk position + preprocessing mapping
                                 for mapping_entry in chunk_mapping:
                                     # Calculate the processed duration for this mapping entry
-                                    processed_duration = mapping_entry["processed_end"] - mapping_entry["processed_start"]
-                                    
+                                    processed_duration = (
+                                        mapping_entry["processed_end"]
+                                        - mapping_entry["processed_start"]
+                                    )
+
                                     # The processed timeline should be cumulative across all chunks
                                     # Original timeline uses the actual chunk positions
                                     adjusted_entry = {
-                                        "original_start": chunk_start_time_s + mapping_entry["original_start"],
-                                        "original_end": chunk_start_time_s + mapping_entry["original_end"],
+                                        "original_start": chunk_start_time_s
+                                        + mapping_entry["original_start"],
+                                        "original_end": chunk_start_time_s
+                                        + mapping_entry["original_end"],
                                         "processed_start": cumulative_processed_time,
-                                        "processed_end": cumulative_processed_time + processed_duration,
+                                        "processed_end": cumulative_processed_time
+                                        + processed_duration,
                                     }
                                     combined_time_offset_mapping.append(adjusted_entry)
-                                    
+
                                     # Update cumulative processed time for next entry
-                                    cumulative_processed_time = adjusted_entry["processed_end"]
+                                    cumulative_processed_time = adjusted_entry[
+                                        "processed_end"
+                                    ]
                             else:
                                 # If no preprocessing mapping for this chunk, add identity mapping
-                                chunk_duration_s = metadata.get("chunk_end_time_s", 0) - chunk_start_time_s
+                                chunk_duration_s = (
+                                    metadata.get("chunk_end_time_s", 0)
+                                    - chunk_start_time_s
+                                )
                                 if chunk_duration_s > 0:
                                     adjusted_entry = {
                                         "original_start": chunk_start_time_s,
-                                        "original_end": chunk_start_time_s + chunk_duration_s,
+                                        "original_end": chunk_start_time_s
+                                        + chunk_duration_s,
                                         "processed_start": cumulative_processed_time,
-                                        "processed_end": cumulative_processed_time + chunk_duration_s,
+                                        "processed_end": cumulative_processed_time
+                                        + chunk_duration_s,
                                     }
                                     combined_time_offset_mapping.append(adjusted_entry)
-                                    cumulative_processed_time = adjusted_entry["processed_end"]
+                                    cumulative_processed_time = adjusted_entry[
+                                        "processed_end"
+                                    ]
 
                     # Save to database
                     audio_transcript = self._save_audio_transcript(
@@ -1018,7 +1066,9 @@ class TranscriptionService:
                         audio_transcript, combined_transcript, chunk_paths
                     )
 
-                    print(f"✅ Successfully processed {file_name} ({len(chunk_paths)} chunks) in {processing_time:.1f}s")
+                    print(
+                        f"✅ Successfully processed {file_name} ({len(chunk_paths)} chunks) in {processing_time:.1f}s"
+                    )
                     return True
                 else:
                     print(f"❌ Failed to process chunks for {file_name}")
@@ -1195,44 +1245,45 @@ class TranscriptionService:
         character_display = "the DM" if character_name == "DM" else character_name
         if chunk_info:
             character_chunk_info = (
-                f"This is {character_display} and this is {chunk_info}"
+                f"This is the audio for {character_display} and this is {chunk_info}."
             )
         else:
             character_chunk_info = f"This is {character_display}"
 
         # 2. Session-specific context (current session details)
-        session_context = f" {session_notes}" if session_notes else ""
+        # session_context = f" {session_notes}" if session_notes else ""
 
         # 4. Campaign context (broader world knowledge)
-        formatted_context = self.context_service.get_formatted_context(max_length=800)
-        campaign_context = (
-            f"\n\nCampaign Context: {formatted_context}" if formatted_context else ""
-        )
+        # formatted_context = self.context_service.get_formatted_context(max_length=800)
+        # campaign_context = (
+        #     f"\n\nCampaign Context: {formatted_context}" if formatted_context else ""
+        # )
 
-        # 5. Previous transcript context (historical session data)
-        transcript_context = (
-            f"\n\nPrevious Transcript:\n{previous_transcript}"
-            if previous_transcript
-            else ""
-        )
+        # # 5. Previous transcript context (historical session data)
+        # transcript_context = (
+        #     f"\n\nPrevious Transcript:\n{previous_transcript}"
+        #     if previous_transcript
+        #     else ""
+        # )
 
         # 6. Recent chunks context (immediate previous processing context)
         recent_chunks_context = ""
         if previous_chunks_text:
             words = previous_chunks_text.split()
             if len(words) > 500:
-                previous_chunks_text = " ".join(words[-500:])
+                previous_chunks_text = " ".join(words[-50:])
             recent_chunks_context = f"\n\nRecent chunks from this session for {character_name}:\n{previous_chunks_text}"
 
         # Build complete prompt in logical context flow order
         full_prompt = (
-            f"This is a session of a homebrew Dungeons & Dragons game. The player characters include "
-            f"Darnit, Hrothulf, Ego (aka Carlos), Izar, and Dorinda. "
-            f"The last session's transcript is provided below, followed by any chunks transcribed thus far for this player. "
-            f"Distinguish between narration, banter, and in-character dialogue when possible. "
-            f"{character_chunk_info}.{session_context}"
-            f"{campaign_context}"
-            f"{transcript_context}"
+            f"You are transcribing part of a session of a homebrew Dungeons & Dragons game. The players and and their characters include "
+            f"Wes as Darnit, MJ (Michael) as  Hrothulf, Scott as Ego (aka Carlos), Noel as Izar, and Joel as Dorinda. Greg is the DM. "
+            # f"The last session's transcript is provided below, followed by any chunks transcribed thus far for this player. "
+            # f"Distinguish between narration, banter, and in-character dialogue when possible. "
+            f"{character_chunk_info}"
+            # f"{session_context}"
+            # f"{campaign_context}"
+            # f"{transcript_context}"
             f"{recent_chunks_context}"
         )
 
@@ -1284,7 +1335,7 @@ class TranscriptionService:
                     )
                     # Reset file pointer to beginning before retry
                     f.seek(0)
-                    
+
                     # Retry without prompt to reduce hallucinations
                     response = openai.Audio.transcribe(
                         model="whisper-1",
@@ -1376,28 +1427,38 @@ class TranscriptionService:
                 whisper_response = WhisperResponse(transcript_data["transcript"])
                 segments = whisper_response.segments
                 chunk_meta = transcript_data.get("chunk_metadata", {})
-                
+
                 # Get chunk position and preprocessing mapping
-                chunk_start_time_s = chunk_meta.get("chunk_start_time_s", i * self.config.chunk_duration_minutes * 60)
+                chunk_start_time_s = chunk_meta.get(
+                    "chunk_start_time_s", i * self.config.chunk_duration_minutes * 60
+                )
                 chunk_preprocessing_mapping = chunk_meta.get("time_offset_mapping")
-                
+
                 for segment in segments:
                     adjusted_segment = segment.copy()
-                    
+
                     # Apply compound timestamp mapping for both start and end times
                     if chunk_preprocessing_mapping:
                         # Use compound mapping: processed chunk time -> original file time
-                        adjusted_segment["start"] = AudioProcessingService.convert_chunk_processed_to_original_timestamp(
-                            segment["start"], chunk_start_time_s, chunk_preprocessing_mapping
+                        adjusted_segment["start"] = (
+                            AudioProcessingService.convert_chunk_processed_to_original_timestamp(
+                                segment["start"],
+                                chunk_start_time_s,
+                                chunk_preprocessing_mapping,
+                            )
                         )
-                        adjusted_segment["end"] = AudioProcessingService.convert_chunk_processed_to_original_timestamp(
-                            segment["end"], chunk_start_time_s, chunk_preprocessing_mapping
+                        adjusted_segment["end"] = (
+                            AudioProcessingService.convert_chunk_processed_to_original_timestamp(
+                                segment["end"],
+                                chunk_start_time_s,
+                                chunk_preprocessing_mapping,
+                            )
                         )
                     else:
                         # No preprocessing, just add chunk offset
                         adjusted_segment["start"] += chunk_start_time_s
                         adjusted_segment["end"] += chunk_start_time_s
-                    
+
                     combined_transcript["segments"].append(adjusted_segment)
 
             return combined_transcript
@@ -1515,8 +1576,9 @@ Session log:
             if session_notes
             else ""
         )
+        USE_EXAMPLE_SECTION = False
         prompt = f"""
-You are a Dungeons & Dragons session chronicler. Given the following time-ordered, attributed transcript segments, produce a single, clean, in-game session log. 
+You are a Dungeons & Dragons session chronicler. Given the following attempt at time-ordered, attributed transcript segments, produce a single, clean, in-game session log. 
 - Remove all out-of-character banter, rules discussion, and non-game chatter.
 - Attribute dialogue to characters (e.g., 'Izar said, \"Let's attack!\"').
 - Write narration and events as they unfold in the story.
@@ -1525,8 +1587,8 @@ You are a Dungeons & Dragons session chronicler. Given the following time-ordere
 - Do not summarize or embellish. Give the session log in full, as it is in the transcripts.
 - The main players and characters are as follows: Greg is the DM; Noel plays Izar; Scott plays Ego aka Carlos; MJ aka Michael plays Hrothulf; Wes plays Darnit; Joel plays Dorinda.
 {notes_section}
-{example_section}
-Time-ordered transcript segments:
+{example_section if USE_EXAMPLE_SECTION else ""}
+Transcript segments:
 {combined}
 
 Session log:
@@ -1608,7 +1670,9 @@ Session log:
         session_notes: str = "",
         use_celery: bool = True,
     ):
-        print(f"process_session_audio_async called for SessionAudio {session_audio.id} with use_celery = {use_celery}")
+        print(
+            f"process_session_audio_async called for SessionAudio {session_audio.pk} with use_celery = {use_celery}"
+        )
         """
         Process a SessionAudio instance asynchronously using Celery.
 
@@ -1625,11 +1689,13 @@ Session log:
             try:
                 from .tasks import process_session_audio_task
 
-                print(f".   about to call process_session_audio_task.delay_on_commit for SessionAudio {session_audio.id}")
+                print(
+                    f".   about to call process_session_audio_task.delay_on_commit for SessionAudio {session_audio.pk}"
+                )
 
                 # Use delay_on_commit to ensure task is triggered after database transaction commits
                 return process_session_audio_task.delay_on_commit(
-                    session_audio.id, previous_transcript, session_notes
+                    session_audio.pk, previous_transcript, session_notes
                 )
             except ImportError:
                 # Check if this might be a large processing job that should use Celery
@@ -1691,7 +1757,9 @@ def transcribe_session_audio(
     previous_transcript: str = "",
     use_celery: bool = True,
 ):
-    print(f"transcribe_session_audio called for SessionAudio {session_audio.id} with use_celery = {use_celery}")
+    print(
+        f"transcribe_session_audio called for SessionAudio {session_audio.pk} with use_celery = {use_celery}"
+    )
     """
     Process a SessionAudio instance using the model-driven transcription logic.
     By default, uses async processing via Celery for better performance and scalability.
