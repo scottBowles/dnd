@@ -785,6 +785,14 @@ class TranscriptionService:
         """Process a SessionAudio instance, split if needed, and save all results to the database."""
         import tempfile
 
+        # Check if transcript already exists to prevent duplicates
+        if (
+            hasattr(session_audio, "audio_transcripts")
+            and session_audio.audio_transcripts.exists()
+        ):
+            print(f"⚠️ Transcript already exists for {session_audio}, skipping processing")
+            return True
+
         start_time = time.time()
         temp_path = None
         chunk_paths = []
