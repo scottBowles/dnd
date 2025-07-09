@@ -522,13 +522,18 @@ class AudioProcessingService:
                 time_saved_ms = total_original_ms - total_processed_ms
 
                 # Apply audio speed-up if enabled
-                if self.config.enable_audio_speedup and self.config.audio_speedup_factor != 1.0:
+                if (
+                    self.config.enable_audio_speedup
+                    and self.config.audio_speedup_factor != 1.0
+                ):
                     speedup_factor = self.config.audio_speedup_factor
                     print(f"⚡ Applying {speedup_factor}x speed-up to audio...")
-                    
+
                     # Use pydub's speedup function
-                    sped_up_audio = processed_audio.speedup(playback_speed=speedup_factor)
-                    
+                    sped_up_audio = processed_audio.speedup(
+                        playback_speed=speedup_factor
+                    )
+
                     # Update the time offset mapping to account for speed-up
                     # The processed timeline is now compressed by the speedup factor
                     updated_time_offset_mapping = []
@@ -536,15 +541,18 @@ class AudioProcessingService:
                         updated_mapping = {
                             "original_start": mapping["original_start"],
                             "original_end": mapping["original_end"],
-                            "processed_start": mapping["processed_start"] / speedup_factor,
+                            "processed_start": mapping["processed_start"]
+                            / speedup_factor,
                             "processed_end": mapping["processed_end"] / speedup_factor,
                         }
                         updated_time_offset_mapping.append(updated_mapping)
-                    
+
                     time_offset_mapping = updated_time_offset_mapping
                     processed_audio = sped_up_audio
-                    
-                    print(f"   Speed-up applied: {len(processed_audio)/1000.0:.2f}s final duration")
+
+                    print(
+                        f"   Speed-up applied: {len(processed_audio)/1000.0:.2f}s final duration"
+                    )
 
                 total_original_ms = original_duration_ms
                 total_processed_ms = len(processed_audio)
@@ -570,26 +578,34 @@ class AudioProcessingService:
                         "processed_end": original_duration_ms / 1000.0,
                     }
                 ]
-                
-                if self.config.enable_audio_speedup and self.config.audio_speedup_factor != 1.0:
+
+                if (
+                    self.config.enable_audio_speedup
+                    and self.config.audio_speedup_factor != 1.0
+                ):
                     speedup_factor = self.config.audio_speedup_factor
-                    print(f"⚡ Applying {speedup_factor}x speed-up to audio (no silence detected)...")
-                    
+                    print(
+                        f"⚡ Applying {speedup_factor}x speed-up to audio (no silence detected)..."
+                    )
+
                     # Use pydub's speedup function
                     processed_audio = audio.speedup(playback_speed=speedup_factor)
-                    
+
                     # Update the identity mapping to account for speed-up
                     identity_mapping = [
                         {
                             "original_start": 0.0,
                             "original_end": original_duration_ms / 1000.0,
                             "processed_start": 0.0,
-                            "processed_end": (original_duration_ms / 1000.0) / speedup_factor,
+                            "processed_end": (original_duration_ms / 1000.0)
+                            / speedup_factor,
                         }
                     ]
-                    
-                    print(f"   Speed-up applied: {len(processed_audio)/1000.0:.2f}s final duration")
-                
+
+                    print(
+                        f"   Speed-up applied: {len(processed_audio)/1000.0:.2f}s final duration"
+                    )
+
                 return processed_audio, identity_mapping
 
         except Exception as e:
@@ -605,28 +621,36 @@ class AudioProcessingService:
                     "processed_end": original_duration_ms / 1000.0,
                 }
             ]
-            
-            if self.config.enable_audio_speedup and self.config.audio_speedup_factor != 1.0:
+
+            if (
+                self.config.enable_audio_speedup
+                and self.config.audio_speedup_factor != 1.0
+            ):
                 try:
                     speedup_factor = self.config.audio_speedup_factor
                     print(f"⚡ Still applying {speedup_factor}x speed-up to audio...")
-                    
+
                     # Use pydub's speedup function
                     processed_audio = audio.speedup(playback_speed=speedup_factor)
-                    
+
                     # Update the identity mapping to account for speed-up
                     identity_mapping = [
                         {
                             "original_start": 0.0,
                             "original_end": original_duration_ms / 1000.0,
                             "processed_start": 0.0,
-                            "processed_end": (original_duration_ms / 1000.0) / speedup_factor,
+                            "processed_end": (original_duration_ms / 1000.0)
+                            / speedup_factor,
                         }
                     ]
-                    
-                    print(f"   Speed-up applied: {len(processed_audio)/1000.0:.2f}s final duration")
+
+                    print(
+                        f"   Speed-up applied: {len(processed_audio)/1000.0:.2f}s final duration"
+                    )
                 except Exception as speedup_error:
-                    print(f"⚠️ Speed-up also failed: {speedup_error}, using original audio")
+                    print(
+                        f"⚠️ Speed-up also failed: {speedup_error}, using original audio"
+                    )
                     processed_audio = audio
                     identity_mapping = [
                         {
@@ -636,7 +660,7 @@ class AudioProcessingService:
                             "processed_end": original_duration_ms / 1000.0,
                         }
                     ]
-            
+
             return processed_audio, identity_mapping
 
     @staticmethod
@@ -1588,7 +1612,7 @@ You are a Dungeons & Dragons session chronicler. Given the following attempt at 
 - Do not summarize or embellish. Give the session log in full, as it is in the transcripts.
 - Use the language the players used, and their metaphors and references. When players speak in character, given narration, or share character thoughts, use their exact words.
 - Do not summarize or paraphrase partway through. Give the full transcript of the session, for everything that tells the in-game story.
-- The main players and characters are as follows: Greg is the DM; Noel plays Izar; Scott plays Ego aka Carlos; MJ aka Michael plays Hrothulf; Wes plays Darnit; Joel plays Dorinda.
+- The main players and characters are as follows: Greg is the DM; Noel plays Izar; Scott plays Ego aka Carlos; MJ aka Michael plays Hrothulf; Wes plays Darnit; Joel plays Dorinda. The transcript is AI-generated, so correct errors and misspellings as needed.
 {notes_section}
 {example_section if USE_EXAMPLE_SECTION else ""}
 Transcript segments:
