@@ -866,6 +866,7 @@ class TranscriptionService:
                         metadata.get("time_offset_mapping") for metadata in chunk_metadata
                     ):
                         combined_time_offset_mapping = []
+                        cumulative_processed_time = 0.0  # Track cumulative processed timeline
 
                         for i, metadata in enumerate(chunk_metadata):
                             chunk_mapping = metadata.get("time_offset_mapping")
@@ -874,15 +875,33 @@ class TranscriptionService:
                             if chunk_mapping:
                                 # Create combined mapping using chunk position + preprocessing mapping
                                 for mapping_entry in chunk_mapping:
-                                    # The processed timeline now accounts for preprocessing per chunk
+                                    # Calculate the processed duration for this mapping entry
+                                    processed_duration = mapping_entry["processed_end"] - mapping_entry["processed_start"]
+                                    
+                                    # The processed timeline should be cumulative across all chunks
                                     # Original timeline uses the actual chunk positions
                                     adjusted_entry = {
                                         "original_start": chunk_start_time_s + mapping_entry["original_start"],
                                         "original_end": chunk_start_time_s + mapping_entry["original_end"],
-                                        "processed_start": mapping_entry["processed_start"],  # Keep processed time as-is from segments
-                                        "processed_end": mapping_entry["processed_end"],
+                                        "processed_start": cumulative_processed_time,
+                                        "processed_end": cumulative_processed_time + processed_duration,
                                     }
                                     combined_time_offset_mapping.append(adjusted_entry)
+                                    
+                                    # Update cumulative processed time for next entry
+                                    cumulative_processed_time = adjusted_entry["processed_end"]
+                            else:
+                                # If no preprocessing mapping for this chunk, add identity mapping
+                                chunk_duration_s = metadata.get("chunk_end_time_s", 0) - chunk_start_time_s
+                                if chunk_duration_s > 0:
+                                    adjusted_entry = {
+                                        "original_start": chunk_start_time_s,
+                                        "original_end": chunk_start_time_s + chunk_duration_s,
+                                        "processed_start": cumulative_processed_time,
+                                        "processed_end": cumulative_processed_time + chunk_duration_s,
+                                    }
+                                    combined_time_offset_mapping.append(adjusted_entry)
+                                    cumulative_processed_time = adjusted_entry["processed_end"]
 
                     # Save to database
                     audio_transcript = self._save_audio_transcript(
