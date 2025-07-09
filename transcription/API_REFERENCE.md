@@ -19,7 +19,13 @@ TranscriptionConfig(
     chunk_duration_minutes: int = 10,              # Duration of each chunk
     delay_between_requests: int = 21,              # Seconds between API calls
     recent_threshold_days: int = 180,              # Days for campaign context
-    openai_api_key: Optional[str] = None           # API key (auto-detected)
+    openai_api_key: Optional[str] = None,          # API key (auto-detected)
+    enable_audio_preprocessing: bool = True,       # Enable audio preprocessing
+    enable_audio_speedup: bool = True,             # Enable audio speed-up
+    audio_speedup_factor: float = 2.0,             # Speed-up factor (2x default)
+    enable_text_cleaning: bool = True,             # Enable text cleaning
+    repetition_detection_threshold: float = 0.6,  # Repetition detection threshold
+    max_allowed_repetitions: int = 3               # Max allowed repetitions
 )
 ```
 
@@ -40,6 +46,16 @@ config.chunks_folder             # Path: Temporary chunk storage
 config.openai_api_key            # str: OpenAI API key
 config.delay_between_requests    # int: Seconds between API calls
 config.recent_threshold_days     # int: Days for campaign context relevance
+
+# Audio processing settings
+config.enable_audio_preprocessing    # bool: Enable audio preprocessing
+config.enable_audio_speedup          # bool: Enable audio speed-up
+config.audio_speedup_factor          # float: Speed-up factor (2.0 = 2x speed)
+
+# Text processing settings
+config.enable_text_cleaning          # bool: Enable text cleaning
+config.repetition_detection_threshold # float: Repetition detection threshold
+config.max_allowed_repetitions       # int: Max allowed repetitions
 ```
 
 #### Methods
@@ -637,6 +653,22 @@ def test_whisper_response():
 ```
 
 ## Performance Considerations
+
+### Audio Speed-Up (Performance Enhancement)
+
+-   **Enabled by default**: 2x speed-up reduces processing time by 50%
+-   **Configurable**: Adjust `audio_speedup_factor` (1.0-3.0 recommended)
+-   **Cost savings**: Directly reduces Whisper API costs based on audio duration
+-   **Timing accuracy**: Maintains precise time mappings back to original audio
+-   **Quality impact**: Minimal accuracy loss at 2x speed-up for clear speech
+
+```python
+# Configure speed-up for optimal performance
+config = TranscriptionConfig(
+    enable_audio_speedup=True,
+    audio_speedup_factor=2.0,  # 2x speed-up
+)
+```
 
 ### Memory Usage
 
