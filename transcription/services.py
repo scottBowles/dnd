@@ -1566,7 +1566,8 @@ Session log:
             return f"{h:02}:{m:02}:{s:02}"
 
         combined = "\n".join(
-            f"[{format_time(seg['start'])}] [{seg['character']}] {seg['text']}"
+            f"[{seg['character']}] {seg['text']}"
+            # f"[{format_time(seg['start'])}] [{seg['character']}] {seg['text']}"
             for seg in segments
             if seg["text"]
         )
@@ -1581,10 +1582,12 @@ Session log:
 You are a Dungeons & Dragons session chronicler. Given the following attempt at time-ordered, attributed transcript segments, produce a single, clean, in-game session log. 
 - Remove all out-of-character banter, rules discussion, and non-game chatter.
 - Attribute dialogue to characters (e.g., 'Izar said, \"Let's attack!\"').
-- Write narration and events as they unfold in the story.
-- Do not mention player names or much meta-discussion.
+- Write narration and events as they unfold in the story, in the present tense.
+- Do not mention player names or much meta-discussion. Do not mention rolls unless they really add to the story.
 - The result should read as a narrative of the session, as if it were a story or campaign log.
 - Do not summarize or embellish. Give the session log in full, as it is in the transcripts.
+- Use the language the players used, and their metaphors and references. When players speak in character, given narration, or share character thoughts, use their exact words.
+- Do not summarize or paraphrase partway through. Give the full transcript of the session, for everything that tells the in-game story.
 - The main players and characters are as follows: Greg is the DM; Noel plays Izar; Scott plays Ego aka Carlos; MJ aka Michael plays Hrothulf; Wes plays Darnit; Joel plays Dorinda.
 {notes_section}
 {example_section if USE_EXAMPLE_SECTION else ""}
@@ -1618,16 +1621,16 @@ Session log:
         encoding = tiktoken.encoding_for_model(model)
         num_tokens = len(encoding.encode(prompt))
         print(f"Estimated token count: {num_tokens} tokens")
-        # response = openai.ChatCompletion.create(
-        #     model=model,
-        #     messages=[{"role": "user", "content": prompt}],
-        #     temperature=0.3,
-        #     max_tokens=3500,
-        # )
-        # session_log = response["choices"][0]["message"]["content"].strip()
-        # gamelog.generated_log_text = session_log
-        # gamelog.save(update_fields=["generated_log_text"])
-        # return session_log
+        response = openai.ChatCompletion.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=3500,
+        )
+        session_log = response["choices"][0]["message"]["content"].strip()
+        gamelog.generated_log_text = session_log
+        gamelog.save(update_fields=["generated_log_text"])
+        return session_log
 
     def _is_large_processing_job(self, session_audio) -> bool:
         """
