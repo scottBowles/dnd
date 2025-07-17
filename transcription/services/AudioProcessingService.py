@@ -330,7 +330,9 @@ class AudioProcessingService:
             chunking_processor = ChunkingProcessor(
                 chunk_duration_minutes=self.config.chunk_duration_minutes
             )
-            return chunking_processor.process(source)
+            chunks = chunking_processor.process(source)
+            print(f"✅ Split into {len(chunks)} chunks.")
+            return chunks
         except Exception as e:
             print(f"❌ Failed to split {file_path.name}: {e}")
             return []

@@ -386,6 +386,8 @@ class TranscriptionService:
         try:
             with file_path.open("rb") as f:
                 print(f"Transcribing {file_path.name}...")
+                if chunk_info:
+                    print(chunk_info)
                 response = openai.Audio.transcribe(
                     model="whisper-1",
                     file=f,
