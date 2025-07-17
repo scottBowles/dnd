@@ -26,7 +26,6 @@ from ..models import AudioTranscript, TranscriptChunk
 from ..responses import WhisperResponse
 from ..tasks import generate_session_log_task, process_session_audio_task
 from ..utils import ordinal
-from .AudioProcessors_DEPRECATED import TimeOffsetMapping, TimeOffsetMappingEntry
 from .CampaignContextService import CampaignContextService
 from .TranscriptCleaner import TranscriptCleaner
 from .TranscriptionConfig import TranscriptionConfig

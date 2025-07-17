@@ -96,6 +96,9 @@ class ChunkingProcessor:
         audio = source.audio
         character_name = source.character_name or "Unknown"
 
+        # Ensure audio is 16kHz mono, 16-bit PCM before VAD
+        audio = audio.set_frame_rate(16000).set_channels(1).set_sample_width(2)
+
         # Export normalized audio to temp wav for VAD
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
             audio.export(temp_wav.name, format="wav")
@@ -175,9 +178,9 @@ class VADProcessingService:
     Frame = collections.namedtuple("Frame", ["timestamp", "data"])
 
     @staticmethod
-    def read_wave(path):
+    def read_wave(path: str | Path) -> tuple[bytes, int]:
         """Reads a mono 16-bit PCM WAV file. Returns (PCM bytes, sample_rate)."""
-        with contextlib.closing(wave.open(path, "rb")) as wf:
+        with contextlib.closing(wave.open(str(path), "rb")) as wf:
             assert wf.getnchannels() == 1
             assert wf.getsampwidth() == 2
             assert wf.getframerate() == 16000
@@ -185,7 +188,7 @@ class VADProcessingService:
             return pcm_data, wf.getframerate()
 
     @staticmethod
-    def frame_generator(audio_bytes, sample_rate, frame_duration_ms):
+    def frame_generator(audio_bytes: bytes, sample_rate: int, frame_duration_ms: int):
         """Generates frames of fixed duration from PCM audio data."""
         frame_size = int(
             sample_rate * (frame_duration_ms / 1000.0) * 2
@@ -201,14 +204,16 @@ class VADProcessingService:
             offset += frame_size
 
     @staticmethod
-    def vad_collector(frames, vad, padding_ms=300):
+    def vad_collector(
+        frames: list, vad: webrtcvad.Vad, padding_ms: int = 300
+    ) -> list[tuple[float, float]]:
         """Groups voiced frames into segments."""
         num_padding_frames = int(padding_ms / 30)
         ring_buffer = collections.deque(maxlen=num_padding_frames)
         triggered = False
-        voiced_frames = []
-        segments = []
-        start_time = None
+        voiced_frames: list = []
+        segments: list[tuple[float, float]] = []
+        start_time: float | None = None
 
         for frame in frames:
             is_speech = vad.is_speech(frame.data, sample_rate=16000)
@@ -249,7 +254,7 @@ class VADProcessingService:
         return segments
 
     @staticmethod
-    def extract_voiced_segments(wav_path):
+    def extract_voiced_segments(wav_path: str | Path) -> list[tuple[float, float]]:
         audio, _ = VADProcessingService.read_wave(wav_path)
         vad = webrtcvad.Vad(3)  # 0=aggressive silence removal, 3=more inclusive
         frames = list(
