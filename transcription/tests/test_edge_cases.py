@@ -9,12 +9,10 @@ from unittest.mock import Mock, patch
 
 from django.test import TestCase
 
-from transcription.services import (
-    TranscriptionConfig,
-    TranscriptionService,
-    CampaignContextService,
-    AudioProcessingService,
-)
+from transcription.services.TranscriptionConfig import TranscriptionConfig
+from transcription.services.TranscriptionService import TranscriptionService
+from transcription.services.AudioProcessingService import AudioProcessingService
+from transcription.services.CampaignContextService import CampaignContextService
 from transcription.responses import WhisperResponse
 
 
@@ -164,7 +162,7 @@ class RegressionTests(TestCase):
     def tearDown(self):
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    @patch("transcription.services.openai")
+    @patch("transcription.services.TranscriptionService.openai")
     def test_context_service_uses_consistent_api(self, mock_openai):
         """Test that context service uses the new API consistently."""
         service = TranscriptionService(TranscriptionConfig(openai_api_key="test_key"))
@@ -212,7 +210,7 @@ class IntegrationTests(TestCase):
         self.assertEqual(config2.max_file_size_mb, 20)
         self.assertNotEqual(config1.max_file_size_mb, config2.max_file_size_mb)
 
-    @patch("transcription.services.openai")
+    @patch("transcription.services.TranscriptionService.openai")
     def test_service_instances_use_correct_config(self, mock_openai):
         """Test that service instances use their assigned config."""
         config1 = TranscriptionConfig(

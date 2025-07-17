@@ -2,14 +2,15 @@
 Tests for AudioProcessingService class.
 """
 
-import tempfile
 import shutil
+import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 from django.test import TestCase
 
-from transcription.services import TranscriptionConfig, AudioProcessingService
+from transcription.services.AudioProcessingService import AudioProcessingService
+from transcription.services.TranscriptionConfig import TranscriptionConfig
 
 
 class AudioProcessingServiceTests(TestCase):
@@ -50,59 +51,66 @@ class AudioProcessingServiceTests(TestCase):
         size = AudioProcessingService.get_file_size_mb(zero_file)
         self.assertEqual(size, 0.0)
 
-    @patch("transcription.services.AudioSegment")
+    @patch("transcription.services.AudioProcessingService.AudioSegment")
     def test_split_audio_file_under_limit(self, mock_audio_segment):
         """Test that small files are not split."""
         test_file = self.temp_path / "small.mp3"
         test_file.write_text("small content")  # Very small file
 
-        result = self.service.split_audio_file(test_file, "TestCharacter")
+        # Mock AudioSegment.from_file to return a mock audio segment
+        mock_audio = Mock()
+        mock_audio_segment.from_file.return_value = mock_audio
 
-        # Should return original file without splitting
+        # Patch ChunkingProcessor.process to return a single AudioData
+        with patch(
+            "transcription.services.AudioProcessingService.ChunkingProcessor.process"
+        ) as mock_process:
+            from transcription.services.AudioProcessingService import AudioData
+
+            audio_data = AudioData.from_audio_segment(
+                mock_audio, character_name="TestCharacter"
+            )
+            mock_process.return_value = [audio_data]
+            result = self.service.split_audio_file(test_file, "TestCharacter")
+
+        # Should return a list of AudioData objects
         self.assertEqual(len(result), 1)
-        self.assertEqual(result[0], test_file)
-        mock_audio_segment.from_file.assert_not_called()
+        self.assertIsInstance(result[0], AudioData)
+        mock_audio_segment.from_file.assert_called_once_with(test_file)
 
-    @patch("transcription.services.AudioSegment")
+    @patch("transcription.services.AudioProcessingService.AudioSegment")
     def test_split_audio_file_over_limit(self, mock_audio_segment):
         """Test that large files are split into chunks."""
-        # Create a large test file (larger than 1MB limit in config)
         test_file = self.temp_path / "large.mp3"
         large_content = "x" * (2 * 1024 * 1024)  # 2MB
         test_file.write_bytes(large_content.encode())
 
-        # Ensure chunks folder exists
-        self.temp_path.mkdir(parents=True, exist_ok=True)
-
         # Mock audio processing
         mock_audio = Mock()
-        # Properly mock the __len__ method to return duration in milliseconds
-        type(mock_audio).__len__ = Mock(
-            return_value=120000
-        )  # 2 minutes in milliseconds
-
-        # Mock chunk creation and export
-        mock_chunk = Mock()
-
-        # Create a custom side effect for chunk export that creates dummy files
-        def mock_export_side_effect(chunk_path, format):
-            # Create the chunk file when export is called
-            chunk_path.write_text("mock chunk content")
-
-        mock_chunk.export.side_effect = mock_export_side_effect
-        mock_audio.__getitem__ = Mock(return_value=mock_chunk)
-
         mock_audio_segment.from_file.return_value = mock_audio
 
-        result = self.service.split_audio_file(test_file, "TestCharacter")
+        # Patch ChunkingProcessor.process to return two AudioData objects
+        with patch(
+            "transcription.services.AudioProcessingService.ChunkingProcessor.process"
+        ) as mock_process:
+            from transcription.services.AudioProcessingService import AudioData
+
+            audio_data1 = AudioData.from_audio_segment(
+                mock_audio, character_name="TestCharacter"
+            )
+            audio_data2 = AudioData.from_audio_segment(
+                mock_audio, character_name="TestCharacter"
+            )
+            mock_process.return_value = [audio_data1, audio_data2]
+            result = self.service.split_audio_file(test_file, "TestCharacter")
 
         # Should create 2 chunks (2 minutes / 1 minute per chunk)
         self.assertEqual(len(result), 2)
+        self.assertIsInstance(result[0], AudioData)
+        self.assertIsInstance(result[1], AudioData)
         mock_audio_segment.from_file.assert_called_once_with(test_file)
-        # Verify that export was called for each chunk
-        self.assertEqual(mock_chunk.export.call_count, 2)
 
-    @patch("transcription.services.AudioSegment")
+    @patch("transcription.services.AudioProcessingService.AudioSegment")
     def test_split_audio_handles_exceptions(self, mock_audio_segment):
         """Test that splitting handles exceptions gracefully."""
         test_file = self.temp_path / "problematic.mp3"
@@ -114,6 +122,5 @@ class AudioProcessingServiceTests(TestCase):
 
         result = self.service.split_audio_file(test_file, "TestCharacter")
 
-        # Should return original file when splitting fails
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result[0], test_file)
+        # Should return empty list when splitting fails
+        self.assertEqual(result, [])

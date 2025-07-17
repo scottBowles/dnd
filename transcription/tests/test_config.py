@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 
-from transcription.services import TranscriptionConfig
+from transcription.services.TranscriptionConfig import TranscriptionConfig
 
 
 class TranscriptionConfigTests(TestCase):
@@ -28,7 +28,7 @@ class TranscriptionConfigTests(TestCase):
         """Test that config initializes with default values."""
         config = TranscriptionConfig()
 
-        self.assertEqual(config.max_file_size_mb, 20)
+        self.assertEqual(config.max_file_size_mb, 10)
         self.assertEqual(config.chunk_duration_minutes, 10)
         self.assertEqual(config.delay_between_requests, 21)
         self.assertEqual(config.recent_threshold_days, 180)
@@ -52,8 +52,8 @@ class TranscriptionConfigTests(TestCase):
         self.assertEqual(config.recent_threshold_days, 90)
         self.assertEqual(config.openai_api_key, "test_key")
 
-    @patch("transcription.services.settings")
-    @patch("transcription.services.os")
+    @patch("transcription.services.TranscriptionConfig.settings")
+    @patch("transcription.services.TranscriptionConfig.os")
     def test_openai_key_from_environment(self, mock_os, mock_settings):
         """Test that OpenAI API key is loaded from environment."""
         # Make sure Django settings doesn't have the key

@@ -6,8 +6,7 @@ import logging
 from celery import shared_task
 from django.core.exceptions import ObjectDoesNotExist
 
-from .services import TranscriptionService, TranscriptionConfig
-from .models import AudioTranscript
+from .services import TranscriptionService
 from nucleus.models import SessionAudio
 
 logger = logging.getLogger(__name__)
@@ -17,7 +16,9 @@ logger = logging.getLogger(__name__)
 def process_session_audio_task(
     self, session_audio_id, previous_transcript="", session_notes=""
 ):
-    print(f"process_session_audio_task called with session_audio_id = {session_audio_id}")
+    print(
+        f"process_session_audio_task called with session_audio_id = {session_audio_id}"
+    )
     """
     Process a SessionAudio instance asynchronously.
     
@@ -117,7 +118,6 @@ def generate_session_log_task(self, gamelog_id, method="concat", model="gpt-4o")
 
         # Import here to avoid circular imports
         from nucleus.models import GameLog
-        from .services import TranscriptionService
 
         try:
             gamelog = GameLog.objects.get(id=gamelog_id)
