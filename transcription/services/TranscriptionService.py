@@ -589,16 +589,23 @@ Session log:
             else ""
         )
         prompt = f"""
-You are a Dungeons & Dragons session chronicler. Given the following time-ordered, attributed transcript segments, produce a single, clean, in-game session log. 
-- Remove all out-of-character banter, rules discussion, and non-game chatter.
-- Attribute dialogue to characters (e.g., 'Izar said, \"Let's attack!\"').
-- Write narration and events as they unfold in the story.
-- Do not mention player names or much meta-discussion.
-- The result should read as a narrative of the session, as if it were a story or campaign log.
-- Do not summarize or embellish. Give the session log in full, as it is in the transcripts.
-- The main players and characters are as follows: Greg is the DM; Noel plays Izar; Scott plays Ego aka Carlos; MJ aka Michael plays Hrothulf; Wes plays Darnit; Joel plays Dorinda.
+You are a Dungeons & Dragons session chronicler. Your task is to convert a time-ordered, attributed transcript into a full, detailed in-game session log. Follow these rules strictly:
+Remove all out-of-character talk, including banter, rules discussion, and meta-comments.
+Preserve all in-character dialogue and DM narration, maintaining full chronological flow. Do not skip or summarize.
+Attribute all character speech, even brief interjections, using the character names (not the player names). Use past-tense dialogue attribution (e.g., Izar said, "Let's go.").
+Write the events and narration as story prose, only cleaning up verbatim speech. Do not add or invent anything not in the transcript.
+Preserve the full content of the session. This is not a summary — this should read like a cleaned-up, readable version of the full session.
+Use rich, clear formatting and paragraph structure to improve readability, but do not shorten or simplify the content.
+If the DM describes something, present it as narration. If the DM says something in character, attribute it to that character as quoted speech. If a player says something in character, present it as quoted speech. If it’s ambiguous, default to narration unless clearly OOC.
+The player–character mapping is as follows:
+Greg is the DM
+Noel plays Izar
+Scott plays Ego, also known as Carlos
+MJ (Michael) plays Hrothulf
+Wes plays Darnit
+Joel plays Dorinda
+Begin with the following transcript segments:
 {notes_section}
-{example_section}
 Time-ordered transcript segments:
 {combined}
 
