@@ -58,9 +58,13 @@ def process_session_audio_task(
         if result:
             logger.info(f"Successfully processed SessionAudio ID: {session_audio_id}")
             print(f"✅ Successfully processed SessionAudio {session_audio_id}")
+            session_audio.transcription_status = "completed"
+            session_audio.save(update_fields=["transcription_status"])
         else:
             logger.warning(f"Failed to process SessionAudio ID: {session_audio_id}")
             print(f"❌ Failed to process SessionAudio {session_audio_id}")
+            session_audio.transcription_status = "failed"
+            session_audio.save(update_fields=["transcription_status"])
 
         return result
 
