@@ -417,15 +417,23 @@ class TranscriptionService:
                     print(
                         f"⚠️ Low quality transcript detected for {file_path.name}, retrying with no prompt..."
                     )
-                    # Retry without prompt to reduce hallucinations
-                    response = openai.Audio.transcribe(
-                        model="whisper-1",
-                        file=f,
-                        response_format="verbose_json",
-                        temperature=0,
-                        language="en",
-                    )
-                    whisper_response = WhisperResponse(response)
+                    f.seek(0)  # Rewind file pointer before retry
+                    try:
+                        # Retry without prompt to reduce hallucinations
+                        response = openai.Audio.transcribe(
+                            model="whisper-1",
+                            file=f,
+                            response_format="verbose_json",
+                            temperature=0,
+                            language="en",
+                        )
+                        whisper_response = WhisperResponse(response)
+                    except Exception as retry_exc:
+                        print(
+                            f"⚠️ Retry failed for {file_path.name}: {retry_exc}. Using first attempt's transcript."
+                        )
+                        # Return the original whisper_response from the first attempt
+                        return whisper_response
 
                 return whisper_response
 

@@ -24,10 +24,14 @@ class AudioData:
     file_path: Path = field(init=False)
 
     def __post_init__(self):
-        # Always create a temp WAV file for this audio
+        # Always create a temp WAV file for this audio in PCM 16-bit mono 16kHz format
         fd, temp_path = tempfile.mkstemp(suffix=".wav")
         try:
-            self.audio.export(temp_path, format="wav")
+            self.audio.export(
+                temp_path,
+                format="wav",
+                parameters=["-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1"],
+            )
         finally:
             import os
 
@@ -99,9 +103,13 @@ class ChunkingProcessor:
         # Ensure audio is 16kHz mono, 16-bit PCM before VAD
         audio = audio.set_frame_rate(16000).set_channels(1).set_sample_width(2)
 
-        # Export normalized audio to temp wav for VAD
+        # Export normalized audio to temp wav for VAD (always PCM 16-bit mono 16kHz)
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
-            audio.export(temp_wav.name, format="wav")
+            audio.export(
+                temp_wav.name,
+                format="wav",
+                parameters=["-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1"],
+            )
             wav_path = Path(temp_wav.name)
 
         # Get voiced segments from VAD
