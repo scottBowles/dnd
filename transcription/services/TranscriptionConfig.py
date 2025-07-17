@@ -10,7 +10,7 @@ class TranscriptionConfig:
     def __init__(
         self,
         max_file_size_mb: int = 10,
-        chunk_duration_minutes: int = 10,
+        chunk_duration_minutes: int = 1,
         delay_between_requests: int = 21,
         recent_threshold_days: int = 180,
         openai_api_key: Optional[str] = None,

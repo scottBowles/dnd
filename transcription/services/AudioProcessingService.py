@@ -86,7 +86,7 @@ def cleanup_audio_data_files(audio_data_list: List[AudioData]):
 class ChunkingProcessor:
     """Splits audio into chunks and maintains time offset mapping for each chunk. Not a pipeline processor."""
 
-    def __init__(self, chunk_duration_minutes=10):
+    def __init__(self, chunk_duration_minutes=1):
         self.chunk_duration_s = chunk_duration_minutes * 60
 
     def process(self, source: AudioData) -> List[AudioData]:
