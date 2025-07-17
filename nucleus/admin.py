@@ -5,11 +5,13 @@ from .models import User, GameLog, AiLogSuggestion, SessionAudio
 from django.utils import timezone
 import zoneinfo
 from django.utils.safestring import mark_safe
-from transcription.services import transcribe_session_audio
 from django.urls import path
 from django.shortcuts import redirect
 from django.contrib import messages
-from transcription.services import TranscriptionService
+from transcription.services import (
+    TranscriptionService,
+    transcribe_session_audio,
+)
 
 
 class SessionAudioInline(admin.TabularInline):
@@ -185,7 +187,7 @@ class GameLogAdmin(admin.ModelAdmin):
 
         # Track processed audio files to prevent duplicates within a single admin action
         processed_audio_ids = set()
-        
+
         for gamelog in gamelogs:
             session_notes = gamelog.audio_session_notes or ""
             previous_transcript = ""
@@ -205,13 +207,16 @@ class GameLogAdmin(admin.ModelAdmin):
                 # Check if we've already processed this audio file in this admin action
                 if audio.id in processed_audio_ids:
                     print(f"⚠️ Skipping {audio}: already processed in this admin action")
-                    messages.info(request, f"Skipping {audio}: already processed in this admin action.")
+                    messages.info(
+                        request,
+                        f"Skipping {audio}: already processed in this admin action.",
+                    )
                     continue
-                
+
                 # Mark as processed to prevent duplicates
                 processed_audio_ids.add(audio.id)
                 print(f"📄 Processing audio file {audio.id}: {audio.original_filename}")
-                
+
                 if (
                     hasattr(audio, "audio_transcripts")
                     and audio.audio_transcripts.exists()

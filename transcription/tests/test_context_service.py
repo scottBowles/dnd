@@ -7,7 +7,8 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.utils import timezone
 
-from transcription.services import TranscriptionConfig, CampaignContextService
+from transcription.services.TranscriptionConfig import TranscriptionConfig
+from transcription.services.CampaignContextService import CampaignContextService
 
 
 class CampaignContextServiceTests(TestCase):
@@ -22,7 +23,7 @@ class CampaignContextServiceTests(TestCase):
         self.assertEqual(self.service.config, self.config)
         self.assertEqual(self.service.config.recent_threshold_days, 30)
 
-    @patch("transcription.services.timezone")
+    @patch("transcription.services.CampaignContextService.timezone")
     def test_get_campaign_context_empty_database(self, mock_timezone):
         """Test context fetching with empty database."""
         mock_timezone.now.return_value = timezone.now()
