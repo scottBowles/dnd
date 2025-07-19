@@ -137,7 +137,7 @@ class Character(Entity):
     size = models.CharField(max_length=10, choices=SIZES, null=True, blank=True)
 
     def global_id(self):
-        return to_global_id("NPC", self.id)
+        return to_global_id("Character", self.id)
 
     def __str__(self):
         return self.name or ""
