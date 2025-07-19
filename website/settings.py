@@ -284,6 +284,7 @@ STRAWBERRY_DJANGO_RELAY_MAX_RESULTS = 999
 GQL_AUTH = GqlAuthSettings(
     LOGIN_REQUIRE_CAPTCHA=False,
     REGISTER_REQUIRE_CAPTCHA=False,
+    JWT_LONG_RUNNING_REFRESH_TOKEN=True,
 )
 
 # Cloudflare R2 Storage (django-storages S3Boto3)
