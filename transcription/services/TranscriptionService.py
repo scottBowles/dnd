@@ -589,17 +589,21 @@ Session log:
             else ""
         )
         prompt = f"""
-You are a Dungeons & Dragons session chronicler. Given the following time-ordered, attributed transcript segments, produce a single, clean, in-game session log. 
-- Remove all out-of-character banter, rules discussion, and non-game chatter.
-- Attribute dialogue to characters (e.g., 'Izar said, \"Let's attack!\"').
-- Write narration and events as they unfold in the story.
-- Do not mention player names or much meta-discussion.
-- The result should read as a narrative of the session, as if it were a story or campaign log.
-- Do not summarize or embellish. Give the session log in full, as it is in the transcripts.
-- The main players and characters are as follows: Greg is the DM; Noel plays Izar; Scott plays Ego aka Carlos; MJ aka Michael plays Hrothulf; Wes plays Darnit; Joel plays Dorinda.
+You are a Dungeons & Dragons session stenographer. Your task is to take a roughly time-ordered, attributed whisper transcript,
+remove all non-game-related speech, and correct any misspellings or whisper misunderstandings. Do not skip or summarize. Everything should be verbatim.
+Be sure to not mess up correct speaker attribution throughout.
+Preserve the full of the session.
+Use rich, clear formatting and paragraph to improve readability, but do not shorten or simplify the content.
+
+The player–character mapping is as follows:
+Greg is the DM
+Noel plays Izar
+Scott plays Ego, also known as Carlos
+MJ (Michael) plays Hrothulf
+Wes plays Darnit
+Joel plays Dorinda
 {notes_section}
-{example_section}
-Time-ordered transcript segments:
+Whisper transcript segments:
 {combined}
 
 Session log:
