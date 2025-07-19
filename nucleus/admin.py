@@ -175,7 +175,7 @@ class GameLogAdmin(admin.ModelAdmin):
             """
         )
 
-    copy_text_for_ai_suggestions.short_description = "Copy text for ai titles"
+    copy_text_for_ai_titles.short_description = "Copy text for ai titles"
 
     def _transcribe_audio_files_for_gamelogs(self, request, gamelogs):
         print("_transcribe_audio_files_for_gamelogs called with gamelogs:", gamelogs)
