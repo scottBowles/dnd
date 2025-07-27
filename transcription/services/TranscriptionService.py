@@ -3,6 +3,7 @@ import time
 from pathlib import Path
 from typing import List, Optional, TypedDict
 from .AudioProcessingService import AudioData
+from django.conf import settings
 
 
 class TranscriptChunkDict(TypedDict):
@@ -16,7 +17,8 @@ class CombinedTranscriptDict(TypedDict, total=False):
     chunks: List[dict]  # List of raw Whisper responses
 
 
-import openai
+from openai import OpenAI
+
 from pydub import AudioSegment
 
 from nucleus.models import GameLog, SessionAudio
@@ -43,7 +45,7 @@ class TranscriptionService:
                 "OpenAI API key not found. Set OPENAI_API_KEY in settings or environment."
             )
 
-        openai.api_key = self.config.openai_api_key
+        self.openai_client = OpenAI(api_key=self.config.openai_api_key)
 
         self.context_service = CampaignContextService(self.config)
         self.audio_service = AudioProcessingService(self.config)
@@ -388,7 +390,7 @@ class TranscriptionService:
                 print(f"Transcribing {file_path.name}...")
                 if chunk_info:
                     print(chunk_info)
-                response = openai.Audio.transcribe(
+                response = self.openai_client.audio.transcribe(
                     model="whisper-1",
                     file=f,
                     response_format="verbose_json",
@@ -422,7 +424,7 @@ class TranscriptionService:
                     f.seek(0)  # Rewind file pointer before retry
                     try:
                         # Retry without prompt to reduce hallucinations
-                        response = openai.Audio.transcribe(
+                        response = self.openai_client.audio.transcribe(
                             model="whisper-1",
                             file=f,
                             response_format="verbose_json",
@@ -628,16 +630,18 @@ Session log:
         print("prompt:", prompt)
         import tiktoken
 
+        openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
         encoding = tiktoken.encoding_for_model(model)
         num_tokens = len(encoding.encode(prompt))
         print(f"Estimated token count: {num_tokens} tokens")
-        response = openai.ChatCompletion.create(
+        response = openai_client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
             max_tokens=3500,
         )
-        session_log = response["choices"][0]["message"]["content"].strip()
+        session_log = response.choices[0].message.content.strip()
         gamelog.generated_log_text = session_log
         gamelog.save(update_fields=["generated_log_text"])
         return session_log

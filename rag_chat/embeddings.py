@@ -1,11 +1,13 @@
-import openai
-import re
-from django.conf import settings
-from typing import List, Dict, Any
 import hashlib
+import re
+from typing import Any, Dict, List
+
+from django.conf import settings
+from openai import OpenAI
 
 # Initialize OpenAI client
-openai.api_key = settings.OPENAI_API_KEY
+
+openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
 
 def get_embedding(text: str) -> List[float]:
@@ -13,7 +15,7 @@ def get_embedding(text: str) -> List[float]:
     Get embedding using OpenAI's cheapest embedding model
     """
     try:
-        response = openai.embeddings.create(
+        response = openai_client.embeddings.create(
             model="text-embedding-3-small", input=text.strip()
         )
         return response.data[0].embedding

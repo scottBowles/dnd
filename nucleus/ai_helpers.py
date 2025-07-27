@@ -8,9 +8,9 @@ def openai_summarize_text(text):
     Summary the given text using openai
     This is first to be used for summarizing long game logs (~13000 character) into a short summary
     """
-    import openai
+    from openai import OpenAI
 
-    openai.api_key = OPENAI_API_KEY
+    client = OpenAI(api_key=OPENAI_API_KEY)
 
     # text = (
     #     "Given the following game log from a game of dungeons and dragons, "
@@ -43,7 +43,7 @@ def openai_summarize_text(text):
         '''
     )
 
-    response = openai.Completion.create(
+    response = client.completions.create(
         engine="text-davinci-002",
         prompt=text,
         temperature=0,
@@ -62,9 +62,9 @@ def openai_summarize_text_chat(text):
     Summary the given text using an openai chat model
     This is first to be used for summarizing long game logs (~13000 character) into a short summary
     """
-    import openai
+    from openai import OpenAI
 
-    openai.api_key = OPENAI_API_KEY
+    client = OpenAI(api_key=OPENAI_API_KEY)
 
     # text = (
     #     "Given the following game log from a role playing game, "
@@ -92,7 +92,7 @@ def openai_summarize_text_chat(text):
     )
     messages = [{"role": "user", "content": text}]
 
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=messages,
         # prompt=text,
@@ -112,9 +112,9 @@ def openai_titles_from_text_chat(text):
     Summary the given text using an openai chat model
     This is first to be used for summarizing long game logs (~13000 character) into a short summary
     """
-    import openai
+    from openai import OpenAI
 
-    openai.api_key = OPENAI_API_KEY
+    client = OpenAI(api_key=OPENAI_API_KEY)
 
     text = (
         '''
@@ -131,7 +131,7 @@ def openai_titles_from_text_chat(text):
     )
     messages = [{"role": "user", "content": text}]
 
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=messages,
         # prompt=text,
@@ -155,7 +155,7 @@ def test_helper():
     log = GameLog.objects.first()
     text = fetch_airel_file_text(log.google_id)
     response = openai_titles_from_text_chat(text)
-    res_json = response["choices"][0]["message"]["content"]
+    res_json = response.choices[0].message.content
     try:
         obj = json.loads(res_json)
         return obj
@@ -170,9 +170,9 @@ def openai_shorten_text(text, percent=70, max_tokens=2000):
     Summary the given text using openai
     This is first to be used for summarizing long game logs (~13000 character) into a short summary
     """
-    import openai
+    from openai import OpenAI
 
-    openai.api_key = OPENAI_API_KEY
+    client = OpenAI(api_key=OPENAI_API_KEY)
 
     text = (
         f"Make the following text {percent}% shorter without losing any content. Especially be sure not to leave out any characters, places, items, etc. Text: "
@@ -180,7 +180,7 @@ def openai_shorten_text(text, percent=70, max_tokens=2000):
         + " Response:"
     )
 
-    response = openai.Completion.create(
+    response = client.completions.create(
         engine="code-davinci-002",
         prompt=text,
         temperature=0.3,
