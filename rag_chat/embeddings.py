@@ -16,7 +16,8 @@ def get_embedding(text: str) -> List[float]:
     """
     try:
         response = openai_client.embeddings.create(
-            model="text-embedding-3-small", input=text.strip()
+            model=settings.OPENAI_EMBEDDINGS_MODEL,
+            input=text.strip(),
         )
         return response.data[0].embedding
     except Exception as e:
