@@ -143,30 +143,31 @@ def build_chunk_metadata(
     game_log, chunk_text: str, chunk_index: int, total_chunks: int
 ) -> Dict[str, Any]:
     """
-    Build comprehensive metadata for a game log chunk
+    Build essential metadata for a game log chunk (kept concise for efficiency)
     """
     metadata = {
-        "session_number": game_log.session_number,  # Use the explicit field
+        "session_number": game_log.session_number,
         "session_title": game_log.title,
         "session_date": game_log.game_date.isoformat() if game_log.game_date else None,
-        "brief_summary": game_log.brief or "",
-        "synopsis": game_log.synopsis or "",
-        "chunk_summary": generate_chunk_summary(chunk_text),
         "chunk_index": chunk_index,
         "total_chunks": total_chunks,
         "google_doc_url": game_log.url,
-        "google_id": game_log.google_id,
     }
 
-    # Add related entities if they exist
-    try:
-        metadata["places_mentioned"] = [
-            place.name for place in game_log.places_set_in.all()
-        ]
-    except:
-        metadata["places_mentioned"] = []
+    # Add brief summary only if it's reasonably short
+    if game_log.brief and len(game_log.brief) < 200:
+        metadata["brief_summary"] = game_log.brief
 
-    # Add any other relationships your GameLog model has
-    # You can extend this based on your other models (characters, items, etc.)
+    # Add places but limit to avoid excessive length
+    try:
+        places = [place.name for place in game_log.places_set_in.all()]
+        if places:
+            metadata["places_mentioned"] = places[:5]  # Limit to 5 places max
+    except:
+        pass
+
+    # Add chunk summary only if the chunk is long enough to warrant it
+    if len(chunk_text) > 400:
+        metadata["chunk_summary"] = generate_chunk_summary(chunk_text, max_length=100)
 
     return metadata
