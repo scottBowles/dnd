@@ -172,6 +172,7 @@ class RAGQuery:
             "item": ("item", "Item"),
             "artifact": ("artifact", "Artifact"),
             "race": ("race", "Race"),
+            "association": ("association", "Association"),
         }
 
         for content_type, (app_label, model_name) in model_map.items():
@@ -384,6 +385,7 @@ class RAGMutation:
                 "item",
                 "artifact",
                 "race",
+                "association",
             ]
 
             return ProcessAllContentPayload(

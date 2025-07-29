@@ -144,6 +144,7 @@ class Command(BaseCommand):
                 "item",
                 "artifact",
                 "race",
+                "association",
             ]
 
         self.stdout.write(f"Processing content types: {', '.join(content_types)}")
@@ -325,6 +326,7 @@ class Command(BaseCommand):
             "item",
             "artifact",
             "race",
+            "association",
         ]:
             try:
                 objects = self.get_objects_to_process(
@@ -348,6 +350,7 @@ class Command(BaseCommand):
             "item": ("item", "Item"),
             "artifact": ("artifact", "Artifact"),
             "race": ("race", "Race"),
+            "association": ("association", "Association"),
         }
 
         if content_type not in model_map:
@@ -369,6 +372,7 @@ class Command(BaseCommand):
             "item": ("item", "Item"),
             "artifact": ("artifact", "Artifact"),
             "race": ("race", "Race"),
+            "association": ("association", "Association"),
         }
 
         if content_type not in model_map:

@@ -16,6 +16,7 @@ class ContentChunk(models.Model):
         ("item", "Item"),
         ("artifact", "Artifact"),
         ("race", "Race"),
+        ("association", "Association"),
         ("entity", "Generic Entity"),
         ("custom", "Custom Content"),
     ]

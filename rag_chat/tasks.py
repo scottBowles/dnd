@@ -228,7 +228,15 @@ def process_all_content(
         limit: Optional limit on number of objects to process per type
     """
     if content_types is None:
-        content_types = ["game_log", "character", "place", "item", "artifact", "race"]
+        content_types = [
+            "game_log",
+            "character",
+            "place",
+            "item",
+            "artifact",
+            "race",
+            "association",
+        ]
 
     logger.info(f"Starting batch processing of content types: {content_types}")
 
@@ -395,6 +403,7 @@ def get_content_object(content_type: str, object_id: str):
         "item": ("item", "Item"),
         "artifact": ("artifact", "Artifact"),
         "race": ("race", "Race"),
+        "association": ("association", "Association"),
     }
 
     if content_type not in model_map:
@@ -419,6 +428,7 @@ def get_content_objects(
         "item": ("item", "Item"),
         "artifact": ("artifact", "Artifact"),
         "race": ("race", "Race"),
+        "association": ("association", "Association"),
     }
 
     if content_type not in model_map:
@@ -468,6 +478,7 @@ def get_valid_object_ids(content_type: str):
         "item": ("item", "Item"),
         "artifact": ("artifact", "Artifact"),
         "race": ("race", "Race"),
+        "association": ("association", "Association"),
     }
 
     if content_type not in model_map:

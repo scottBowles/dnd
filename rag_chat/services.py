@@ -283,6 +283,10 @@ class RAGService:
             name = metadata.get("name", "Unknown Race")
             return f"Race - {name}:\n{chunk_text}"
 
+        elif content_type == "association":
+            name = metadata.get("name", "Unknown Association")
+            return f"Association - {name}:\n{chunk_text}"
+
         elif content_type == "custom":
             title = metadata.get("title", "Custom Content")
             return f"Reference - {title}:\n{chunk_text}"
@@ -309,17 +313,23 @@ class RAGService:
                     "title": metadata.get("title", "Unknown Session"),
                     "url": metadata.get("google_doc_url", ""),
                     "session_date": metadata.get("session_date"),
-                    "places": metadata.get("places_mentioned", []),
+                    "places": metadata.get("places_set_in", []),
                     "chunk_summary": metadata.get("chunk_summary", ""),
                 }
             )
 
-        elif content_type in ["character", "place", "item", "artifact", "race"]:
+        elif content_type in [
+            "character",
+            "place",
+            "item",
+            "artifact",
+            "race",
+            "association",
+        ]:
             base_source.update(
                 {
                     "name": metadata.get("name", f"Unknown {content_type.title()}"),
                     "mentioned_in_sessions": metadata.get("mentioned_in_sessions", []),
-                    "featured_in_sessions": metadata.get("featured_in_sessions", []),
                 }
             )
 

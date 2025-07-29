@@ -1,7 +1,7 @@
 # rag_chat/content_processors.py
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Tuple
-from .embeddings import chunk_document, clean_text, generate_chunk_summary
+from .embeddings import chunk_document, clean_text
 
 
 class BaseContentProcessor(ABC):
@@ -88,7 +88,7 @@ class GameLogProcessor(BaseContentProcessor):
         try:
             places = [place.name for place in game_log.places_set_in.all()[:5]]
             if places:
-                metadata["places_mentioned"] = places
+                metadata["places_set_in"] = places
         except:
             pass
 
@@ -194,7 +194,7 @@ class PlaceProcessor(BaseContentProcessor):
             if hasattr(place, "logs_set_in") and hasattr(place.logs_set_in, "all"):
                 log_titles = [log.title for log in place.logs_set_in.all() if log.title]
                 if log_titles:
-                    metadata["featured_in_sessions"] = log_titles
+                    metadata["mentioned_in_sessions"] = log_titles
         except:
             pass
 
@@ -234,7 +234,7 @@ class ItemProcessor(BaseContentProcessor):
             if hasattr(item, "logs_set_in") and hasattr(item.logs_set_in, "all"):
                 log_titles = [log.title for log in item.logs_set_in.all() if log.title]
                 if log_titles:
-                    metadata["featured_in_sessions"] = log_titles
+                    metadata["mentioned_in_sessions"] = log_titles
         except:
             pass
 
@@ -282,7 +282,7 @@ class ArtifactProcessor(BaseContentProcessor):
                     log.title for log in artifact.logs_set_in.all() if log.title
                 ]
                 if log_titles:
-                    metadata["featured_in_sessions"] = log_titles
+                    metadata["mentioned_in_sessions"] = log_titles
         except:
             pass
 
@@ -321,7 +321,50 @@ class RaceProcessor(BaseContentProcessor):
             if hasattr(race, "logs_set_in") and hasattr(race.logs_set_in, "all"):
                 log_titles = [log.title for log in race.logs_set_in.all() if log.title]
                 if log_titles:
-                    metadata["featured_in_sessions"] = log_titles
+                    metadata["mentioned_in_sessions"] = log_titles
+        except:
+            pass
+
+        return metadata
+
+
+class AssociationProcessor(BaseContentProcessor):
+    content_type = "association"
+
+    def extract_text(self, association) -> str:
+        text_parts = []
+
+        if hasattr(association, "name") and association.name:
+            text_parts.append(f"Association Name: {association.name}")
+
+        if hasattr(association, "description") and association.description:
+            text_parts.append(f"Description: {association.description}")
+
+        return "\n\n".join(text_parts)
+
+    def get_object_id(self, association) -> str:
+        return str(association.id)
+
+    def should_chunk(self, text: str) -> bool:
+        return len(text.split()) > 1200
+
+    def build_metadata(
+        self, association, chunk_text: str = None, chunk_index: int = 0
+    ) -> Dict[str, Any]:
+        metadata = {
+            "name": getattr(association, "name", "Unknown Association"),
+            "chunk_index": chunk_index,
+        }
+        # Add associated game logs
+        try:
+            if hasattr(association, "logs_set_in") and hasattr(
+                association.logs_set_in, "all"
+            ):
+                log_titles = [
+                    log.title for log in association.logs_set_in.all() if log.title
+                ]
+                if log_titles:
+                    metadata["mentioned_in_sessions"] = log_titles
         except:
             pass
 
@@ -372,6 +415,7 @@ CONTENT_PROCESSORS = {
     "item": ItemProcessor,
     "artifact": ArtifactProcessor,
     "race": RaceProcessor,
+    "association": AssociationProcessor,
     "custom": CustomContentProcessor,
 }
 

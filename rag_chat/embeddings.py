@@ -101,34 +101,34 @@ def clean_text(text: str) -> str:
     return text
 
 
-def generate_chunk_summary(chunk_text: str, max_length: int = 150) -> str:
-    """
-    Generate a brief summary of a text chunk
-    For now, just takes the first few sentences, but could be enhanced with LLM
-    """
-    if not chunk_text:
-        return ""
+# def generate_chunk_summary(chunk_text: str, max_length: int = 150) -> str:
+#     """
+#     Generate a brief summary of a text chunk
+#     For now, just takes the first few sentences, but could be enhanced with LLM
+#     """
+#     if not chunk_text:
+#         return ""
 
-    sentences = re.split(r"[.!?]+", chunk_text)
-    summary_parts = []
-    current_length = 0
+#     sentences = re.split(r"[.!?]+", chunk_text)
+#     summary_parts = []
+#     current_length = 0
 
-    for sentence in sentences:
-        sentence = sentence.strip()
-        if not sentence:
-            continue
+#     for sentence in sentences:
+#         sentence = sentence.strip()
+#         if not sentence:
+#             continue
 
-        if current_length + len(sentence) > max_length and summary_parts:
-            break
+#         if current_length + len(sentence) > max_length and summary_parts:
+#             break
 
-        summary_parts.append(sentence)
-        current_length += len(sentence)
+#         summary_parts.append(sentence)
+#         current_length += len(sentence)
 
-    summary = ". ".join(summary_parts)
-    if summary and not summary.endswith((".", "!", "?")):
-        summary += "..."
+#     summary = ". ".join(summary_parts)
+#     if summary and not summary.endswith((".", "!", "?")):
+#         summary += "..."
 
-    return summary
+#     return summary
 
 
 def create_query_hash(query: str, context_params: Dict[str, Any] = None) -> str:
@@ -142,35 +142,35 @@ def create_query_hash(query: str, context_params: Dict[str, Any] = None) -> str:
     return hashlib.sha256(content.encode()).hexdigest()
 
 
-def build_chunk_metadata(
-    game_log, chunk_text: str, chunk_index: int, total_chunks: int
-) -> Dict[str, Any]:
-    """
-    Build essential metadata for a game log chunk (kept concise for efficiency)
-    """
-    metadata = {
-        "session_number": game_log.session_number,
-        "session_title": game_log.title,
-        "session_date": game_log.game_date.isoformat() if game_log.game_date else None,
-        "chunk_index": chunk_index,
-        "total_chunks": total_chunks,
-        "google_doc_url": game_log.url,
-    }
+# def build_chunk_metadata(
+#     game_log, chunk_text: str, chunk_index: int, total_chunks: int
+# ) -> Dict[str, Any]:
+#     """
+#     Build essential metadata for a game log chunk (kept concise for efficiency)
+#     """
+#     metadata = {
+#         "session_number": game_log.session_number,
+#         "session_title": game_log.title,
+#         "session_date": game_log.game_date.isoformat() if game_log.game_date else None,
+#         "chunk_index": chunk_index,
+#         "total_chunks": total_chunks,
+#         "google_doc_url": game_log.url,
+#     }
 
-    # Add brief summary only if it's reasonably short
-    if game_log.brief and len(game_log.brief) < 200:
-        metadata["brief_summary"] = game_log.brief
+#     # Add brief summary only if it's reasonably short
+#     if game_log.brief and len(game_log.brief) < 200:
+#         metadata["brief_summary"] = game_log.brief
 
-    # Add places but limit to avoid excessive length
-    try:
-        places = [place.name for place in game_log.places_set_in.all()]
-        if places:
-            metadata["places_mentioned"] = places[:5]  # Limit to 5 places max
-    except:
-        pass
+#     # Add places but limit to avoid excessive length
+#     try:
+#         places = [place.name for place in game_log.places_set_in.all()]
+#         if places:
+#             metadata["places_set_in"] = places[:5]  # Limit to 5 places max
+#     except:
+#         pass
 
-    # Add chunk summary only if the chunk is long enough to warrant it
-    if len(chunk_text) > 400:
-        metadata["chunk_summary"] = generate_chunk_summary(chunk_text, max_length=100)
+#     # Add chunk summary only if the chunk is long enough to warrant it
+#     if len(chunk_text) > 400:
+#         metadata["chunk_summary"] = generate_chunk_summary(chunk_text, max_length=100)
 
-    return metadata
+#     return metadata
