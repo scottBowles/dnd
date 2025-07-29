@@ -255,8 +255,8 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
         """
         Returns the generated log text if it exists, otherwise falls back to the Google Doc text.
         """
-        if self.generated_log_text and self.generated_log_text.strip():
-            return self.generated_log_text
+        # if self.generated_log_text and self.generated_log_text.strip():
+        #     return self.generated_log_text
 
         from nucleus.gdrive import fetch_airel_file_text
 
