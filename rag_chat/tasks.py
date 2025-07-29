@@ -1,88 +1,102 @@
+# rag_chat/tasks.py
 from celery import shared_task
 from django.db import transaction
-from .models import GameLogChunk
-from .embeddings import get_embedding, chunk_document, build_chunk_metadata
+from django.apps import apps
+from .models import ContentChunk
+
+# from .models import ContentChunk, GameLogChunk
+from .embeddings import get_embedding
+from .content_processors import get_processor, CONTENT_PROCESSORS
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True, max_retries=3)
-def process_game_log(self, game_log_id: int, force_reprocess: bool = False):
+def process_content(
+    self, content_type: str, object_id: str, force_reprocess: bool = False
+):
     """
-    Process a game log into chunks with embeddings for RAG search
+    Process any content type into chunks with embeddings for RAG search
 
     Args:
-        game_log_id: ID of the GameLog to process
+        content_type: Type of content (game_log, character, place, etc.)
+        object_id: ID of the object to process
         force_reprocess: If True, delete existing chunks and reprocess
     """
-    from nucleus.models import GameLog  # Import here to avoid circular imports
-
     try:
-        game_log = GameLog.objects.get(id=game_log_id)
-        logger.info(f"Processing game log: {game_log.title} (ID: {game_log_id})")
+        # Get the appropriate model and processor
+        obj = get_content_object(content_type, object_id)
+        if not obj:
+            return {
+                "status": "error",
+                "content_type": content_type,
+                "object_id": object_id,
+                "message": f"Object not found: {content_type} with ID {object_id}",
+            }
+
+        processor = get_processor(content_type)
+
+        logger.info(
+            f"Processing {content_type}: {getattr(obj, 'name', getattr(obj, 'title', object_id))}"
+        )
 
         # Check if already processed (unless forcing reprocess)
-        if not force_reprocess and game_log.chunks.exists():
-            logger.info(f"Game log {game_log_id} already processed. Skipping.")
+        existing_chunks = ContentChunk.objects.filter(
+            content_type=content_type, object_id=object_id
+        )
+
+        if not force_reprocess and existing_chunks.exists():
+            logger.info(f"{content_type} {object_id} already processed. Skipping.")
             return {
                 "status": "skipped",
-                "game_log_id": game_log_id,
+                "content_type": content_type,
+                "object_id": object_id,
                 "message": "Already processed",
             }
 
         # If forcing reprocess, delete existing chunks
         if force_reprocess:
-            deleted_count = game_log.chunks.count()
-            game_log.chunks.all().delete()
+            deleted_count = existing_chunks.count()
+            existing_chunks.delete()
             logger.info(f"Deleted {deleted_count} existing chunks for reprocessing")
 
-        # Get the text content
+        # Process the content
         try:
-            text_content = game_log.log_text
-            if not text_content or not text_content.strip():
-                logger.warning(f"No text content found for game log {game_log_id}")
+            chunk_data = processor.process_content(obj)
+            if not chunk_data:
+                logger.warning(f"No content generated for {content_type} {object_id}")
                 return {
                     "status": "error",
-                    "game_log_id": game_log_id,
-                    "message": "No text content available",
+                    "content_type": content_type,
+                    "object_id": object_id,
+                    "message": "No content could be extracted",
                 }
         except Exception as e:
-            logger.error(f"Failed to fetch text for game log {game_log_id}: {str(e)}")
+            logger.error(
+                f"Failed to process content for {content_type} {object_id}: {str(e)}"
+            )
             return {
                 "status": "error",
-                "game_log_id": game_log_id,
-                "message": f"Failed to fetch text: {str(e)}",
+                "content_type": content_type,
+                "object_id": object_id,
+                "message": f"Content processing failed: {str(e)}",
             }
 
-        # Split into chunks
-        chunks = chunk_document(text_content)
-        if not chunks:
-            logger.warning(f"No chunks created for game log {game_log_id}")
-            return {
-                "status": "error",
-                "game_log_id": game_log_id,
-                "message": "No chunks created from text",
-            }
-
-        logger.info(f"Created {len(chunks)} chunks for game log {game_log_id}")
-
-        # Process each chunk
+        # Create chunks with embeddings
         created_chunks = []
-        total_chunks = len(chunks)
+        total_chunks = len(chunk_data)
 
-        for i, chunk_text in enumerate(chunks):
+        for i, (chunk_text, metadata) in enumerate(chunk_data):
             try:
                 # Get embedding
                 embedding = get_embedding(chunk_text)
 
-                # Build metadata
-                metadata = build_chunk_metadata(game_log, chunk_text, i, total_chunks)
-
                 # Create the chunk record
                 with transaction.atomic():
-                    chunk_obj = GameLogChunk.objects.create(
-                        game_log=game_log,
+                    chunk_obj = ContentChunk.objects.create(
+                        content_type=content_type,
+                        object_id=object_id,
                         chunk_text=chunk_text,
                         chunk_index=i,
                         embedding=embedding,
@@ -91,120 +105,377 @@ def process_game_log(self, game_log_id: int, force_reprocess: bool = False):
                     created_chunks.append(chunk_obj.id)
 
                 logger.info(
-                    f"Created chunk {i+1}/{total_chunks} for game log {game_log_id}"
+                    f"Created chunk {i+1}/{total_chunks} for {content_type} {object_id}"
                 )
 
             except Exception as e:
                 logger.error(
-                    f"Failed to process chunk {i} for game log {game_log_id}: {str(e)}"
+                    f"Failed to create chunk {i} for {content_type} {object_id}: {str(e)}"
                 )
-                # Continue with other chunks rather than failing completely
                 continue
 
         logger.info(
-            f"Successfully processed game log {game_log_id}: {len(created_chunks)} chunks created"
+            f"Successfully processed {content_type} {object_id}: {len(created_chunks)} chunks created"
         )
 
         return {
             "status": "success",
-            "game_log_id": game_log_id,
+            "content_type": content_type,
+            "object_id": object_id,
             "chunks_created": len(created_chunks),
             "chunk_ids": created_chunks,
-            "title": game_log.title,
+            "title": getattr(obj, "name", getattr(obj, "title", str(obj))),
         }
 
-    except GameLog.DoesNotExist:
-        error_msg = f"GameLog with ID {game_log_id} does not exist"
-        logger.error(error_msg)
-        return {"status": "error", "game_log_id": game_log_id, "message": error_msg}
-
     except Exception as e:
-        logger.error(f"Unexpected error processing game log {game_log_id}: {str(e)}")
+        logger.error(
+            f"Unexpected error processing {content_type} {object_id}: {str(e)}"
+        )
 
         # Retry logic for transient errors
         if self.request.retries < self.max_retries:
             logger.info(
-                f"Retrying game log {game_log_id} (attempt {self.request.retries + 1})"
+                f"Retrying {content_type} {object_id} (attempt {self.request.retries + 1})"
             )
-            raise self.retry(
-                countdown=60 * (2**self.request.retries)
-            )  # Exponential backoff
+            raise self.retry(countdown=60 * (2**self.request.retries))
 
-        return {"status": "error", "game_log_id": game_log_id, "message": str(e)}
+        return {
+            "status": "error",
+            "content_type": content_type,
+            "object_id": object_id,
+            "message": str(e),
+        }
 
 
 @shared_task
-def process_all_game_logs(force_reprocess: bool = False, limit: int = None):
+def process_custom_content(
+    title: str, content: str, object_id: str = None, metadata: dict = None
+):
     """
-    Process all game logs in the database
+    Process custom/ad-hoc content for embedding
 
     Args:
-        force_reprocess: If True, reprocess even already processed logs
-        limit: Optional limit on number of logs to process (for testing)
+        title: Title for the content
+        content: Text content to process
+        object_id: Custom identifier (defaults to title)
+        metadata: Additional metadata
     """
-    from nucleus.models import GameLog
+    try:
+        from .content_processors import CustomContentProcessor
 
-    logger.info(
-        f"Starting batch processing of all game logs (force_reprocess={force_reprocess})"
-    )
+        processor = CustomContentProcessor(
+            title=title,
+            content=content,
+            object_id=object_id or title,
+            metadata=metadata or {},
+        )
 
-    # Get logs to process
-    queryset = GameLog.objects.all().order_by("game_date")
+        # Delete any existing chunks for this custom content
+        ContentChunk.objects.filter(
+            content_type="custom", object_id=processor.get_object_id()
+        ).delete()
 
-    if not force_reprocess:
-        # Only process logs that haven't been processed yet
-        queryset = queryset.filter(chunks__isnull=True).distinct()
+        # Process the content
+        chunk_data = processor.process_content()
+        if not chunk_data:
+            return {
+                "status": "error",
+                "message": "No content could be processed",
+            }
 
-    if limit:
-        queryset = queryset[:limit]
+        # Create chunks
+        created_chunks = []
+        for i, (chunk_text, chunk_metadata) in enumerate(chunk_data):
+            embedding = get_embedding(chunk_text)
 
-    total_logs = queryset.count()
-    logger.info(f"Found {total_logs} game logs to process")
+            chunk_obj = ContentChunk.objects.create(
+                content_type="custom",
+                object_id=processor.get_object_id(),
+                chunk_text=chunk_text,
+                chunk_index=i,
+                embedding=embedding,
+                metadata=chunk_metadata,
+            )
+            created_chunks.append(chunk_obj.id)
 
-    if total_logs == 0:
-        return {"status": "completed", "total_logs": 0, "message": "No logs to process"}
+        return {
+            "status": "success",
+            "content_type": "custom",
+            "object_id": processor.get_object_id(),
+            "chunks_created": len(created_chunks),
+            "chunk_ids": created_chunks,
+            "title": title,
+        }
 
-    # Queue individual tasks
+    except Exception as e:
+        logger.error(f"Failed to process custom content '{title}': {str(e)}")
+        return {
+            "status": "error",
+            "message": str(e),
+        }
+
+
+@shared_task
+def process_all_content(
+    content_types: list = None, force_reprocess: bool = False, limit: int = None
+):
+    """
+    Process all content of specified types
+
+    Args:
+        content_types: List of content types to process (None = all except custom)
+        force_reprocess: If True, reprocess even already processed content
+        limit: Optional limit on number of objects to process per type
+    """
+    if content_types is None:
+        content_types = ["game_log", "character", "place", "item", "artifact", "race"]
+
+    logger.info(f"Starting batch processing of content types: {content_types}")
+
+    total_tasks = 0
     task_results = []
-    for game_log in queryset:
+
+    for content_type in content_types:
         try:
-            task = process_game_log.delay(game_log.id, force_reprocess)
-            task_results.append(
-                {
-                    "game_log_id": game_log.id,
-                    "task_id": task.id,
-                    "title": game_log.title,
-                }
-            )
-            logger.info(
-                f"Queued processing task for game log {game_log.id}: {game_log.title}"
-            )
+            # Get objects to process
+            objects = get_content_objects(content_type, force_reprocess, limit)
+
+            if not objects:
+                logger.info(f"No {content_type} objects found to process")
+                continue
+
+            logger.info(f"Found {len(objects)} {content_type} objects to process")
+
+            # Queue tasks for each object
+            for obj in objects:
+                try:
+                    object_id = str(obj.id)
+                    task = process_content.delay(
+                        content_type, object_id, force_reprocess
+                    )
+                    task_results.append(
+                        {
+                            "content_type": content_type,
+                            "object_id": object_id,
+                            "task_id": task.id,
+                            "title": getattr(
+                                obj, "name", getattr(obj, "title", str(obj))
+                            ),
+                        }
+                    )
+                    total_tasks += 1
+
+                except Exception as e:
+                    logger.error(
+                        f"Failed to queue task for {content_type} {obj.id}: {str(e)}"
+                    )
+
         except Exception as e:
-            logger.error(f"Failed to queue task for game log {game_log.id}: {str(e)}")
+            logger.error(f"Failed to process content type {content_type}: {str(e)}")
 
     return {
         "status": "queued",
-        "total_logs": total_logs,
-        "tasks_queued": len(task_results),
+        "content_types": content_types,
+        "total_tasks": total_tasks,
         "task_results": task_results,
     }
+
+
+# @shared_task
+# def migrate_legacy_chunks():
+#     """
+#     Migrate legacy GameLogChunk records to new ContentChunk format
+#     """
+#     try:
+#         legacy_chunks = GameLogChunk.objects.select_related("game_log").all()
+#         migrated_count = 0
+#         error_count = 0
+
+#         logger.info(f"Starting migration of {legacy_chunks.count()} legacy chunks")
+
+#         for chunk in legacy_chunks:
+#             try:
+#                 # Check if already migrated
+#                 if ContentChunk.objects.filter(
+#                     content_type="game_log",
+#                     object_id=str(chunk.game_log.id),
+#                     chunk_index=chunk.chunk_index,
+#                 ).exists():
+#                     continue
+
+#                 # Create new ContentChunk
+#                 ContentChunk.objects.create(
+#                     content_type="game_log",
+#                     object_id=str(chunk.game_log.id),
+#                     chunk_text=chunk.chunk_text,
+#                     chunk_index=chunk.chunk_index,
+#                     embedding=chunk.embedding,
+#                     metadata=chunk.metadata,
+#                 )
+#                 migrated_count += 1
+
+#             except Exception as e:
+#                 logger.error(f"Failed to migrate legacy chunk {chunk.id}: {str(e)}")
+#                 error_count += 1
+
+#         logger.info(
+#             f"Migration completed: {migrated_count} migrated, {error_count} errors"
+#         )
+
+#         return {
+#             "status": "completed",
+#             "migrated_count": migrated_count,
+#             "error_count": error_count,
+#             "total_legacy_chunks": legacy_chunks.count(),
+#         }
+
+#     except Exception as e:
+#         logger.error(f"Migration failed: {str(e)}")
+#         return {
+#             "status": "error",
+#             "message": str(e),
+#         }
 
 
 @shared_task
 def cleanup_orphaned_chunks():
     """
-    Clean up chunks that reference deleted game logs
+    Clean up chunks that reference deleted objects
     """
-    from nucleus.models import GameLog
+    orphaned_count = 0
 
-    # Find chunks whose game logs no longer exist
-    orphaned_chunks = GameLogChunk.objects.exclude(
-        game_log_id__in=GameLog.objects.values_list("id", flat=True)
-    )
+    for content_type in CONTENT_PROCESSORS.keys():
+        if content_type == "custom":
+            continue  # Custom content doesn't have backing objects
 
-    count = orphaned_chunks.count()
-    if count > 0:
-        orphaned_chunks.delete()
-        logger.info(f"Cleaned up {count} orphaned chunks")
+        try:
+            # Get all chunk object_ids for this content type
+            chunk_object_ids = set(
+                ContentChunk.objects.filter(content_type=content_type).values_list(
+                    "object_id", flat=True
+                )
+            )
 
-    return {"status": "completed", "orphaned_chunks_deleted": count}
+            if not chunk_object_ids:
+                continue
+
+            # Get valid object IDs from the actual model
+            valid_object_ids = set(str(id) for id in get_valid_object_ids(content_type))
+
+            # Find orphaned chunks
+            orphaned_object_ids = chunk_object_ids - valid_object_ids
+
+            if orphaned_object_ids:
+                deleted = ContentChunk.objects.filter(
+                    content_type=content_type, object_id__in=orphaned_object_ids
+                ).delete()
+
+                count = deleted[0] if deleted else 0
+                orphaned_count += count
+                logger.info(f"Cleaned up {count} orphaned {content_type} chunks")
+
+        except Exception as e:
+            logger.error(f"Failed to cleanup {content_type} chunks: {str(e)}")
+
+    return {
+        "status": "completed",
+        "orphaned_chunks_deleted": orphaned_count,
+    }
+
+
+# Helper functions
+
+
+def get_content_object(content_type: str, object_id: str):
+    """Get a content object by type and ID"""
+    model_map = {
+        "game_log": ("nucleus", "GameLog"),
+        "character": ("character", "Character"),  # Adjust app names as needed
+        "place": ("place", "Place"),
+        "item": ("item", "Item"),
+        "artifact": ("artifact", "Artifact"),
+        "race": ("race", "Race"),
+    }
+
+    if content_type not in model_map:
+        return None
+
+    try:
+        app_label, model_name = model_map[content_type]
+        model = apps.get_model(app_label, model_name)
+        return model.objects.get(pk=object_id)
+    except Exception:
+        return None
+
+
+def get_content_objects(
+    content_type: str, force_reprocess: bool = False, limit: int = None
+):
+    """Get objects to process for a given content type"""
+    model_map = {
+        "game_log": ("nucleus", "GameLog"),
+        "character": ("character", "Character"),
+        "place": ("place", "Place"),
+        "item": ("item", "Item"),
+        "artifact": ("artifact", "Artifact"),
+        "race": ("race", "Race"),
+    }
+
+    if content_type not in model_map:
+        return []
+
+    try:
+        app_label, model_name = model_map[content_type]
+        model = apps.get_model(app_label, model_name)
+
+        queryset = model.objects.all()
+
+        # Filter out already processed objects unless forcing reprocess
+        if not force_reprocess:
+            processed_ids = (
+                ContentChunk.objects.filter(content_type=content_type)
+                .values_list("object_id", flat=True)
+                .distinct()
+            )
+
+            processed_ids = [int(id) for id in processed_ids if id.isdigit()]
+            queryset = queryset.exclude(id__in=processed_ids)
+
+        # Apply ordering (customize as needed per model)
+        if hasattr(model, "game_date"):
+            queryset = queryset.order_by("game_date")
+        elif hasattr(model, "name"):
+            queryset = queryset.order_by("name")
+        elif hasattr(model, "title"):
+            queryset = queryset.order_by("title")
+
+        if limit:
+            queryset = queryset[:limit]
+
+        return list(queryset)
+
+    except Exception as e:
+        logger.error(f"Failed to get {content_type} objects: {str(e)}")
+        return []
+
+
+def get_valid_object_ids(content_type: str):
+    """Get valid object IDs for a content type"""
+    model_map = {
+        "game_log": ("nucleus", "GameLog"),
+        "character": ("character", "Character"),
+        "place": ("place", "Place"),
+        "item": ("item", "Item"),
+        "artifact": ("artifact", "Artifact"),
+        "race": ("race", "Race"),
+    }
+
+    if content_type not in model_map:
+        return []
+
+    try:
+        app_label, model_name = model_map[content_type]
+        model = apps.get_model(app_label, model_name)
+        return model.objects.values_list("id", flat=True)
+    except Exception:
+        return []

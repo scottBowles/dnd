@@ -1,50 +1,74 @@
+# rag_chat/models.py
 from django.conf import settings
 from django.db import models
 from pgvector.django import HnswIndex, VectorField
 
 
-class GameLogChunk(models.Model):
+class ContentChunk(models.Model):
     """
-    Stores text chunks from game logs with their embeddings for semantic search
+    Stores text chunks from various content sources with their embeddings for semantic search
     """
 
-    game_log = models.ForeignKey(
-        "nucleus.GameLog",  # Adjust this import path based on your GameLog location
-        on_delete=models.CASCADE,
-        related_name="chunks",
+    CONTENT_TYPES = [
+        ("game_log", "Game Log"),
+        ("character", "Character"),
+        ("place", "Place"),
+        ("item", "Item"),
+        ("artifact", "Artifact"),
+        ("race", "Race"),
+        ("entity", "Generic Entity"),
+        ("custom", "Custom Content"),
+    ]
+
+    content_type = models.CharField(
+        max_length=20,
+        choices=CONTENT_TYPES,
+        help_text="Type of content this chunk represents",
+    )
+    object_id = models.CharField(
+        max_length=255,
+        help_text="ID of the source object (can be foreign key ID, URL, or custom identifier)",
     )
     chunk_text = models.TextField(help_text="The actual text content of this chunk")
     chunk_index = models.IntegerField(
-        help_text="Order of this chunk within the game log"
+        default=0,
+        help_text="Order of this chunk within the source content (0 for single chunks)",
     )
     embedding = VectorField(
         dimensions=1536, help_text="OpenAI text-embedding-3-small vector"
     )
     metadata = models.JSONField(
         default=dict,
-        help_text="Additional context: session info, characters, places, etc.",
+        help_text="Content-specific metadata: titles, URLs, relationships, dates, etc.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         indexes = [
-            models.Index(fields=["game_log"]),
+            models.Index(fields=["content_type"]),
+            models.Index(fields=["object_id"]),
+            models.Index(fields=["content_type", "object_id"]),
             models.Index(fields=["chunk_index"]),
             # HNSW vector index for cosine similarity search
             HnswIndex(
-                name="chunk_embedding_hnsw_idx",
+                name="embedding_hnsw_idx",
                 fields=["embedding"],
                 m=16,
                 ef_construction=64,
                 opclasses=["vector_cosine_ops"],
             ),
         ]
-        unique_together = ["game_log", "chunk_index"]
-        ordering = ["game_log", "chunk_index"]
+        unique_together = ["content_type", "object_id", "chunk_index"]
+        ordering = ["content_type", "object_id", "chunk_index"]
 
     def __str__(self):
-        return f"{self.game_log.title} - Chunk {self.chunk_index}"
+        title = self.metadata.get("title", self.object_id)
+        if self.chunk_index > 0:
+            return (
+                f"{self.get_content_type_display()}: {title} - Chunk {self.chunk_index}"
+            )
+        return f"{self.get_content_type_display()}: {title}"
 
 
 class ChatSession(models.Model):
@@ -95,6 +119,9 @@ class ChatMessage(models.Model):
     similarity_threshold = models.FloatField(
         default=0.7, help_text="Minimum similarity score used for this query"
     )
+    content_types_searched = models.JSONField(
+        default=list, help_text="List of content types that were searched"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -124,3 +151,31 @@ class QueryCache(models.Model):
 
     def __str__(self):
         return f"Cache: {self.query_text[:50]}... (hits: {self.hit_count})"
+
+
+# Legacy model for backward compatibility during migration
+# class GameLogChunk(models.Model):
+#     """
+#     DEPRECATED: Legacy model for GameLog chunks.
+#     New content should use ContentChunk instead.
+#     This model is kept for backward compatibility during migration.
+#     """
+
+#     game_log = models.ForeignKey(
+#         "nucleus.GameLog",
+#         on_delete=models.CASCADE,
+#         related_name="legacy_chunks",
+#     )
+#     chunk_text = models.TextField()
+#     chunk_index = models.IntegerField()
+#     embedding = VectorField(dimensions=1536)
+#     metadata = models.JSONField(default=dict)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
+
+#     class Meta:
+#         unique_together = ["game_log", "chunk_index"]
+#         ordering = ["game_log", "chunk_index"]
+
+#     def __str__(self):
+#         return f"LEGACY: {self.game_log.title} - Chunk {self.chunk_index}"
