@@ -300,9 +300,9 @@ class RAGService:
                 "similarity_threshold": similarity_threshold,
                 "content_types": content_types,
             }
-            cached_response = self.check_query_cache(query, context_params)
-            if cached_response:
-                return {**cached_response, "from_cache": True}
+            # cached_response = self.check_query_cache(query, context_params)
+            # if cached_response:
+            #     return {**cached_response, "from_cache": True}
 
             # Perform semantic search
             chunks = self.semantic_search(
