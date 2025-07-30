@@ -15,20 +15,21 @@ from pathlib import Path
 import dj_database_url
 from dotenv import load_dotenv
 from gqlauth.settings_type import GqlAuthSettings
+import datetime
 
-# LOGGING = {
-#     "version": 1,
-#     "disable_existing_loggers": False,
-#     "handlers": {
-#         "console": {
-#             "class": "logging.StreamHandler",
-#         },
-#     },
-#     "root": {
-#         "handlers": ["console"],
-#         "level": "DEBUG",
-#     },
-# }
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "DEBUG",
+    },
+}
 
 
 load_dotenv()
@@ -47,6 +48,9 @@ AIREL_FOLDER_ID = os.environ.get("AIREL_FOLDER_ID")
 GOOGLE_SSO_CLIENT_ID = os.environ.get("GOOGLE_SSO_CLIENT_ID")
 GOOGLE_SSO_CLIENT_SECRET = os.environ.get("GOOGLE_SSO_CLIENT_SECRET")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+OPENAI_EMBEDDINGS_MODEL = os.environ.get("OPENAI_EMBEDDINGS_MODEL")
+OPENAI_BEST_CHAT_MODEL = os.environ.get("OPENAI_BEST_CHAT_MODEL")
+OPENAI_CHEAP_CHAT_MODEL = os.environ.get("OPENAI_CHEAP_CHAT_MODEL")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # DEBUG = True
@@ -96,6 +100,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.postgres",
     "corsheaders",
     "strawberry_django",
     "gqlauth",
@@ -115,6 +120,7 @@ INSTALLED_APPS = [
     "transcription",
     "storages",
     "django_celery_beat",
+    "rag_chat",
 ]
 
 MIDDLEWARE = [

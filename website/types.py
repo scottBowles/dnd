@@ -40,6 +40,7 @@ from race.types import (
     RaceMutation,
     TraitMutation,
 )
+from rag_chat.types import RAGQuery, RAGMutation
 
 
 @strawberry.type
@@ -80,6 +81,7 @@ queries = (
     ScriptQuery,
     SkillQuery,
     TraitQuery,
+    RAGQuery,
     UserQuery,
     UserQueries,
     NodeQuery,
@@ -104,6 +106,7 @@ mutations = (
     ScriptMutation,
     SkillMutation,
     TraitMutation,
+    RAGMutation,
     UserMutation,
 )
 
