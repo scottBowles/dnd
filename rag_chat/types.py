@@ -170,7 +170,7 @@ class RAGQuery:
             "character": ("character", "Character"),
             "place": ("place", "Place"),
             "item": ("item", "Item"),
-            "artifact": ("artifact", "Artifact"),
+            "artifact": ("item", "Artifact"),
             "race": ("race", "Race"),
             "association": ("association", "Association"),
         }

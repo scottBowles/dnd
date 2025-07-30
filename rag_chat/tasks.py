@@ -401,7 +401,7 @@ def get_content_object(content_type: str, object_id: str):
         "character": ("character", "Character"),  # Adjust app names as needed
         "place": ("place", "Place"),
         "item": ("item", "Item"),
-        "artifact": ("artifact", "Artifact"),
+        "artifact": ("item", "Artifact"),
         "race": ("race", "Race"),
         "association": ("association", "Association"),
     }
@@ -426,7 +426,7 @@ def get_content_objects(
         "character": ("character", "Character"),
         "place": ("place", "Place"),
         "item": ("item", "Item"),
-        "artifact": ("artifact", "Artifact"),
+        "artifact": ("item", "Artifact"),
         "race": ("race", "Race"),
         "association": ("association", "Association"),
     }
@@ -476,7 +476,7 @@ def get_valid_object_ids(content_type: str):
         "character": ("character", "Character"),
         "place": ("place", "Place"),
         "item": ("item", "Item"),
-        "artifact": ("artifact", "Artifact"),
+        "artifact": ("item", "Artifact"),
         "race": ("race", "Race"),
         "association": ("association", "Association"),
     }

@@ -348,7 +348,7 @@ class Command(BaseCommand):
             "character": ("character", "Character"),  # Adjust app names as needed
             "place": ("place", "Place"),
             "item": ("item", "Item"),
-            "artifact": ("artifact", "Artifact"),
+            "artifact": ("item", "Artifact"),
             "race": ("race", "Race"),
             "association": ("association", "Association"),
         }
@@ -370,7 +370,7 @@ class Command(BaseCommand):
             "character": ("character", "Character"),
             "place": ("place", "Place"),
             "item": ("item", "Item"),
-            "artifact": ("artifact", "Artifact"),
+            "artifact": ("item", "Artifact"),
             "race": ("race", "Race"),
             "association": ("association", "Association"),
         }
