@@ -253,9 +253,9 @@ class ArtifactProcessor(BaseContentProcessor):
         if hasattr(artifact, "description") and artifact.description:
             text_parts.append(f"Description: {artifact.description}")
 
-        if hasattr(artifact, "items") and artifact.items:
+        if hasattr(artifact, "items") and artifact.items.all():
             text_parts.append(
-                f"Is a: {', '.join(str(item) for item in artifact.items)}"
+                f"Is a: {', '.join(str(item) for item in artifact.items.all())}"
             )
 
         return "\n\n".join(text_parts)
