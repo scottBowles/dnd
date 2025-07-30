@@ -152,31 +152,3 @@ class QueryCache(models.Model):
 
     def __str__(self):
         return f"Cache: {self.query_text[:50]}... (hits: {self.hit_count})"
-
-
-# Legacy model for backward compatibility during migration
-# class GameLogChunk(models.Model):
-#     """
-#     DEPRECATED: Legacy model for GameLog chunks.
-#     New content should use ContentChunk instead.
-#     This model is kept for backward compatibility during migration.
-#     """
-
-#     game_log = models.ForeignKey(
-#         "nucleus.GameLog",
-#         on_delete=models.CASCADE,
-#         related_name="legacy_chunks",
-#     )
-#     chunk_text = models.TextField()
-#     chunk_index = models.IntegerField()
-#     embedding = VectorField(dimensions=1536)
-#     metadata = models.JSONField(default=dict)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     updated_at = models.DateTimeField(auto_now=True)
-
-#     class Meta:
-#         unique_together = ["game_log", "chunk_index"]
-#         ordering = ["game_log", "chunk_index"]
-
-#     def __str__(self):
-#         return f"LEGACY: {self.game_log.title} - Chunk {self.chunk_index}"

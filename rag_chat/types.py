@@ -80,7 +80,6 @@ class SendChatMessageInput:
     message: str
     similarity_threshold: Optional[float] = None
     content_types: Optional[List[str]] = None
-    # include_legacy: Optional[bool] = True
 
 
 @strawberry.input
@@ -248,15 +247,11 @@ class RAGQuery:
         # Convert results to ContentChunk objects for GraphQL
         chunks = []
         for chunk_text, metadata, similarity, chunk_id, content_type in results:
-            if chunk_id.startswith("legacy_"):
-                # Handle legacy chunks
-                continue  # Skip for now, or create temporary objects
-            else:
-                try:
-                    chunk = models.ContentChunk.objects.get(id=chunk_id)
-                    chunks.append(chunk)
-                except models.ContentChunk.DoesNotExist:
-                    continue
+            try:
+                chunk = models.ContentChunk.objects.get(id=chunk_id)
+                chunks.append(chunk)
+            except models.ContentChunk.DoesNotExist:
+                continue
 
         return chunks
 
@@ -300,7 +295,6 @@ class RAGMutation:
             query=input.message,
             similarity_threshold=input.similarity_threshold,
             content_types=input.content_types,
-            # include_legacy=input.include_legacy,
         )
 
         message = rag_service.save_chat_message(session, input.message, response_data)
@@ -400,27 +394,6 @@ class RAGMutation:
                 message=f"Failed to queue processing task: {str(e)}",
                 content_types=[],
             )
-
-    # @strawberry.mutation
-    # def migrate_legacy_chunks(self, info) -> ProcessContentPayload:
-    #     user = info.context.request.user
-    #     if not user.is_authenticated or not user.is_superuser:
-    #         raise Exception("Only superusers can migrate data.")
-
-    #     from rag_chat.tasks import migrate_legacy_chunks
-
-    #     try:
-    #         task = migrate_legacy_chunks.delay()
-
-    #         return ProcessContentPayload(
-    #             success=True,
-    #             message="Migrating legacy chunks to new format",
-    #             task_id=task.id,
-    #         )
-    #     except Exception as e:
-    #         return ProcessContentPayload(
-    #             success=False, message=f"Failed to start migration: {str(e)}"
-    #         )
 
     @strawberry.mutation
     def cleanup_orphaned_chunks(self, info) -> ProcessContentPayload:

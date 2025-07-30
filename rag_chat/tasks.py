@@ -289,62 +289,6 @@ def process_all_content(
     }
 
 
-# @shared_task
-# def migrate_legacy_chunks():
-#     """
-#     Migrate legacy GameLogChunk records to new ContentChunk format
-#     """
-#     try:
-#         legacy_chunks = GameLogChunk.objects.select_related("game_log").all()
-#         migrated_count = 0
-#         error_count = 0
-
-#         logger.info(f"Starting migration of {legacy_chunks.count()} legacy chunks")
-
-#         for chunk in legacy_chunks:
-#             try:
-#                 # Check if already migrated
-#                 if ContentChunk.objects.filter(
-#                     content_type="game_log",
-#                     object_id=str(chunk.game_log.id),
-#                     chunk_index=chunk.chunk_index,
-#                 ).exists():
-#                     continue
-
-#                 # Create new ContentChunk
-#                 ContentChunk.objects.create(
-#                     content_type="game_log",
-#                     object_id=str(chunk.game_log.id),
-#                     chunk_text=chunk.chunk_text,
-#                     chunk_index=chunk.chunk_index,
-#                     embedding=chunk.embedding,
-#                     metadata=chunk.metadata,
-#                 )
-#                 migrated_count += 1
-
-#             except Exception as e:
-#                 logger.error(f"Failed to migrate legacy chunk {chunk.id}: {str(e)}")
-#                 error_count += 1
-
-#         logger.info(
-#             f"Migration completed: {migrated_count} migrated, {error_count} errors"
-#         )
-
-#         return {
-#             "status": "completed",
-#             "migrated_count": migrated_count,
-#             "error_count": error_count,
-#             "total_legacy_chunks": legacy_chunks.count(),
-#         }
-
-#     except Exception as e:
-#         logger.error(f"Migration failed: {str(e)}")
-#         return {
-#             "status": "error",
-#             "message": str(e),
-#         }
-
-
 @shared_task
 def cleanup_orphaned_chunks():
     """

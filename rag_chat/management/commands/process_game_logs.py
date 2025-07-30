@@ -1,16 +1,17 @@
 # rag_chat/management/commands/process_content.py
-from django.core.management.base import BaseCommand
+import json
+
 from django.apps import apps
-from rag_chat.tasks import (
-    process_content,
-    process_all_content,
-    process_custom_content,
-    # migrate_legacy_chunks,
-    cleanup_orphaned_chunks,
-)
+from django.core.management.base import BaseCommand
+
 from rag_chat.content_processors import CONTENT_PROCESSORS
 from rag_chat.models import ContentChunk
-import json
+from rag_chat.tasks import (
+    cleanup_orphaned_chunks,
+    process_all_content,
+    process_content,
+    process_custom_content,
+)
 
 
 class Command(BaseCommand):
@@ -73,10 +74,6 @@ class Command(BaseCommand):
             self.show_stats()
             return
 
-        if options["migrate_legacy"]:
-            self.handle_migration(options)
-            return
-
         if options["cleanup"]:
             self.handle_cleanup(options)
             return
@@ -117,8 +114,6 @@ class Command(BaseCommand):
             )
 
             if options["sync"]:
-                from rag_chat.tasks import process_content
-
                 result = process_content(content_type, object_id, options["force"])
             else:
                 task = process_content.delay(content_type, object_id, options["force"])
@@ -250,8 +245,6 @@ class Command(BaseCommand):
         self.stdout.write(f"Processing custom content: {title}")
 
         if options["sync"]:
-            from rag_chat.tasks import process_custom_content
-
             result = process_custom_content(title, content, object_id, metadata)
         else:
             task = process_custom_content.delay(title, content, object_id, metadata)
@@ -259,27 +252,11 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(f"Result: {result}"))
 
-    # def handle_migration(self, options):
-    #     """Handle legacy chunk migration"""
-    #     self.stdout.write("Starting migration of legacy GameLogChunk records...")
-
-    #     if options["sync"]:
-    #         from rag_chat.tasks import migrate_legacy_chunks
-
-    #         result = migrate_legacy_chunks()
-    #     else:
-    #         task = migrate_legacy_chunks.delay()
-    #         result = {"task_id": task.id, "status": "queued"}
-
-    #     self.stdout.write(self.style.SUCCESS(f"Migration result: {result}"))
-
     def handle_cleanup(self, options):
         """Handle orphaned chunk cleanup"""
         self.stdout.write("Starting cleanup of orphaned chunks...")
 
         if options["sync"]:
-            from rag_chat.tasks import cleanup_orphaned_chunks
-
             result = cleanup_orphaned_chunks()
         else:
             task = cleanup_orphaned_chunks.delay()
@@ -290,8 +267,6 @@ class Command(BaseCommand):
     def show_stats(self):
         """Show content statistics"""
         from django.db.models import Count
-
-        # from rag_chat.models import GameLogChunk
 
         self.stdout.write(self.style.SUCCESS("=== Content Statistics ===\n"))
 
@@ -308,12 +283,6 @@ class Command(BaseCommand):
             count = stat["count"]
             total_chunks += count
             self.stdout.write(f"  {stat['content_type']}: {count}")
-
-        # Legacy chunks
-        # legacy_count = GameLogChunk.objects.count()
-        # if legacy_count > 0:
-        #     self.stdout.write(f"  legacy_game_log: {legacy_count}")
-        #     total_chunks += legacy_count
 
         self.stdout.write(f"\nTotal chunks: {total_chunks}")
 

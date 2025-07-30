@@ -85,82 +85,6 @@ class RAGService:
             logger.error(f"Semantic search failed: {str(e)}")
             return []
 
-    # def semantic_search_legacy(
-    #     self, query: str, limit: int = None, similarity_threshold: float = None
-    # ) -> List[Tuple]:
-    #     """
-    #     Search legacy GameLogChunk model for backward compatibility during migration
-    #     """
-    #     if limit is None:
-    #         limit = self.max_context_chunks
-    #     if similarity_threshold is None:
-    #         similarity_threshold = self.default_similarity_threshold
-
-    #     try:
-    #         query_embedding = get_embedding(query)
-    #         from pgvector.django import CosineDistance
-
-    #         chunks = (
-    #             GameLogChunk.objects.select_related("game_log")
-    #             .annotate(similarity=1 - CosineDistance("embedding", query_embedding))
-    #             .filter(similarity__gte=similarity_threshold)
-    #             .order_by("-similarity")[:limit]
-    #         )
-
-    #         results = []
-    #         for chunk in chunks:
-    #             # Convert legacy format to new format
-    #             results.append(
-    #                 (
-    #                     chunk.chunk_text,
-    #                     chunk.metadata,
-    #                     float(chunk.similarity),
-    #                     f"legacy_{chunk.id}",
-    #                     "game_log",
-    #                 )
-    #             )
-
-    #         return results
-
-    #     except Exception as e:
-    #         logger.error(f"Legacy semantic search failed: {str(e)}")
-    #         return []
-
-    # def combined_search(
-    #     self,
-    #     query: str,
-    #     limit: int = None,
-    #     similarity_threshold: float = None,
-    #     content_types: List[str] = None,
-    #     include_legacy: bool = True,
-    # ) -> List[Tuple]:
-    #     """
-    #     Search both new ContentChunk and legacy GameLogChunk models
-    #     """
-    #     results = []
-
-    #     # Search new content chunks
-    #     new_results = self.semantic_search(
-    #         query, limit, similarity_threshold, content_types
-    #     )
-    #     results.extend(new_results)
-
-    #     # Search legacy chunks if requested and game_log is in content_types (or no filter)
-    #     if include_legacy and (not content_types or "game_log" in content_types):
-    #         remaining_limit = (limit or self.max_context_chunks) - len(results)
-    #         if remaining_limit > 0:
-    #             legacy_results = self.semantic_search_legacy(
-    #                 query, remaining_limit, similarity_threshold
-    #             )
-    #             results.extend(legacy_results)
-
-    #     # Sort combined results by similarity and trim to limit
-    #     results.sort(key=lambda x: x[2], reverse=True)  # Sort by similarity score
-    #     if limit:
-    #         results = results[:limit]
-
-    #     return results
-
     def check_query_cache(
         self, query: str, context_params: Dict[str, Any] = None
     ) -> Optional[Dict[str, Any]]:
@@ -358,7 +282,6 @@ class RAGService:
         query: str,
         similarity_threshold: float = None,
         content_types: List[str] = None,
-        # include_legacy: bool = True,
     ) -> Dict[str, Any]:
         """
         Main RAG pipeline: search, build context, generate response
@@ -367,7 +290,6 @@ class RAGService:
             query: User's question
             similarity_threshold: Minimum similarity for chunk inclusion
             content_types: List of content types to search
-            # include_legacy: Whether to include legacy GameLogChunk results
 
         Returns:
             Dict with response, sources, tokens_used, etc.
@@ -377,7 +299,6 @@ class RAGService:
             context_params = {
                 "similarity_threshold": similarity_threshold,
                 "content_types": content_types,
-                # "include_legacy": include_legacy,
             }
             cached_response = self.check_query_cache(query, context_params)
             if cached_response:
@@ -524,10 +445,5 @@ The context below contains information from relevant campaign sources:"""
 
         for stat in chunk_stats:
             stats[stat["content_type"]] = stat["count"]
-
-        # # Legacy game log chunks
-        # legacy_count = GameLogChunk.objects.count()
-        # if legacy_count > 0:
-        #     stats["game_log_legacy"] = legacy_count
 
         return stats
