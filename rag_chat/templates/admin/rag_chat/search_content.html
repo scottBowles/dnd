@@ -1,0 +1,36 @@
+{% extends "admin/base_site.html" %} {% block content %}
+<h1>Search Content Chunks</h1>
+<div style="margin-bottom: 1em;">
+  <a href="/admin/rag_chat/contentchunk/content-stats/">Content Statistics</a> |
+  <a href="/admin/rag_chat/contentchunk/available-content-types/">Available Content Types</a> |
+  <a href="/admin/rag_chat/contentchunk/search-content/">Search Content Chunks</a>
+</div>
+<form method="get">
+    {{ form.as_p }}
+    <button type="submit" class="default">Search</button>
+</form>
+{% if results is not None %}
+<h2>Results</h2>
+<table class="adminlist">
+    <thead>
+        <tr>
+            <th>Chunk Text</th>
+            <th>Content Type</th>
+            <th>Chunk ID</th>
+            <th>Similarity</th>
+            <th>Metadata</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for chunk_text, metadata, similarity, chunk_id, content_type in results %}
+        <tr>
+            <td>{{ chunk_text|truncatechars:100 }}</td>
+            <td>{{ content_type }}</td>
+            <td>{{ chunk_id }}</td>
+            <td>{{ similarity|floatformat:3 }}</td>
+            <td><pre style="white-space: pre-wrap">{{ metadata|safe }}</pre></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %} {% endblock %}

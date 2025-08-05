@@ -1,0 +1,28 @@
+{% extends "admin/base_site.html" %} {% block content %}
+<h1>Content Statistics</h1>
+<div style="margin-bottom: 1em;">
+  <a href="/admin/rag_chat/contentchunk/content-stats/">Content Statistics</a> |
+  <a href="/admin/rag_chat/contentchunk/available-content-types/">Available Content Types</a> |
+  <a href="/admin/rag_chat/contentchunk/search-content/">Search Content Chunks</a>
+</div>
+<table class="adminlist">
+    <thead>
+        <tr>
+            <th>Content Type</th>
+            <th>Chunk Count</th>
+            <th>Object Count</th>
+            <th>Processed Count</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for stat in stats %}
+        <tr>
+            <td>{{ stat.content_type }}</td>
+            <td>{{ stat.chunk_count }}</td>
+            <td>{{ stat.object_count }}</td>
+            <td>{{ stat.processed_count }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
