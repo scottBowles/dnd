@@ -15,6 +15,7 @@ Including another URLconf
 """
 
 # from django.conf import settings
+import json
 from django.contrib import admin
 from django.urls import include, path
 
@@ -23,9 +24,12 @@ from strawberry.django.views import GraphQLView
 from django.http import HttpResponse
 from website import settings
 
-
 # from strawberry.django.views import AsyncGraphQLView
 from .types import schema
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 admin.site.site_header = "D&D Admin"
 admin.site.index_title = "Admin"
@@ -33,6 +37,19 @@ admin.site.index_title = "Admin"
 
 def healthcheck(request):
     return HttpResponse("OK")
+
+
+class GraphQLViewWithLogging(GraphQLView):
+    def dispatch(self, request, *args, **kwargs):
+        body = request.body.decode("utf-8")
+        parsed = json.loads(body)
+        # log just the first line of the query
+        logger.debug("GraphQL request received")
+        logger.debug("Query:\n%s", json.dumps(parsed.get("query"), indent=2))
+        logger.debug("Variables:\n%s", json.dumps(parsed.get("variables"), indent=2))
+        res = super().dispatch(request, *args, **kwargs)
+        logger.debug("GraphQL response:\n%s", res.content.decode("utf-8"))
+        return res
 
 
 # Wire up our API using automatic URL routing.
@@ -45,6 +62,10 @@ urlpatterns = [
         "graphiql/",
         csrf_exempt(GraphQLView.as_view(schema=schema, graphiql=settings.DEBUG)),
     ),
-    path("graphql/", csrf_exempt(GraphQLView.as_view(schema=schema))),
+    path(
+        "graphql/",
+        # csrf_exempt(GraphQLView.as_view(schema=schema)),
+        csrf_exempt(GraphQLView.as_view(schema=schema)),
+    ),
     # path("graphql/", AsyncGraphQLView.as_view(schema=schema)),
 ]
