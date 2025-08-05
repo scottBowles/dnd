@@ -55,7 +55,6 @@ sniffio==1.3.0
 sqlparse==0.5.1
 starlette==0.26.1
 strawberry-django-auth<0.379
-strawberry-django-plus==2.0.6
 strawberry-graphql==0.275.2
 strawberry-graphql-django==0.62.0
 tqdm==4.65.0
