@@ -1,14 +1,14 @@
-# rag_chat/services.py
-from openai import OpenAI
-from django.conf import settings
-from typing import List, Dict, Any, Tuple, Optional
-from .models import ContentChunk, ChatSession, ChatMessage, QueryCache
-
-# from .models import ContentChunk, ChatSession, ChatMessage, QueryCache, GameLogChunk
-from .embeddings import get_embedding, create_query_hash
-from django.utils import timezone
-from datetime import timedelta
 import logging
+from datetime import timedelta
+from typing import Any, Dict, List, Optional, Tuple
+
+from django.conf import settings
+from django.utils import timezone
+from openai import OpenAI
+
+from .embeddings import create_query_hash, get_embedding
+from .models import ChatMessage, ChatSession, ContentChunk, QueryCache
+from .source_models import SourceUnion
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +141,7 @@ class RAGService:
         except Exception as e:
             logger.error(f"Failed to cache response: {str(e)}")
 
-    def build_context(self, chunks: List[Tuple]) -> Tuple[str, List[Dict]]:
+    def build_context(self, chunks: List[Tuple]) -> Tuple[str, List[SourceUnion]]:
         """
         Build context string and sources list from search results
 
@@ -164,7 +164,7 @@ class RAGService:
             )
             context_parts.append(context_entry)
 
-            # Build source info
+            # Build source info as Pydantic model
             source = self._build_source_info(
                 metadata, similarity, chunk_id, content_type
             )
@@ -220,62 +220,83 @@ class RAGService:
 
     def _build_source_info(
         self, metadata: Dict, similarity: float, chunk_id: str, content_type: str
-    ) -> Dict:
-        """Build source information based on content type"""
+    ):
+        from .source_models import (
+            GameLogSource,
+            CharacterSource,
+            PlaceSource,
+            ItemSource,
+            ArtifactSource,
+            RaceSource,
+            AssociationSource,
+            CustomSource,
+        )
 
-        base_source = {
-            "type": content_type,
-            "chunk_id": chunk_id,
-            "similarity": similarity,
-            "chunk_index": metadata.get("chunk_index", 0),
-        }
-
+        base = dict(
+            type=content_type,
+            chunk_id=chunk_id,
+            similarity=similarity,
+            chunk_index=metadata.get("chunk_index", 0),
+        )
         if content_type == "game_log":
-            base_source.update(
-                {
-                    "session_number": metadata.get("session_number"),
-                    "title": metadata.get("title", "Unknown Session"),
-                    "url": metadata.get("google_doc_url", ""),
-                    "session_date": metadata.get("session_date"),
-                    "places": metadata.get("places_set_in", []),
-                    "chunk_summary": metadata.get("chunk_summary", ""),
-                }
+            return GameLogSource(
+                **base,
+                session_number=metadata.get("session_number"),
+                title=metadata.get("title", "Unknown Session"),
+                url=metadata.get("google_doc_url", ""),
+                session_date=metadata.get("session_date"),
+                places=metadata.get("places_set_in", []),
+                chunk_summary=metadata.get("chunk_summary", ""),
             )
-
-        elif content_type in [
-            "character",
-            "place",
-            "item",
-            "artifact",
-            "race",
-            "association",
-        ]:
-            base_source.update(
-                {
-                    "name": metadata.get("name", f"Unknown {content_type.title()}"),
-                    "mentioned_in_sessions": metadata.get("mentioned_in_sessions", []),
-                }
+        elif content_type == "character":
+            return CharacterSource(
+                **base,
+                name=metadata.get("name", "Unknown Character"),
+                mentioned_in_sessions=metadata.get("mentioned_in_sessions", []),
+                race=metadata.get("race"),
             )
-
-            # Add type-specific fields
-            if content_type == "character" and "race" in metadata:
-                base_source["race"] = metadata["race"]
-            elif content_type == "item" and "item_type" in metadata:
-                base_source["item_type"] = metadata["item_type"]
-
+        elif content_type == "place":
+            return PlaceSource(
+                **base,
+                name=metadata.get("name", "Unknown Place"),
+                mentioned_in_sessions=metadata.get("mentioned_in_sessions", []),
+            )
+        elif content_type == "item":
+            return ItemSource(
+                **base,
+                name=metadata.get("name", "Unknown Item"),
+                mentioned_in_sessions=metadata.get("mentioned_in_sessions", []),
+                item_type=metadata.get("item_type"),
+            )
+        elif content_type == "artifact":
+            return ArtifactSource(
+                **base,
+                name=metadata.get("name", "Unknown Artifact"),
+                mentioned_in_sessions=metadata.get("mentioned_in_sessions", []),
+            )
+        elif content_type == "race":
+            return RaceSource(
+                **base,
+                name=metadata.get("name", "Unknown Race"),
+                mentioned_in_sessions=metadata.get("mentioned_in_sessions", []),
+            )
+        elif content_type == "association":
+            return AssociationSource(
+                **base,
+                name=metadata.get("name", "Unknown Association"),
+                mentioned_in_sessions=metadata.get("mentioned_in_sessions", []),
+            )
         elif content_type == "custom":
-            base_source.update(
-                {
-                    "title": metadata.get("title", "Custom Content"),
-                    **{
-                        k: v
-                        for k, v in metadata.items()
-                        if k not in ["title", "chunk_index"]
-                    },
-                }
+            extra = {
+                k: v for k, v in metadata.items() if k not in ["title", "chunk_index"]
+            }
+            return CustomSource(
+                **base,
+                title=metadata.get("title", "Custom Content"),
+                extra=extra,
             )
-
-        return base_source
+        else:
+            raise ValueError(f"Unknown content_type: {content_type}")
 
     def generate_response(
         self,
@@ -441,17 +462,24 @@ Your goal: Be the ultimate space fantasy campaign companion that understands the
         """
         Save a chat exchange to the database
         """
+        sources = response_data.get("sources", [])
+        sources_dicts = [s.dict() if hasattr(s, "dict") else s for s in sources]
         return ChatMessage.objects.create(
             session=session,
             message=message,
             response=response_data["response"],
-            sources=response_data.get("sources", []),
+            sources=sources_dicts,
             tokens_used=response_data.get("tokens_used", 0),
             similarity_threshold=response_data.get(
                 "similarity_threshold", self.default_similarity_threshold
             ),
             content_types_searched=response_data.get("content_types_searched", []),
         )
+
+    def parse_sources_from_db(self, sources: List[dict]) -> List[SourceUnion]:
+        from .source_models import parse_source
+
+        return [parse_source(s) for s in sources]
 
     def get_user_chat_sessions(self, user, limit: int = 10) -> List[ChatSession]:
         """

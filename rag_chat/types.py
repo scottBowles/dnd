@@ -1,13 +1,81 @@
-# rag_chat/types.py
 from django.conf import settings
 import strawberry
 import strawberry_django
 from strawberry import auto, relay
-from typing import List, Optional
+from typing import List, Optional, Union
 from strawberry_django.relay import DjangoListConnection
 from . import models, services
+from .source_models import (
+    GameLogSource,
+    CharacterSource,
+    PlaceSource,
+    ItemSource,
+    ArtifactSource,
+    RaceSource,
+    AssociationSource,
+    CustomSource,
+)
+import strawberry.experimental.pydantic
+
 from nucleus.types.user import User as UserType
 from nucleus.permissions import IsSuperuser
+
+
+# Strawberry types for each Pydantic source model
+@strawberry.experimental.pydantic.type(model=GameLogSource, all_fields=True)
+class GameLogSourceType:
+    pass
+
+
+@strawberry.experimental.pydantic.type(model=CharacterSource, all_fields=True)
+class CharacterSourceType:
+    pass
+
+
+@strawberry.experimental.pydantic.type(model=PlaceSource, all_fields=True)
+class PlaceSourceType:
+    pass
+
+
+@strawberry.experimental.pydantic.type(model=ItemSource, all_fields=True)
+class ItemSourceType:
+    pass
+
+
+@strawberry.experimental.pydantic.type(model=ArtifactSource, all_fields=True)
+class ArtifactSourceType:
+    pass
+
+
+@strawberry.experimental.pydantic.type(model=RaceSource, all_fields=True)
+class RaceSourceType:
+    pass
+
+
+@strawberry.experimental.pydantic.type(model=AssociationSource, all_fields=True)
+class AssociationSourceType:
+    pass
+
+
+@strawberry.experimental.pydantic.type(model=CustomSource, all_fields=True)
+class CustomSourceType:
+    pass
+
+
+# # Union for all source types
+# SourceTypeUnion = strawberry.union(
+#     "SourceTypeUnion",
+#     (
+#         GameLogSourceType,
+#         CharacterSourceType,
+#         PlaceSourceType,
+#         ItemSourceType,
+#         ArtifactSourceType,
+#         RaceSourceType,
+#         AssociationSourceType,
+#         CustomSourceType,
+#     ),
+# )
 
 
 @strawberry_django.type(models.ContentChunk)
@@ -39,11 +107,37 @@ class ChatMessageType(relay.Node):
     session: "ChatSessionType"
     message: auto
     response: auto
-    sources: auto
     tokens_used: auto
     similarity_threshold: auto
     content_types_searched: auto
     created_at: auto
+
+    # This doesn't work right now and I'm not sure why
+    # @strawberry.field
+    # def extra_sources(self) -> list["SourceTypeUnion"]:
+    #     # Parse sources from DB and convert to Strawberry types
+    #     from .services import RAGService
+
+    #     pydantic_sources = RAGService().parse_sources_from_db(self.sources)
+    #     result = []
+    #     for s in pydantic_sources:
+    #         if isinstance(s, GameLogSource):
+    #             result.append(GameLogSourceType.from_pydantic(s))
+    #         elif isinstance(s, CharacterSource):
+    #             result.append(CharacterSourceType.from_pydantic(s))
+    #         elif isinstance(s, PlaceSource):
+    #             result.append(PlaceSourceType.from_pydantic(s))
+    #         elif isinstance(s, ItemSource):
+    #             result.append(ItemSourceType.from_pydantic(s))
+    #         elif isinstance(s, ArtifactSource):
+    #             result.append(ArtifactSourceType.from_pydantic(s))
+    #         elif isinstance(s, RaceSource):
+    #             result.append(RaceSourceType.from_pydantic(s))
+    #         elif isinstance(s, AssociationSource):
+    #             result.append(AssociationSourceType.from_pydantic(s))
+    #         elif isinstance(s, CustomSource):
+    #             result.append(CustomSourceType.from_pydantic(s))
+    #     return result
 
 
 @strawberry_django.type(models.QueryCache)
@@ -89,12 +183,12 @@ class ProcessContentInput:
     force_reprocess: Optional[bool] = False
 
 
-@strawberry.input
-class ProcessCustomContentInput:
-    title: str
-    content: str
-    object_id: Optional[str] = None
-    metadata: Optional[strawberry.scalars.JSON] = None
+# @strawberry.input
+# class ProcessCustomContentInput:
+#     title: str
+#     content: str
+#     object_id: Optional[str] = None
+#     metadata: Optional[strawberry.scalars.JSON] = None
 
 
 @strawberry.input
@@ -136,17 +230,25 @@ class ProcessAllContentPayload:
 @strawberry.type
 class RAGQuery:
     content_chunks: DjangoListConnection[ContentChunkType] = (
-        strawberry_django.connection()
-    )
-    chat_sessions: DjangoListConnection[ChatSessionType] = (
-        strawberry_django.connection()
-    )
-    chat_messages: DjangoListConnection[ChatMessageType] = (
-        strawberry_django.connection()
+        strawberry_django.connection(permission_classes=[IsSuperuser])
     )
     query_cache: DjangoListConnection[QueryCacheType] = strawberry_django.connection(
         permission_classes=[IsSuperuser]
     )
+
+    @strawberry_django.connection(DjangoListConnection[ChatSessionType])
+    def chat_sessions(self, info) -> list[models.ChatSession]:
+        user = info.context.request.user
+        if not user.is_authenticated:
+            raise Exception("Authentication required.")
+        return models.ChatSession.objects.filter(user=user)
+
+    @strawberry_django.connection(DjangoListConnection[ChatMessageType])
+    def chat_messages(self, info) -> list[models.ChatMessage]:
+        user = info.context.request.user
+        if not user.is_authenticated:
+            raise Exception("Authentication required.")
+        return models.ChatMessage.objects.filter(session__user=user)
 
     @strawberry.field(permission_classes=[IsSuperuser])
     def content_stats(self) -> List[ContentStatsType]:
@@ -219,14 +321,14 @@ class RAGQuery:
 
         return stats
 
-    @strawberry.field
+    @strawberry.field(permission_classes=[IsSuperuser])
     def available_content_types(self) -> List[str]:
         """Get list of available content types"""
         from rag_chat.content_processors import CONTENT_PROCESSORS
 
         return list(CONTENT_PROCESSORS.keys())
 
-    @strawberry.field
+    @strawberry.field(permission_classes=[IsSuperuser])
     def search_content(
         self,
         query: str,
@@ -327,33 +429,33 @@ class RAGMutation:
                 success=False, message=f"Failed to queue processing task: {str(e)}"
             )
 
-    @strawberry.mutation
-    def process_custom_content(
-        self, info, input: ProcessCustomContentInput
-    ) -> ProcessContentPayload:
-        user = info.context.request.user
-        if not user.is_authenticated or not user.is_superuser:
-            raise Exception("Only superusers can process content.")
+    # @strawberry.mutation
+    # def process_custom_content(
+    #     self, info, input: ProcessCustomContentInput
+    # ) -> ProcessContentPayload:
+    #     user = info.context.request.user
+    #     if not user.is_authenticated or not user.is_superuser:
+    #         raise Exception("Only superusers can process content.")
 
-        from rag_chat.tasks import process_custom_content
+    #     from rag_chat.tasks import process_custom_content
 
-        try:
-            task = process_custom_content.delay(
-                title=input.title,
-                content=input.content,
-                object_id=input.object_id,
-                metadata=input.metadata,
-            )
+    #     try:
+    #         task = process_custom_content.delay(
+    #             title=input.title,
+    #             content=input.content,
+    #             object_id=input.object_id,
+    #             metadata=input.metadata,
+    #         )
 
-            return ProcessContentPayload(
-                success=True,
-                message=f"Processing custom content: {input.title}",
-                task_id=task.id,
-            )
-        except Exception as e:
-            return ProcessContentPayload(
-                success=False, message=f"Failed to queue processing task: {str(e)}"
-            )
+    #         return ProcessContentPayload(
+    #             success=True,
+    #             message=f"Processing custom content: {input.title}",
+    #             task_id=task.id,
+    #         )
+    #     except Exception as e:
+    #         return ProcessContentPayload(
+    #             success=False, message=f"Failed to queue processing task: {str(e)}"
+    #         )
 
     @strawberry.mutation
     def process_all_content(

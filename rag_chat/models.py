@@ -1,4 +1,3 @@
-# rag_chat/models.py
 from django.conf import settings
 from django.db import models
 from pgvector.django import HnswIndex, VectorField
