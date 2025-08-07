@@ -395,6 +395,7 @@ class RAGMutation:
 
         response_data = rag_service.generate_response(
             query=input.message,
+            session=session,
             similarity_threshold=input.similarity_threshold,
             content_types=input.content_types,
         )
