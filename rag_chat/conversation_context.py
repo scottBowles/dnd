@@ -168,6 +168,43 @@ class ConversationContextManager:
         recent_messages = history[-self.config.max_recent_messages:]
         older_messages = history[:-self.config.max_recent_messages]
         
+        # Build preliminary result to check if we need to include truncated messages in summary
+        preliminary_result = []
+        if recent_messages:
+            preliminary_result.extend(recent_messages)
+        preliminary_result.append(current_message)
+        
+        # Calculate tokens for preliminary result (without summary yet)
+        preliminary_tokens = sum(self._count_tokens(msg["content"]) for msg in preliminary_result)
+        
+        # If even the recent messages + current exceed our limit, we need to include 
+        # some of the recent messages in the older section for summarization
+        if preliminary_tokens > self.config.max_conversation_tokens:
+            # Calculate how many recent messages we can actually keep
+            current_tokens = self._count_tokens(current_message["content"])
+            remaining_tokens = self.config.max_conversation_tokens - current_tokens - 100  # Reserve for summary
+            
+            if remaining_tokens <= 0:
+                # Can only keep current message, summarize everything else
+                older_messages = history
+                recent_messages = []
+            else:
+                # Find how many recent messages fit
+                recent_tokens = 0
+                kept_recent = []
+                for msg in reversed(recent_messages):
+                    msg_tokens = self._count_tokens(msg["content"])
+                    if recent_tokens + msg_tokens <= remaining_tokens:
+                        kept_recent.insert(0, msg)
+                        recent_tokens += msg_tokens
+                    else:
+                        break
+                
+                # Move messages that don't fit into older section for summarization
+                messages_to_summarize = recent_messages[:-len(kept_recent)] if kept_recent else recent_messages
+                older_messages = older_messages + messages_to_summarize
+                recent_messages = kept_recent
+        
         # Summarize the older messages
         summary = self._create_conversation_summary(older_messages, session)
         
@@ -180,30 +217,30 @@ class ConversationContextManager:
         result.extend(recent_messages)
         result.append(current_message)
         
-        # Check if we're still within limits, truncate recent if needed
-        total_tokens = sum(self._count_tokens(msg["content"]) for msg in result)
-        if total_tokens > self.config.max_conversation_tokens:
-            # Need to truncate recent messages too
-            return self._truncate_conversation(recent_messages + [current_message])
-        
         return result
     
     def _hybrid_conversation(self, conversation: List[Dict[str, str]], session: ChatSession) -> List[Dict[str, str]]:
         """
         Hybrid strategy - use summarization when beneficial, truncation otherwise.
+        
+        Logic: Use summarization when we have enough history to make it worthwhile
+        and when the history tokens exceed our threshold.
         """
         current_message = conversation[-1]
         history = conversation[:-1]
         
-        # Calculate tokens in history
+        # Calculate tokens in history (both user messages and assistant responses)
         history_tokens = sum(self._count_tokens(msg["content"]) for msg in history)
         
         # If history is under summarization threshold, just truncate
         if history_tokens < self.config.summarization_threshold:
             return self._truncate_conversation(conversation)
         
-        # If we have enough messages and tokens to make summarization worthwhile
-        if len(history) >= self.config.max_recent_messages * 2:
+        # Use summarization when we have enough history messages to make it worthwhile
+        # Need at least max_recent_messages + 4 to have meaningful content to summarize
+        # (i.e., at least 2 user-assistant exchanges beyond what we keep recent)
+        min_messages_for_summary = self.config.max_recent_messages + 4
+        if len(history) >= min_messages_for_summary:
             return self._summarize_conversation(conversation, session)
         
         # Fall back to truncation for edge cases
@@ -230,18 +267,18 @@ class ConversationContextManager:
             ])
             
             # Create summarization prompt
-            system_prompt = """You are summarizing a D&D campaign conversation for context preservation. Create a concise summary that captures:
+            system_prompt = """You are summarizing a D&D campaign conversation for context preservation. The participants are discussing campaign elements - remembering information, creatively engaging with existing content, bouncing ideas around, or having fun with the world and characters. Create a concise summary that captures:
 
-1. **Key Topics Discussed**: Main subjects, questions asked, and information sought
-2. **Campaign Elements**: Characters mentioned, locations discussed, events referenced
-3. **Player Decisions**: Important choices made or considered
-4. **Narrative Context**: Story elements, quest progress, relationships
+1. **Key Topics Discussed**: Main subjects, questions asked, and information sought about the campaign
+2. **Campaign Elements**: Characters mentioned, locations discussed, events referenced, lore explored
+3. **Creative Ideas**: Theories, speculation, or creative interpretations discussed
+4. **Information Needs**: What participants were trying to remember or understand
 5. **Unresolved Questions**: Ongoing topics that may be referenced later
 
 Keep the summary concise but informative. Focus on elements that would be useful for maintaining conversational context in future messages. Use present tense and be specific about campaign details.
 
 Example format:
-"The conversation covered the party's exploration of Shadowhaven, discussing the mysterious disappearance of Captain Thorne and the strange magical disturbances in the harbor district. Players asked about the Crimson Company's involvement and learned about ancient protective wards. The group is planning to investigate the old lighthouse and is considering whether to trust the halfling merchant Pip with their information about the stolen artifact."
+"The conversation explored the history of Shadowhaven, with participants discussing Captain Thorne's mysterious disappearance and trying to remember details about the magical disturbances in the harbor district. They speculated about the Crimson Company's involvement and recalled information about ancient protective wards. The group was brainstorming theories about the old lighthouse and discussing whether the halfling merchant Pip could be trusted with information about the stolen artifact."
 
 Summarize the following conversation:"""
 

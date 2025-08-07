@@ -105,39 +105,6 @@ class RAGService:
         """
         return self.conversation_manager.build_conversation_context(session, current_message)
 
-    def _truncate_conversation(self, conversation: List[Dict[str, str]]) -> List[Dict[str, str]]:
-        """
-        Legacy truncation method - now delegated to conversation manager.
-        Kept for backward compatibility but enhanced with new capabilities.
-        """
-        # This method is now handled by the conversation manager
-        # but we keep it here for any direct calls
-        if not conversation:
-            return conversation
-        
-        current_message = conversation[-1]
-        history = conversation[:-1]
-        
-        current_tokens = self._count_tokens(current_message["content"])
-        remaining_tokens = self.max_conversation_tokens - current_tokens
-        
-        if remaining_tokens <= 0:
-            return [current_message]
-        
-        truncated_history = []
-        used_tokens = 0
-        
-        for message in reversed(history):
-            message_tokens = self._count_tokens(message["content"])
-            
-            if used_tokens + message_tokens <= remaining_tokens:
-                truncated_history.insert(0, message)
-                used_tokens += message_tokens
-            else:
-                break
-        
-        return truncated_history + [current_message]
-
     def semantic_search(
         self,
         query: str,
