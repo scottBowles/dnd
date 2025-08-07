@@ -7,6 +7,7 @@ from django.conf import settings
 from django.utils import timezone
 from openai import OpenAI
 
+from .conversation_context import ConversationContextManager, ContextConfiguration, ContextStrategy
 from .embeddings import create_query_hash, get_embedding
 from .models import ChatMessage, ChatSession, ContentChunk, QueryCache
 from .source_models import SourceUnion
@@ -27,6 +28,19 @@ class RAGService:
         self.max_total_tokens = self._get_model_context_window() - 1200  # Reserve space for response
         self.max_conversation_tokens = 2000  # Maximum tokens for conversation history
         self.max_context_tokens = 4000  # Maximum tokens for retrieved context
+        
+        # Initialize conversation context manager
+        context_config = ContextConfiguration(
+            max_conversation_tokens=self.max_conversation_tokens,
+            max_recent_messages=6,  # Keep 6 recent messages (3 exchanges) verbatim
+            summarization_threshold=1500,  # Start summarizing when history > 1500 tokens
+            summary_target_tokens=400,  # Target 400 tokens for summaries
+            strategy=ContextStrategy.HYBRID  # Use intelligent hybrid approach
+        )
+        self.conversation_manager = ConversationContextManager(
+            model=self.model,
+            config=context_config
+        )
         
         # Initialize tokenizer
         try:
@@ -77,77 +91,51 @@ class RAGService:
 
     def _build_conversation_history(self, session: ChatSession, current_message: str) -> List[Dict[str, str]]:
         """
-        Build conversation history from chat session, ensuring it fits within token limits
+        Build conversation history using the enhanced conversation context manager.
+        
+        This method now leverages intelligent summarization to maintain better context
+        while staying within token limits.
         
         Args:
             session: The chat session
             current_message: The current user message
             
         Returns:
-            List of message dicts for OpenAI API
+            List of message dicts optimized for the current context window
         """
-        # Get previous messages in chronological order
-        previous_messages = list(
-            session.messages.order_by('created_at').values('message', 'response')
-        )
-        
-        # Build conversation messages (user/assistant pairs)
-        conversation = []
-        
-        # Add previous exchanges in chronological order
-        for msg in previous_messages:
-            conversation.append({"role": "user", "content": msg['message']})
-            conversation.append({"role": "assistant", "content": msg['response']})
-        
-        # Add current message
-        conversation.append({"role": "user", "content": current_message})
-        
-        # Truncate conversation to fit within token limits
-        truncated_conversation = self._truncate_conversation(conversation)
-        
-        return truncated_conversation
+        return self.conversation_manager.build_conversation_context(session, current_message)
 
     def _truncate_conversation(self, conversation: List[Dict[str, str]]) -> List[Dict[str, str]]:
         """
-        Truncate conversation history to fit within token limits, preserving recent context
-        
-        Args:
-            conversation: List of conversation messages
-            
-        Returns:
-            Truncated conversation that fits within token limits
+        Legacy truncation method - now delegated to conversation manager.
+        Kept for backward compatibility but enhanced with new capabilities.
         """
+        # This method is now handled by the conversation manager
+        # but we keep it here for any direct calls
         if not conversation:
             return conversation
         
-        # Always keep the last message (current user input)
         current_message = conversation[-1]
         history = conversation[:-1]
         
-        # Count tokens in current message
         current_tokens = self._count_tokens(current_message["content"])
-        
-        # Calculate remaining tokens for history
         remaining_tokens = self.max_conversation_tokens - current_tokens
         
         if remaining_tokens <= 0:
             return [current_message]
         
-        # Add messages from most recent to oldest until we hit the limit
         truncated_history = []
         used_tokens = 0
         
-        # Process history in reverse (most recent first)
         for message in reversed(history):
             message_tokens = self._count_tokens(message["content"])
             
             if used_tokens + message_tokens <= remaining_tokens:
-                truncated_history.insert(0, message)  # Insert at beginning to maintain order
+                truncated_history.insert(0, message)
                 used_tokens += message_tokens
             else:
                 break
         
-        # Return truncated history + current message
         return truncated_history + [current_message]
 
     def semantic_search(
@@ -434,7 +422,9 @@ class RAGService:
         content_types: List[str] = None,
     ) -> Dict[str, Any]:
         """
-        Main RAG pipeline: search, build context, generate response with conversation history
+        Enhanced RAG pipeline with intelligent conversation context management.
+        
+        Now includes LLM-based summarization for better conversation flow and context preservation.
         
         Args:
             query: User's question
@@ -443,7 +433,7 @@ class RAGService:
             content_types: List of content types to search
             
         Returns:
-            Dict with response, sources, tokens_used, etc.
+            Dict with response, sources, tokens_used, context_stats, etc.
         """
         try:
             # Check cache first
@@ -472,6 +462,7 @@ class RAGService:
                     or self.default_similarity_threshold,
                     "chunks_found": 0,
                     "content_types_searched": content_types or ["all"],
+                    "context_stats": {},
                 }
                 return response_data
 
@@ -479,24 +470,6 @@ class RAGService:
             context, sources = self.build_context(chunks)
 
             # Create system prompt with enhanced instructions
-            #             _system_prompt = """You are a knowledgeable D&D campaign assistant with access to detailed information from an ongoing campaign including session logs, characters, places, items, artifacts, races, associations, and other campaign elements.
-
-            # Your role is to help players and the DM recall information, understand relationships, remember important details, and connect story elements across different aspects of the campaign.
-
-            # Guidelines:
-            # - Answer questions using the provided context from various sources
-            # - When referencing game sessions, mention specific session titles/numbers and dates when available
-            # - When discussing characters, places, items, etc., use their proper names and reference where they appeared
-            # - Be conversational and engaging, like a helpful fellow player who has perfect recall
-            # - If information spans multiple sources, weave them together naturally to tell a complete story
-            # - If you can't find relevant information, say so clearly but suggest related topics that might help
-            # - For entity questions (characters, places, items, artifacts, races, associations), focus on what actually happened or was described in the campaign
-            # - Maintain the narrative tone of the campaign
-            # - Always distinguish between different types of sources (session logs vs character descriptions vs place details, etc.)
-            # - Do not make up information or editorialize.
-
-            # The context below contains information from relevant campaign sources:"""
-
             system_prompt = """# D&D Bi-Solar Campaign Assistant
 You are a knowledgeable assistant for a D&D homebrew campaign set in a bi-solar system with multiple planets connected by spaceship travel. You have access to embeddings containing game logs, places, characters, items, artifacts, associations, and races from this space fantasy setting.
 
@@ -526,14 +499,23 @@ When users ask about predictions, future events, or "what might happen next":
 3. Consider logical consequences of recent player actions
 4. Use historical context to inform possibilities, but weight recent developments heavily
 
+## Conversation Continuity
+- Reference previous parts of our conversation when relevant
+- Build on topics we've discussed earlier in this session
+- Maintain consistency with information you've provided before
+- If conversation history has been summarized, integrate that context naturally
+
 Your goal: Be the ultimate space fantasy campaign companion that understands the unique dynamics of this multi-world setting."""
 
-            # Build conversation messages including history
+            # Build conversation messages including enhanced history
             messages = [{"role": "system", "content": system_prompt}]
             
-            # Add conversation history if session is provided
+            # Get context statistics for monitoring
+            context_stats = {}
             if session:
                 conversation_history = self._build_conversation_history(session, query)
+                context_stats = self.conversation_manager.get_context_stats(session, query)
+                
                 # Remove the current message from history since we'll add it with context
                 if conversation_history and conversation_history[-1]["content"] == query:
                     conversation_history = conversation_history[:-1]
@@ -565,6 +547,7 @@ Your goal: Be the ultimate space fantasy campaign companion that understands the
                 "chunks_found": len(chunks),
                 "content_types_searched": content_types or ["all"],
                 "content_types_found": content_types_found,
+                "context_stats": context_stats,  # Include conversation context statistics
                 "from_cache": False,
             }
 
@@ -573,7 +556,8 @@ Your goal: Be the ultimate space fantasy campaign companion that understands the
 
             logger.info(
                 f"Generated response for query: {query[:50]}... "
-                f"(tokens: {tokens_used}, content_types: {content_types_found})"
+                f"(tokens: {tokens_used}, content_types: {content_types_found}, "
+                f"context_strategy: {context_stats.get('strategy_used', 'none')})"
             )
             return response_data
 
@@ -584,6 +568,7 @@ Your goal: Be the ultimate space fantasy campaign companion that understands the
                 "sources": [],
                 "tokens_used": 0,
                 "error": str(e),
+                "context_stats": {},
             }
 
     def create_chat_session(self, user, title: str = None) -> ChatSession:
@@ -642,3 +627,43 @@ Your goal: Be the ultimate space fantasy campaign companion that understands the
             stats[stat["content_type"]] = stat["count"]
 
         return stats
+
+    def configure_conversation_strategy(
+        self, 
+        strategy: ContextStrategy = None,
+        max_recent_messages: int = None,
+        summarization_threshold: int = None,
+        summary_target_tokens: int = None
+    ):
+        """
+        Dynamically configure the conversation context strategy.
+        
+        Args:
+            strategy: The context strategy to use (TRUNCATE, SUMMARIZE, HYBRID)
+            max_recent_messages: Number of recent messages to keep verbatim
+            summarization_threshold: Token threshold for triggering summarization
+            summary_target_tokens: Target token count for summaries
+        """
+        if strategy is not None:
+            self.conversation_manager.config.strategy = strategy
+        if max_recent_messages is not None:
+            self.conversation_manager.config.max_recent_messages = max_recent_messages
+        if summarization_threshold is not None:
+            self.conversation_manager.config.summarization_threshold = summarization_threshold
+        if summary_target_tokens is not None:
+            self.conversation_manager.config.summary_target_tokens = summary_target_tokens
+            
+        logger.info(f"Updated conversation strategy: {self.conversation_manager.config.strategy.value}")
+
+    def get_conversation_stats(self, session: ChatSession, current_message: str = "") -> Dict[str, Any]:
+        """
+        Get detailed statistics about conversation context management.
+        
+        Args:
+            session: Chat session to analyze
+            current_message: Optional current message for context
+            
+        Returns:
+            Detailed statistics about the conversation context
+        """
+        return self.conversation_manager.get_context_stats(session, current_message)
