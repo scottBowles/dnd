@@ -82,6 +82,17 @@ class ChatSession(models.Model):
     title = models.CharField(
         max_length=200, blank=True, help_text="Auto-generated from first message"
     )
+    summary = models.TextField(blank=True, help_text="Auto-generated conversation summary")
+    summary_up_to_message_id = models.IntegerField(
+        null=True, 
+        blank=True,
+        help_text="Last message ID included in the summary"
+    )
+    last_summarized_at = models.DateTimeField(
+        null=True, 
+        blank=True,
+        help_text="Timestamp of last summarization"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

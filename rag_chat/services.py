@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from django.conf import settings
 from django.utils import timezone
 from openai import OpenAI
+import tiktoken
 
 from .embeddings import create_query_hash, get_embedding
 from .models import ChatMessage, ChatSession, ContentChunk, QueryCache
@@ -506,3 +507,228 @@ Your goal: Be the ultimate space fantasy campaign companion that understands the
             stats[stat["content_type"]] = stat["count"]
 
         return stats
+
+
+class ConversationMemoryService:
+    """
+    Service for managing conversation memory with sliding window + summary approach
+    """
+    
+    def __init__(self, model: str = settings.OPENAI_CHEAP_CHAT_MODEL):
+        self.model = model
+        self.config = getattr(settings, 'CONVERSATION_MEMORY_CONFIG', {
+            'MAX_RECENT_MESSAGES': 20,
+            'MAX_CONTEXT_TOKENS': 2000,
+            'SUMMARIZATION_TRIGGER_THRESHOLD': 25,
+            'SUMMARY_TARGET_LENGTH': 200,
+        })
+        
+        # Initialize tiktoken encoder for token counting
+        try:
+            self.encoding = tiktoken.encoding_for_model(model)
+        except Exception:
+            try:
+                # Fallback to a common encoding if model-specific one fails
+                self.encoding = tiktoken.get_encoding("cl100k_base")
+            except Exception:
+                # If tiktoken fails completely, use None and fallback to character estimation
+                self.encoding = None
+                logger.warning("Failed to initialize tiktoken encoder, using character-based estimation")
+    
+    def get_conversation_context(
+        self, 
+        session_id: int, 
+        max_recent_messages: int = None,
+        max_tokens: int = None
+    ) -> List[ChatMessage]:
+        """
+        Returns optimized conversation context for LLM:
+        - If conversation <= max_recent_messages: return all messages
+        - If conversation > max_recent_messages: return summary + recent messages
+        """
+        if max_recent_messages is None:
+            max_recent_messages = self.config['MAX_RECENT_MESSAGES']
+        if max_tokens is None:
+            max_tokens = self.config['MAX_CONTEXT_TOKENS']
+        
+        try:
+            session = ChatSession.objects.get(id=session_id)
+            all_messages = list(session.messages.order_by('created_at'))
+            
+            # If conversation is short enough, return all messages
+            if len(all_messages) <= max_recent_messages:
+                return all_messages
+            
+            # For longer conversations, get recent messages
+            recent_messages = all_messages[-max_recent_messages:]
+            
+            # Check if we need to include summary
+            if session.summary and session.summary_up_to_message_id:
+                # Create a virtual message containing the summary
+                summary_message = ChatMessage(
+                    session=session,
+                    message="[CONVERSATION SUMMARY]",
+                    response=session.summary,
+                    tokens_used=0,
+                    created_at=session.last_summarized_at or session.created_at
+                )
+                
+                # Combine summary with recent messages
+                context_messages = [summary_message] + recent_messages
+            else:
+                context_messages = recent_messages
+            
+            # Verify token count and trim if necessary
+            if self.estimate_token_count(context_messages) > max_tokens:
+                # Progressively reduce messages until under token limit
+                while len(context_messages) > 1 and self.estimate_token_count(context_messages) > max_tokens:
+                    # Remove the oldest non-summary message
+                    if len(context_messages) > 1 and context_messages[0].message == "[CONVERSATION SUMMARY]":
+                        context_messages.pop(1)  # Remove first real message after summary
+                    else:
+                        context_messages.pop(0)  # Remove oldest message
+            
+            return context_messages
+            
+        except ChatSession.DoesNotExist:
+            logger.error(f"ChatSession {session_id} not found")
+            return []
+        except Exception as e:
+            logger.error(f"Error getting conversation context: {str(e)}")
+            return []
+    
+    def should_summarize_conversation(self, session_id: int) -> bool:
+        """Check if conversation needs summarization"""
+        try:
+            session = ChatSession.objects.get(id=session_id)
+            message_count = session.messages.count()
+            
+            threshold = self.config['SUMMARIZATION_TRIGGER_THRESHOLD']
+            
+            # Check if we've exceeded the threshold
+            if message_count <= threshold:
+                return False
+            
+            # Check if we've already summarized recently
+            if session.summary_up_to_message_id:
+                messages_since_summary = session.messages.filter(
+                    id__gt=session.summary_up_to_message_id
+                ).count()
+                # Only summarize if we have enough new messages
+                return messages_since_summary >= self.config['MAX_RECENT_MESSAGES']
+            
+            return True
+            
+        except ChatSession.DoesNotExist:
+            logger.error(f"ChatSession {session_id} not found")
+            return False
+        except Exception as e:
+            logger.error(f"Error checking if summarization needed: {str(e)}")
+            return False
+    
+    def create_conversation_summary(self, session_id: int, up_to_message_id: int = None) -> str:
+        """Generate summary of conversation up to specified message"""
+        try:
+            session = ChatSession.objects.get(id=session_id)
+            
+            # Determine which messages to summarize
+            messages_query = session.messages.order_by('created_at')
+            if up_to_message_id:
+                messages_query = messages_query.filter(id__lte=up_to_message_id)
+            else:
+                # Summarize all but the most recent messages
+                all_messages = list(messages_query)
+                if len(all_messages) > self.config['MAX_RECENT_MESSAGES']:
+                    cutoff_index = len(all_messages) - self.config['MAX_RECENT_MESSAGES']
+                    messages_to_summarize = all_messages[:cutoff_index]
+                    up_to_message_id = messages_to_summarize[-1].id if messages_to_summarize else None
+                else:
+                    return ""  # Nothing to summarize
+            
+            messages_to_summarize = list(messages_query.filter(id__lte=up_to_message_id))
+            
+            if not messages_to_summarize:
+                return ""
+            
+            # Build conversation text for summarization
+            conversation_text = []
+            for msg in messages_to_summarize:
+                conversation_text.append(f"User: {msg.message}")
+                conversation_text.append(f"Assistant: {msg.response}")
+            
+            conversation_content = "\n\n".join(conversation_text)
+            
+            # Create summarization prompt
+            system_prompt = f"""You are tasked with creating a concise summary of a D&D campaign conversation. 
+
+Focus on:
+- Key topics discussed
+- Important decisions or conclusions reached
+- User preferences or context mentioned
+- Unresolved questions or plot points
+- Character, place, item, or story developments
+
+Keep the summary to approximately {self.config['SUMMARY_TARGET_LENGTH']} words and structure it to help maintain conversational context for future messages.
+
+The conversation you're summarizing is from a D&D bi-solar campaign assistant that helps players recall campaign information."""
+
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Please summarize this conversation:\n\n{conversation_content}"}
+            ]
+            
+            response = openai_client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0.3,
+                max_tokens=400,  # Limit to keep summary concise
+            )
+            
+            summary = response.choices[0].message.content.strip()
+            
+            # Update session with new summary
+            if session.summary:
+                # Append to existing summary
+                session.summary = f"{session.summary}\n\n---\n\n{summary}"
+            else:
+                session.summary = summary
+            
+            session.summary_up_to_message_id = up_to_message_id
+            session.last_summarized_at = timezone.now()
+            session.save(update_fields=['summary', 'summary_up_to_message_id', 'last_summarized_at'])
+            
+            logger.info(f"Created summary for session {session_id} up to message {up_to_message_id}")
+            return summary
+            
+        except ChatSession.DoesNotExist:
+            logger.error(f"ChatSession {session_id} not found")
+            return ""
+        except Exception as e:
+            logger.error(f"Error creating conversation summary: {str(e)}")
+            return ""
+    
+    def estimate_token_count(self, messages: List[ChatMessage]) -> int:
+        """Estimate token count for context window management"""
+        try:
+            total_tokens = 0
+            for msg in messages:
+                # Count tokens in user message and assistant response
+                if self.encoding:
+                    user_tokens = len(self.encoding.encode(msg.message))
+                    response_tokens = len(self.encoding.encode(msg.response))
+                    total_tokens += user_tokens + response_tokens
+                else:
+                    # Fallback: rough estimation (4 chars per token average)
+                    total_chars = len(msg.message) + len(msg.response)
+                    total_tokens += total_chars // 4
+                
+                # Add some overhead for message formatting
+                total_tokens += 10  # Approximate overhead per message
+            
+            return total_tokens
+            
+        except Exception as e:
+            logger.error(f"Error estimating token count: {str(e)}")
+            # Fallback: rough estimation (4 chars per token average)
+            total_chars = sum(len(msg.message) + len(msg.response) for msg in messages)
+            return total_chars // 4
