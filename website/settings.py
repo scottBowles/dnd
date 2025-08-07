@@ -308,6 +308,14 @@ AWS_S3_ADDRESSING_STYLE = "virtual"
 AWS_DEFAULT_ACL = None
 AWS_S3_FILE_OVERWRITE = False
 
+# Conversation Memory Configuration
+CONVERSATION_MEMORY_CONFIG = {
+    'MAX_RECENT_MESSAGES': 20,
+    'MAX_CONTEXT_TOKENS': 2000,
+    'SUMMARIZATION_TRIGGER_THRESHOLD': 25,  # messages
+    'SUMMARY_TARGET_LENGTH': 200,  # words
+}
+
 # Celery Configuration
 CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 CELERY_ACCEPT_CONTENT = ["json"]

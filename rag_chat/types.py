@@ -4,6 +4,7 @@ import strawberry_django
 from strawberry import auto, relay
 from typing import List, Optional, Union
 from strawberry_django.relay import DjangoListConnection
+import logging
 from . import models, services
 from .source_models import (
     GameLogSource,
@@ -19,6 +20,8 @@ import strawberry.experimental.pydantic
 
 from nucleus.types.user import User as UserType
 from nucleus.permissions import IsSuperuser
+
+logger = logging.getLogger(__name__)
 
 
 # Strawberry types for each Pydantic source model
@@ -392,6 +395,17 @@ class RAGMutation:
         # Verify user owns the session
         if session.user != user:
             raise Exception("You can only send messages to your own chat sessions.")
+
+        # Initialize conversation memory service
+        memory_service = services.ConversationMemoryService(model=model)
+        
+        # Check if summarization is needed before processing new message
+        if memory_service.should_summarize_conversation(session.id):
+            try:
+                memory_service.create_conversation_summary(session.id)
+            except Exception as e:
+                # Log error but continue with chat - summarization failure shouldn't break chat
+                logger.error(f"Failed to create conversation summary for session {session.id}: {str(e)}")
 
         response_data = rag_service.generate_response(
             query=input.message,
