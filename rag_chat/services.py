@@ -2,6 +2,7 @@ import logging
 from datetime import timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
+import tiktoken
 from django.conf import settings
 from django.utils import timezone
 from openai import OpenAI
@@ -21,6 +22,133 @@ class RAGService:
         self.model = model
         self.default_similarity_threshold = 0.1
         self.max_context_chunks = 8  # Increased to handle more diverse content
+        
+        # Token management for conversation history
+        self.max_total_tokens = self._get_model_context_window() - 1200  # Reserve space for response
+        self.max_conversation_tokens = 2000  # Maximum tokens for conversation history
+        self.max_context_tokens = 4000  # Maximum tokens for retrieved context
+        
+        # Initialize tokenizer
+        try:
+            self.tokenizer = tiktoken.encoding_for_model(self.model)
+        except (KeyError, Exception):
+            # Fallback to a default encoding if model not found or network issues
+            try:
+                self.tokenizer = tiktoken.get_encoding("cl100k_base")
+            except Exception:
+                # Final fallback - set to None and use character-based estimation
+                self.tokenizer = None
+
+    def _get_model_context_window(self) -> int:
+        """Get the context window size for the current model"""
+        if not self.model:
+            return 8192  # Conservative default
+            
+        model_limits = {
+            "gpt-4o": 128000,
+            "gpt-4o-mini": 128000,
+            "gpt-4": 8192,
+            "gpt-4-turbo": 128000,
+            "gpt-3.5-turbo": 16385,
+            "gpt-3.5-turbo-16k": 16385,
+        }
+        
+        # Try to match model name (handle versioned models)
+        for model_name, limit in model_limits.items():
+            if model_name in self.model:
+                return limit
+        
+        # Default to conservative limit
+        return 8192
+
+    def _count_tokens(self, text: str) -> int:
+        """Count tokens in text using the model's tokenizer"""
+        if not text:
+            return 0
+            
+        try:
+            if self.tokenizer:
+                return len(self.tokenizer.encode(text))
+        except Exception:
+            pass
+            
+        # Fallback: rough estimate (4 chars per token average)
+        return max(1, len(text) // 4)
+
+    def _build_conversation_history(self, session: ChatSession, current_message: str) -> List[Dict[str, str]]:
+        """
+        Build conversation history from chat session, ensuring it fits within token limits
+        
+        Args:
+            session: The chat session
+            current_message: The current user message
+            
+        Returns:
+            List of message dicts for OpenAI API
+        """
+        # Get previous messages in chronological order
+        previous_messages = list(
+            session.messages.order_by('created_at').values('message', 'response')
+        )
+        
+        # Build conversation messages (user/assistant pairs)
+        conversation = []
+        
+        # Add previous exchanges in chronological order
+        for msg in previous_messages:
+            conversation.append({"role": "user", "content": msg['message']})
+            conversation.append({"role": "assistant", "content": msg['response']})
+        
+        # Add current message
+        conversation.append({"role": "user", "content": current_message})
+        
+        # Truncate conversation to fit within token limits
+        truncated_conversation = self._truncate_conversation(conversation)
+        
+        return truncated_conversation
+
+    def _truncate_conversation(self, conversation: List[Dict[str, str]]) -> List[Dict[str, str]]:
+        """
+        Truncate conversation history to fit within token limits, preserving recent context
+        
+        Args:
+            conversation: List of conversation messages
+            
+        Returns:
+            Truncated conversation that fits within token limits
+        """
+        if not conversation:
+            return conversation
+        
+        # Always keep the last message (current user input)
+        current_message = conversation[-1]
+        history = conversation[:-1]
+        
+        # Count tokens in current message
+        current_tokens = self._count_tokens(current_message["content"])
+        
+        # Calculate remaining tokens for history
+        remaining_tokens = self.max_conversation_tokens - current_tokens
+        
+        if remaining_tokens <= 0:
+            return [current_message]
+        
+        # Add messages from most recent to oldest until we hit the limit
+        truncated_history = []
+        used_tokens = 0
+        
+        # Process history in reverse (most recent first)
+        for message in reversed(history):
+            message_tokens = self._count_tokens(message["content"])
+            
+            if used_tokens + message_tokens <= remaining_tokens:
+                truncated_history.insert(0, message)  # Insert at beginning to maintain order
+                used_tokens += message_tokens
+            else:
+                break
+        
+        # Return truncated history + current message
+        return truncated_history + [current_message]
 
     def semantic_search(
         self,
@@ -301,17 +429,19 @@ class RAGService:
     def generate_response(
         self,
         query: str,
+        session: Optional[ChatSession] = None,
         similarity_threshold: float = None,
         content_types: List[str] = None,
     ) -> Dict[str, Any]:
         """
-        Main RAG pipeline: search, build context, generate response
-
+        Main RAG pipeline: search, build context, generate response with conversation history
+        
         Args:
             query: User's question
+            session: Chat session for conversation history (optional)
             similarity_threshold: Minimum similarity for chunk inclusion
             content_types: List of content types to search
-
+            
         Returns:
             Dict with response, sources, tokens_used, etc.
         """
@@ -398,14 +528,20 @@ When users ask about predictions, future events, or "what might happen next":
 
 Your goal: Be the ultimate space fantasy campaign companion that understands the unique dynamics of this multi-world setting."""
 
-            # Generate response
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {
-                    "role": "user",
-                    "content": f"Context:\n{context}\n\nQuestion: {query}",
-                },
-            ]
+            # Build conversation messages including history
+            messages = [{"role": "system", "content": system_prompt}]
+            
+            # Add conversation history if session is provided
+            if session:
+                conversation_history = self._build_conversation_history(session, query)
+                # Remove the current message from history since we'll add it with context
+                if conversation_history and conversation_history[-1]["content"] == query:
+                    conversation_history = conversation_history[:-1]
+                messages.extend(conversation_history)
+            
+            # Add current message with context
+            current_content = f"Context:\n{context}\n\nQuestion: {query}" if context else query
+            messages.append({"role": "user", "content": current_content})
 
             response = openai_client.chat.completions.create(
                 model=self.model,
