@@ -82,6 +82,10 @@ class ChatSession(models.Model):
     title = models.CharField(
         max_length=200, blank=True, help_text="Auto-generated from first message"
     )
+    conversation_summary = models.TextField(
+        default="",
+        help_text="Running summary of all messages outside the sliding token window",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -121,6 +125,10 @@ class ChatMessage(models.Model):
     )
     content_types_searched = models.JSONField(
         default=list, help_text="List of content types that were searched"
+    )
+    included_in_summary = models.BooleanField(
+        default=False,
+        help_text="Whether this message has been included in the conversation summary",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

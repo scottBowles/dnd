@@ -397,6 +397,7 @@ class RAGMutation:
             query=input.message,
             similarity_threshold=input.similarity_threshold,
             content_types=input.content_types,
+            session=session,
         )
 
         message = rag_service.save_chat_message(session, input.message, response_data)

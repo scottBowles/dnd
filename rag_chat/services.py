@@ -1,14 +1,17 @@
 import logging
 from datetime import timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Iterable
 
 from django.conf import settings
+from django.db import transaction
 from django.utils import timezone
 from openai import OpenAI
+from openai.types.chat import ChatCompletionMessageParam
 
 from .embeddings import create_query_hash, get_embedding
 from .models import ChatMessage, ChatSession, ContentChunk, QueryCache
 from .source_models import SourceUnion
+from .utils import count_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +24,73 @@ class RAGService:
         self.model = model
         self.default_similarity_threshold = 0.1
         self.max_context_chunks = 8  # Increased to handle more diverse content
+
+    def build_recent_chat_context(
+        self, session: ChatSession, latest_user_message: str
+    ) -> str:
+        # Adjustable limits
+        RECENT_CONTEXT_TOKEN_LIMIT = (
+            300  # how much recent chat to include before the new message
+        )
+        """
+        Build minimal, focused search context for semantic search
+        from recent conversation history plus the latest message.
+
+        1. Pulls messages in reverse order until hitting token limit
+        2. Optionally condenses multi-turn context via LLM if long
+        3. Appends the latest user message at the end
+        """
+        # Step 1 — Get recent messages (excluding the current one, which isn't saved yet)
+        recent_msgs = session.messages.order_by("-created_at")
+        token_count = 0
+        collected = []
+
+        for msg in recent_msgs:
+            # Combine user + assistant for context
+            turn_text = f"User: {msg.message}\nAssistant: {msg.response}"
+            turn_tokens = count_tokens(turn_text)
+
+            if token_count + turn_tokens > RECENT_CONTEXT_TOKEN_LIMIT:
+                break
+            collected.append(turn_text)
+            token_count += turn_tokens
+
+        # Reverse to get chronological order
+        collected.reverse()
+
+        recent_context_text = "\n".join(collected).strip()
+
+        # Step 2 — Condense if needed (optional, keeps embeddings small & focused)
+        if token_count > (RECENT_CONTEXT_TOKEN_LIMIT * 0.7):
+            summary_prompt = f"""
+            Summarize the following recent conversation so it keeps only the facts,
+            entities, and constraints needed to understand the user's next question.
+            Avoid irrelevant details and small talk.
+
+            Conversation:
+            {recent_context_text}
+            """
+            summary_resp = openai_client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You summarize conversation history for search queries.",
+                    },
+                    {"role": "user", "content": summary_prompt},
+                ],
+                temperature=0.0,
+            )
+            recent_context_text = summary_resp.choices[0].message.content.strip()
+
+        # Step 3 — Append latest user message
+        search_query_text = (
+            f"{recent_context_text}\n\nUser: {latest_user_message}"
+            if recent_context_text
+            else latest_user_message
+        )
+
+        return search_query_text
 
     def semantic_search(
         self,
@@ -222,14 +292,14 @@ class RAGService:
         self, metadata: Dict, similarity: float, chunk_id: str, content_type: str
     ):
         from .source_models import (
-            GameLogSource,
-            CharacterSource,
-            PlaceSource,
-            ItemSource,
             ArtifactSource,
-            RaceSource,
             AssociationSource,
+            CharacterSource,
             CustomSource,
+            GameLogSource,
+            ItemSource,
+            PlaceSource,
+            RaceSource,
         )
 
         base = dict(
@@ -303,6 +373,7 @@ class RAGService:
         query: str,
         similarity_threshold: float = None,
         content_types: List[str] = None,
+        session: ChatSession = None,
     ) -> Dict[str, Any]:
         """
         Main RAG pipeline: search, build context, generate response
@@ -311,23 +382,35 @@ class RAGService:
             query: User's question
             similarity_threshold: Minimum similarity for chunk inclusion
             content_types: List of content types to search
+            session: Optional chat session for building contextual search queries and conversation memory
 
         Returns:
             Dict with response, sources, tokens_used, etc.
         """
         try:
-            # Check cache first
+            # Build enhanced search query with recent chat context if session provided
+            search_query = query
+            if session:
+                search_query = self.build_recent_chat_context(session, query)
+                logger.info(
+                    f"Enhanced search query with chat context: {search_query[:100]}..."
+                )
+
+            # Check cache first (note: we don't cache responses with conversation context)
             context_params = {
                 "similarity_threshold": similarity_threshold,
                 "content_types": content_types,
+                "has_session_context": session is not None,
             }
-            # cached_response = self.check_query_cache(query, context_params)
-            # if cached_response:
-            #     return {**cached_response, "from_cache": True}
+            cached_response = None
+            if not session:  # Only use cache for non-conversational queries
+                cached_response = self.check_query_cache(search_query, context_params)
+                if cached_response:
+                    return {**cached_response, "from_cache": True}
 
             # Perform semantic search
             chunks = self.semantic_search(
-                query,
+                search_query,
                 limit=self.max_context_chunks,
                 similarity_threshold=similarity_threshold,
                 content_types=content_types,
@@ -342,6 +425,7 @@ class RAGService:
                     or self.default_similarity_threshold,
                     "chunks_found": 0,
                     "content_types_searched": content_types or ["all"],
+                    "used_session_context": session is not None,
                 }
                 return response_data
 
@@ -398,14 +482,30 @@ When users ask about predictions, future events, or "what might happen next":
 
 Your goal: Be the ultimate space fantasy campaign companion that understands the unique dynamics of this multi-world setting."""
 
-            # Generate response
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {
-                    "role": "user",
-                    "content": f"Context:\n{context}\n\nQuestion: {query}",
-                },
-            ]
+            # Generate response with conversation memory if session provided
+            if session:
+                # Use ConversationMemoryService to get conversation history
+                memory_service = ConversationMemoryService(session, model=self.model)
+                conversation_messages = list(memory_service.get_prompt_messages(query))
+
+                # Build messages with system prompt, conversation history, and current context
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    *conversation_messages,
+                    {
+                        "role": "user",
+                        "content": f"Context:\n{context}\n\nQuestion: {query}",
+                    },
+                ]
+            else:
+                # No session - just use system prompt and current query
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {
+                        "role": "user",
+                        "content": f"Context:\n{context}\n\nQuestion: {query}",
+                    },
+                ]
 
             response = openai_client.chat.completions.create(
                 model=self.model,
@@ -430,14 +530,16 @@ Your goal: Be the ultimate space fantasy campaign companion that understands the
                 "content_types_searched": content_types or ["all"],
                 "content_types_found": content_types_found,
                 "from_cache": False,
+                "used_session_context": session is not None,
             }
 
-            # Cache the response
-            self.cache_query_response(query, response_data, context_params)
+            # Cache the response (only for non-conversational queries)
+            if not session:
+                self.cache_query_response(search_query, response_data, context_params)
 
             logger.info(
                 f"Generated response for query: {query[:50]}... "
-                f"(tokens: {tokens_used}, content_types: {content_types_found})"
+                f"(search_query: {search_query[:50]}..., tokens: {tokens_used}, content_types: {content_types_found})"
             )
             return response_data
 
@@ -506,3 +608,148 @@ Your goal: Be the ultimate space fantasy campaign companion that understands the
             stats[stat["content_type"]] = stat["count"]
 
         return stats
+
+
+class ConversationMemoryService:
+    """
+    Service to manage conversation memory within token limits
+    """
+
+    def __init__(
+        self,
+        session: ChatSession,
+        max_tokens_before_summary: int = 1500,
+        model: str = settings.OPENAI_CHEAP_CHAT_MODEL,
+    ):
+        self.session = session
+        self.max_tokens_before_summary = max_tokens_before_summary
+        self.model = model
+
+    def _divide_messages_for_conversation_memory(
+        self: "ConversationMemoryService", new_message: str
+    ) -> Tuple[List[ChatMessage], List[ChatMessage]]:
+        """
+        Based on the max_tokens limit, determine which previous messages to include in full
+        and which to add to the session summary.
+        """
+        # Get all messages in the session not already included in the summary, most recent first
+        messages = self.session.messages.filter(included_in_summary=False).order_by(
+            "-created_at"
+        )
+
+        new_message_token_count = count_tokens(new_message)
+
+        messages_to_include = []
+        messages_to_add_to_summary = []
+        total_tokens = new_message_token_count
+        for msg in messages:
+            # If we're already over the limit, add remaining messages to summary -- no need to count tokens
+            if total_tokens >= self.max_tokens_before_summary:
+                messages_to_add_to_summary.append(msg)
+            else:
+                # If the message would not exceed the token limit, include it in the context in full
+                msg_token_count = count_tokens(msg.message) + count_tokens(msg.response)
+                if total_tokens + msg_token_count <= self.max_tokens_before_summary:
+                    messages_to_include.append(msg)
+                # If it would exceed, add it to the summary list
+                else:
+                    messages_to_add_to_summary.append(msg)
+                total_tokens += msg_token_count
+
+        return messages_to_include, messages_to_add_to_summary
+
+    def _get_new_conversation_summary(
+        self: "ConversationMemoryService",
+        existing_summary: str,
+        messages_to_add_to_summary: List[ChatMessage],
+    ):
+        """
+        Generate a new summary for the conversation based on messages not yet included in the summary
+        """
+        new_messages_text = "\n".join(
+            f"User: {m.message}\nAssistant: {m.response}"
+            for m in messages_to_add_to_summary
+        )
+        summary_prompt = f"""
+You are summarizing a chat log for long-term memory. 
+Preserve important facts, entities, and context that may be useful later.
+Do NOT simply shorten; keep key details.
+
+Existing summary:
+{existing_summary}
+
+New content to summarize and merge:
+{new_messages_text}
+"""
+        summary_response = openai_client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You summarize past conversation context.",
+                },
+                {"role": "user", "content": summary_prompt},
+            ],
+            temperature=0.2,
+        )
+
+        new_summary = summary_response.choices[0].message.content.strip()
+
+        return new_summary
+
+    def _add_messages_to_summary(self, messages: List[ChatMessage]) -> str:
+        """
+        Add specified messages to the conversation summary
+        """
+        if not messages:
+            return self.session.conversation_summary
+
+        logger.info(
+            f"Adding {len(messages)} messages to conversation summary for session {self.session.id}."
+        )
+        new_summary = self._get_new_conversation_summary(
+            self.session.conversation_summary, messages
+        )
+        with transaction.atomic():
+            self.session.conversation_summary = new_summary
+            self.session.save()
+            ChatMessage.objects.filter(id__in=[m.id for m in messages]).update(
+                included_in_summary=True
+            )
+            logger.info(
+                f"Updated conversation summary for session {self.session.id}. "
+                f"Included {len(messages)} messages in summary."
+            )
+
+        return new_summary
+
+    def get_prompt_messages(
+        self, new_message: str
+    ) -> Iterable[ChatCompletionMessageParam]:
+        """
+        Get the list of messages to include in the prompt for the LLM for conversation context.
+        """
+        messages_to_include, messages_to_add_to_summary = (
+            self._divide_messages_for_conversation_memory(new_message)
+        )
+
+        if messages_to_add_to_summary:
+            self._add_messages_to_summary(messages_to_add_to_summary)
+
+        conversation_summary = self.session.conversation_summary
+
+        prompt_messages: list[ChatCompletionMessageParam] = []
+
+        if conversation_summary:
+            prompt_messages.append(
+                {
+                    "role": "system",
+                    "content": f"Summary of earlier conversation: {conversation_summary}",
+                }
+            )
+
+        for msg in reversed(messages_to_include):
+            prompt_messages.append({"role": "user", "content": msg.message})
+            prompt_messages.append({"role": "assistant", "content": msg.response})
+
+        return prompt_messages
