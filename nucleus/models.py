@@ -1,3 +1,4 @@
+from django.contrib.postgres.indexes import GinIndex
 import datetime
 from django.utils import timezone
 from django.db import models
@@ -8,6 +9,63 @@ from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.db.models import Q
 from django.utils.functional import cached_property
+
+from django.conf import settings
+from django.forms.models import model_to_dict
+
+
+class ModelDiffMixin:
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__initial = self._dict
+        self.__changed_attributes = {}
+
+    @property
+    def _dict(self):
+        return model_to_dict(self, fields=[field.name for field in self._meta.fields])
+
+    @property
+    def changed_values(self):
+        return list(self.__changed_attributes.keys())
+
+    @property
+    def diff(self):
+        initial_fields = self.__initial
+        current_fields = self._dict
+        diffs = [
+            (k, (v, current_fields[k]))
+            for k, v in list(initial_fields.items())
+            if not v == current_fields[k]
+        ]
+        return dict(diffs)
+
+    def is_changing(self, field_name):
+        return bool(self.diff.get(field_name, False))
+
+    def is_adding(self, field_name):
+        initial_fields = self.__initial
+        return self.is_changing(field_name) and not initial_fields.get(field_name)
+
+    def is_removing(self, field_name):
+        return self.is_changing(field_name) and not getattr(self, field_name)
+
+    def has_changed(self, field_name):
+        return bool(self.__changed_attributes.get(field_name, False))
+
+    def previous_value(self, field_name):
+        value = self.__changed_attributes.get(field_name)
+        if value:
+            return value[0]
+
+    def has_added(self, field_name):
+        if self.__changed_attributes.get(field_name, False):
+            return self.__changed_attributes.get(field_name)[0] is None
+        return False
+
+    def save(self, *args, **kwargs):
+        self.__changed_attributes = self.diff
+        super().save(*args, **kwargs)
+        self.__initial = self._dict
 
 
 class User(AbstractUser):
@@ -578,11 +636,32 @@ class Alias(models.Model):
     name = models.CharField(max_length=255)
     is_primary = models.BooleanField(default=False)
 
+    @property
+    def entity(self):
+        return (
+            self.base_characters.first()
+            or self.base_places.first()
+            or self.base_items.first()
+            or self.base_artifacts.first()
+            or self.base_associations.first()
+            or self.base_races.first()
+        )
+
     def __str__(self):
         return self.name
 
+    class Meta:
+        indexes = [
+            GinIndex(
+                fields=["name"],
+                name="alias_name_trgm_idx",
+                opclasses=["gin_trgm_ops"],
+            ),
+        ]
+
 
 class Entity(
+    ModelDiffMixin,
     PessimisticConcurrencyLockModel,
     NameSlugDescriptionModel,
     NotesMarkdownModel,
@@ -591,6 +670,22 @@ class Entity(
 ):
     logs = models.ManyToManyField(GameLog, blank=True, related_name="%(class)ss")
     aliases = models.ManyToManyField(Alias, blank=True, related_name="base_%(class)ss")
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
+        # if name changed, get or create primary alias
+        if (
+            self.is_changing("name")
+            or self.aliases.filter(is_primary=True).count() == 0
+        ):
+            primary_alias = self.aliases.filter(is_primary=True).first()
+            if primary_alias:
+                primary_alias.name = self.name
+                primary_alias.save()
+            else:
+                new_alias = Alias.objects.create(name=self.name, is_primary=True)
+                self.aliases.add(new_alias)
 
     def __str__(self):
         return self.name
