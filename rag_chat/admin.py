@@ -1,22 +1,24 @@
-from django.contrib import admin
-from django.urls import path
-from django.utils.html import format_html
-from django.shortcuts import render, redirect
 from django import forms
-from django.contrib import messages
-from . import models
-from rag_chat.content_processors import CONTENT_PROCESSORS
-from django.db.models import Count
 from django.apps import apps
+from django.contrib import admin
+from django.db.models import Count
+from django.shortcuts import render
+from django.urls import path
+
+from rag_chat.content_processors import CONTENT_PROCESSORS
+from rag_chat.services import RAGService
+
+from . import models
 
 
 @admin.register(models.ContentChunk)
 class ContentChunkAdmin(admin.ModelAdmin):
     def search_content_view(self, request):
+
         results = None
         form = self.SearchForm(request.GET or None)
         if form.is_valid():
-            rag_service = __import__("rag_chat.services").services.RAGService()
+            rag_service = RAGService()
             results = rag_service.semantic_search(
                 query=form.cleaned_data["query"],
                 limit=form.cleaned_data.get("limit") or 10,
