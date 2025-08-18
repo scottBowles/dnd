@@ -13,13 +13,6 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 from django.forms.models import model_to_dict
 
-if TYPE_CHECKING:
-    from association.models import Association
-    from character.models import Character
-    from item.models import Artifact, Item
-    from place.models import Place
-    from race.models import Race
-
 
 class ModelDiffMixin:
     def __init__(self, *args, **kwargs):
@@ -644,9 +637,7 @@ class Alias(models.Model):
     is_primary = models.BooleanField(default=False)
 
     @property
-    def entity(
-        self,
-    ) -> "Association" | "Character" | "Item" | "Artifact" | "Place" | "Race":
+    def entity(self):
         try:
             return (
                 self.base_characters.first()
