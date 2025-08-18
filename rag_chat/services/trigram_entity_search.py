@@ -95,6 +95,8 @@ def find_entities_by_trigram_similarity(
         if entity_global_id not in seen_entity_global_ids:
             results.append(
                 SearchResult(
+                    entity_id=entity.id,
+                    entity_type=entity.__class__.__name__,
                     entity=entity,
                     entity_name=entity.name,
                     matched_name=alias.name,
