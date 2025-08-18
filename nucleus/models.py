@@ -9,9 +9,16 @@ from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.db.models import Q
 from django.utils.functional import cached_property
-
+from typing import TYPE_CHECKING
 from django.conf import settings
 from django.forms.models import model_to_dict
+
+if TYPE_CHECKING:
+    from association.models import Association
+    from character.models import Character
+    from item.models import Artifact, Item
+    from place.models import Place
+    from race.models import Race
 
 
 class ModelDiffMixin:
@@ -637,15 +644,22 @@ class Alias(models.Model):
     is_primary = models.BooleanField(default=False)
 
     @property
-    def entity(self):
-        return (
-            self.base_characters.first()
-            or self.base_places.first()
-            or self.base_items.first()
-            or self.base_artifacts.first()
-            or self.base_associations.first()
-            or self.base_races.first()
-        )
+    def entity(
+        self,
+    ) -> "Association" | "Character" | "Item" | "Artifact" | "Place" | "Race":
+        try:
+            return (
+                self.base_characters.first()
+                or self.base_places.first()
+                or self.base_items.first()
+                or self.base_artifacts.first()
+                or self.base_associations.first()
+                or self.base_races.first()
+            )
+        except Exception:
+            raise ValueError(
+                "Alias is not associated with any entity. Did I recently add a new entity type, or could an alias be orphaned?"
+            )
 
     def __str__(self):
         return self.name
