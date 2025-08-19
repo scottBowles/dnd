@@ -30,6 +30,8 @@ class EntityResolverConfig:
     )
     # Max aliases to return per n-gram, in case a given word or phrase matches multiple aliases
     max_aliases_per_ngram: int = 5
+    # Minimum character length for aliases to consider in trigram search (reduces false positives)
+    min_alias_length: int = 4
 
 
 @dataclass
@@ -56,14 +58,20 @@ def generate_ngrams(text: str, ngram_range: NGramRange) -> list[str]:
     return ngrams
 
 
-def search_aliases(query: str, threshold: float, max_aliases_per_ngram: int):
+def search_aliases(query: str, config: EntityResolverConfig):
     """
     Search entity aliases using trigram similarity.
     Returns max_aliases_per_ngram results, each linked to its parent entity.
+    Only considers aliases with at least min_alias_length characters.
     """
+    threshold = config.threshold
+    max_aliases_per_ngram = config.max_aliases_per_ngram
+    min_alias_length = config.min_alias_length
+
     alias_qs = (
         Alias.objects.annotate(similarity=TrigramSimilarity("name", query))
         .filter(similarity__gt=threshold)
+        .extra(where=["CHAR_LENGTH(name) >= %s"], params=[min_alias_length])
         .order_by("-similarity")[:max_aliases_per_ngram]
     )
     return alias_qs
@@ -77,12 +85,7 @@ def find_entities_by_trigram_similarity(
 
     found_aliases = (
         Alias.objects.none()
-        .union(
-            *[
-                search_aliases(ng, config.threshold, config.max_aliases_per_ngram)
-                for ng in ngrams
-            ]
-        )
+        .union(*[search_aliases(ng, config) for ng in ngrams])
         .order_by("-similarity")
     )
 
