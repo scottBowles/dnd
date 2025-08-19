@@ -1,17 +1,17 @@
-from django.contrib.postgres.indexes import GinIndex
 import datetime
-from django.utils import timezone
-from django.db import models
+
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
-from django_extensions.db.fields import AutoSlugField
-from django.utils.translation import gettext_lazy as _
-from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
+from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.search import SearchVector, SearchVectorField
+from django.db import models
 from django.db.models import Q
-from django.utils.functional import cached_property
-from typing import TYPE_CHECKING
-from django.conf import settings
 from django.forms.models import model_to_dict
+from django.utils import timezone
+from django.utils.functional import cached_property
+from django.utils.translation import gettext_lazy as _
+from django_extensions.db.fields import AutoSlugField
 
 
 class ModelDiffMixin:
@@ -212,7 +212,7 @@ class PessimisticConcurrencyLockModel(models.Model):
         return self
 
 
-class GameLog(PessimisticConcurrencyLockModel, models.Model):
+class GameLog(ModelDiffMixin, PessimisticConcurrencyLockModel, models.Model):
     url = models.CharField(max_length=255, unique=True)
     title = models.CharField(max_length=512, null=True, blank=True)
     google_id = models.CharField(max_length=255, null=True, blank=True, unique=True)
@@ -221,6 +221,8 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
     brief = models.TextField(null=True, blank=True)
     synopsis = models.TextField(null=True, blank=True)
     summary = models.TextField(null=True, blank=True)
+    full_text = models.TextField(default="", blank=True)
+    full_text_search_vector = SearchVectorField(null=True, editable=False)
     places_set_in = models.ManyToManyField(
         "place.Place", blank=True, related_name="logs_set_in"
     )
@@ -246,6 +248,14 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
         help_text="Sequential session number for ordering and reference",
     )
 
+    class Meta:
+        indexes = [
+            GinIndex(
+                fields=["full_text_search_vector"],
+                name="gamelog_fulltext_idx",
+            ),
+        ]
+
     def __str__(self):
         return self.title or self.url
 
@@ -259,6 +269,12 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
                 )
                 if latest_log:
                     self.last_game_log = latest_log
+
+        if self.is_changing("full_text"):
+            self.full_text_search_vector = SearchVector(
+                "full_text", config="simple"
+            )  # or config="english" if "simple" isn't working well for narrative. Simple is better for fantasy names.
+
         super().save(*args, **kwargs)
 
     def update_from_google(self, overwrite=False):
@@ -282,6 +298,9 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
                     self.game_date = self.get_game_date_from_title()
                 except ValueError:
                     self.game_date = file_info["createdTime"]
+            if overwrite or not self.full_text:
+                print("fetching full text from google")
+                self.full_text = self.get_text()
 
         except Exception as e:
             raise e
@@ -396,8 +415,9 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
         return text
 
     def get_ai_log_suggestions(self):
-        from nucleus.ai_helpers import openai_summarize_text_chat
         import json
+
+        from nucleus.ai_helpers import openai_summarize_text_chat
 
         if self.ailogsuggestion_set.count() > 0:
             return self.ailogsuggestion_set.first()
