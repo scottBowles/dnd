@@ -13,7 +13,6 @@ from .source_models import (
     ArtifactSource,
     RaceSource,
     AssociationSource,
-    CustomSource,
 )
 import strawberry.experimental.pydantic
 
@@ -57,11 +56,6 @@ class AssociationSourceType:
     pass
 
 
-@strawberry.experimental.pydantic.type(model=CustomSource, all_fields=True)
-class CustomSourceType:
-    pass
-
-
 # # Union for all source types
 # SourceTypeUnion = strawberry.union(
 #     "SourceTypeUnion",
@@ -73,7 +67,6 @@ class CustomSourceType:
 #         ArtifactSourceType,
 #         RaceSourceType,
 #         AssociationSourceType,
-#         CustomSourceType,
 #     ),
 # )
 
@@ -135,8 +128,6 @@ class ChatMessageType(relay.Node):
     #             result.append(RaceSourceType.from_pydantic(s))
     #         elif isinstance(s, AssociationSource):
     #             result.append(AssociationSourceType.from_pydantic(s))
-    #         elif isinstance(s, CustomSource):
-    #             result.append(CustomSourceType.from_pydantic(s))
     #     return result
 
 

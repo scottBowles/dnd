@@ -1,4 +1,6 @@
 from django.conf import settings
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from pgvector.django import HnswIndex, VectorField
 
@@ -8,27 +10,36 @@ class ContentChunk(models.Model):
     Stores text chunks from various content sources with their embeddings for semantic search
     """
 
-    CONTENT_TYPES = [
-        ("game_log", "Game Log"),
-        ("character", "Character"),
-        ("place", "Place"),
-        ("item", "Item"),
-        ("artifact", "Artifact"),
-        ("race", "Race"),
-        ("association", "Association"),
-        ("entity", "Generic Entity"),
-        ("custom", "Custom Content"),
-    ]
-
-    content_type = models.CharField(
-        max_length=20,
-        choices=CONTENT_TYPES,
-        help_text="Type of content this chunk represents",
+    content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        limit_choices_to={
+            "app_label__in": [
+                "character",
+                "place",
+                "item",
+                "race",
+                "association",
+                "nucleus",
+            ],
+            "model__in": [
+                "character",
+                "place",
+                "item",
+                "artifact",
+                "race",
+                "association",
+                "gamelog",
+            ],
+        },
+        help_text="Content type for the generic foreign key",
     )
-    object_id = models.CharField(
-        max_length=255,
-        help_text="ID of the source object (can be foreign key ID, URL, or custom identifier)",
+    object_id = models.PositiveBigIntegerField(
+        help_text="ID of the source object (primary key of the related model)",
     )
+    content_object = GenericForeignKey("content_type", "object_id")
     chunk_text = models.TextField(help_text="The actual text content of this chunk")
     chunk_index = models.IntegerField(
         default=0,
@@ -64,11 +75,10 @@ class ContentChunk(models.Model):
 
     def __str__(self):
         title = self.metadata.get("title", self.object_id)
+        content_type_name = self.content_type.model if self.content_type else "Unknown"
         if self.chunk_index > 0:
-            return (
-                f"{self.get_content_type_display()}: {title} - Chunk {self.chunk_index}"
-            )
-        return f"{self.get_content_type_display()}: {title}"
+            return f"{content_type_name.title()}: {title} - Chunk {self.chunk_index}"
+        return f"{content_type_name.title()}: {title}"
 
 
 class ChatSession(models.Model):

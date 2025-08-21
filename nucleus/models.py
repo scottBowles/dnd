@@ -12,6 +12,7 @@ from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from django_extensions.db.fields import AutoSlugField
+from graphql_relay import to_global_id
 
 
 class ModelDiffMixin:
@@ -332,12 +333,13 @@ class GameLog(ModelDiffMixin, PessimisticConcurrencyLockModel, models.Model):
         """
         Returns the generated log text if it exists, otherwise falls back to the Google Doc text.
         """
-        # if self.generated_log_text and self.generated_log_text.strip():
-        #     return self.generated_log_text
+        if self.full_text:
+            return self.full_text
 
         from nucleus.gdrive import fetch_airel_file_text
 
-        return fetch_airel_file_text(self.google_id)
+        self.full_text = fetch_airel_file_text(self.google_id)
+        return self.full_text
 
     def copy_text_for_summary(self):
         if not self.google_id:
@@ -459,6 +461,9 @@ class GameLog(ModelDiffMixin, PessimisticConcurrencyLockModel, models.Model):
             )
         except GameLog.DoesNotExist:
             return None
+
+    def global_id(self):
+        return to_global_id("GameLog", self.id)
 
 
 class CombinedAiLogSuggestion:

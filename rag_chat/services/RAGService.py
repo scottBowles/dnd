@@ -1,20 +1,75 @@
 import logging
+from dataclasses import dataclass
 from datetime import timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 
 from django.conf import settings
 from django.utils import timezone
 from openai import OpenAI
 
+from association.models import Association
+from character.models import Character
+from item.models import Artifact, Item
+from nucleus.models import GameLog
+from place.models import Place
+from race.models import Race
+from rag_chat.services.normalize_and_hybrid_rank_fuse import (
+    ScoreSetElement,
+    hybrid_rank_fuse,
+    z_score_normalize,
+)
+
+from ..content_processors import get_processor
 from ..embeddings import create_query_hash, get_embedding
 from ..models import ChatMessage, ChatSession, ContentChunk, QueryCache
-from ..source_models import SourceUnion
+from ..source_models import (
+    ArtifactSource,
+    AssociationSource,
+    CharacterSource,
+    GameLogSource,
+    ItemSource,
+    PlaceSource,
+    RaceSource,
+    SourceUnion,
+)
 from ..utils import count_tokens
+from .game_log_full_text_search import game_log_fts
+from .trigram_entity_search import find_entities_by_trigram_similarity
+
+EntityUnion = GameLog | Association | Character | Place | Item | Artifact | Race
+
+
+class ZScoreNormalizer:
+    def __init__(self, results: list[float]):
+        self.results = results
+        self.mean = sum(results) / len(results) if results else 0
+        squared_diffs = [(x - self.mean) ** 2 for x in results]
+        self.stddev = (
+            (sum(squared_diffs) / len(squared_diffs)) ** 0.5 if squared_diffs else 0
+        )
+
+    def normalize(self, value: float) -> float:
+        if self.stddev == 0:
+            return 1
+        return (value - self.mean) / self.stddev
+
 
 logger = logging.getLogger(__name__)
 
 # Initialize OpenAI client
 openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+
+@dataclass
+class SemanticSearchResult:
+    """Result from semantic search with proper typing"""
+
+    chunk_text: str
+    metadata: Dict[str, Any]
+    similarity: float
+    chunk_id: int
+    content_type: str
+    content_object: Association | Character | Place | Item | Artifact | Race | GameLog
 
 
 class RAGService:
@@ -96,7 +151,7 @@ class RAGService:
         limit: int = None,
         similarity_threshold: float = None,
         content_types: List[str] = None,
-    ) -> List[Tuple]:
+    ) -> List[SemanticSearchResult]:
         """
         Find relevant chunks using cosine similarity across different content types
 
@@ -107,7 +162,7 @@ class RAGService:
             content_types: List of content types to search (None = search all)
 
         Returns:
-            List of tuples: (chunk_text, metadata, similarity_score, chunk_id, content_type)
+            List of SemanticSearchResult objects
         """
         if limit is None:
             limit = self.max_context_chunks
@@ -134,12 +189,13 @@ class RAGService:
             results = []
             for chunk in chunks:
                 results.append(
-                    (
-                        chunk.chunk_text,
-                        chunk.metadata,
-                        float(chunk.similarity),
-                        chunk.pk,
-                        chunk.content_type,
+                    SemanticSearchResult(
+                        chunk_text=chunk.chunk_text,
+                        metadata=chunk.metadata,
+                        similarity=float(chunk.similarity),
+                        chunk_id=chunk.pk,
+                        content_type=chunk.content_type,
+                        content_object=chunk.content_object,
                     )
                 )
 
@@ -209,38 +265,6 @@ class RAGService:
         except Exception as e:
             logger.error(f"Failed to cache response: {str(e)}")
 
-    def build_context(self, chunks: List[Tuple]) -> Tuple[str, List[SourceUnion]]:
-        """
-        Build context string and sources list from search results
-
-        Args:
-            chunks: List of (chunk_text, metadata, similarity, chunk_id, content_type) tuples
-
-        Returns:
-            Tuple of (context_string, sources_list)
-        """
-        if not chunks:
-            return "", []
-
-        context_parts = []
-        sources = []
-
-        for chunk_text, metadata, similarity, chunk_id, content_type in chunks:
-            # Build context entry based on content type
-            context_entry = self._format_context_entry(
-                chunk_text, metadata, content_type
-            )
-            context_parts.append(context_entry)
-
-            # Build source info as Pydantic model
-            source = self._build_source_info(
-                metadata, similarity, chunk_id, content_type
-            )
-            sources.append(source)
-
-        context = "\n\n---\n\n".join(context_parts)
-        return context, sources
-
     def _format_context_entry(
         self, chunk_text: str, metadata: Dict, content_type: str
     ) -> str:
@@ -279,10 +303,6 @@ class RAGService:
             name = metadata.get("name", "Unknown Association")
             return f"Association - {name}:\n{chunk_text}"
 
-        elif content_type == "custom":
-            title = metadata.get("title", "Custom Content")
-            return f"Reference - {title}:\n{chunk_text}"
-
         else:
             return f"Content ({content_type}):\n{chunk_text}"
 
@@ -293,7 +313,6 @@ class RAGService:
             ArtifactSource,
             AssociationSource,
             CharacterSource,
-            CustomSource,
             GameLogSource,
             ItemSource,
             PlaceSource,
@@ -314,7 +333,6 @@ class RAGService:
                 url=metadata.get("google_doc_url", ""),
                 session_date=metadata.get("session_date"),
                 places=metadata.get("places_set_in", []),
-                chunk_summary=metadata.get("chunk_summary", ""),
             )
         elif content_type == "character":
             return CharacterSource(
@@ -353,15 +371,6 @@ class RAGService:
                 **base,
                 name=metadata.get("name", "Unknown Association"),
                 mentioned_in_sessions=metadata.get("mentioned_in_sessions", []),
-            )
-        elif content_type == "custom":
-            extra = {
-                k: v for k, v in metadata.items() if k not in ["title", "chunk_index"]
-            }
-            return CustomSource(
-                **base,
-                title=metadata.get("title", "Custom Content"),
-                extra=extra,
             )
         else:
             raise ValueError(f"Unknown content_type: {content_type}")
@@ -408,7 +417,12 @@ class RAGService:
                 if cached_response:
                     return {**cached_response, "from_cache": True}
 
-            # Perform semantic search
+            # Perform retrieval
+            trigram_results = find_entities_by_trigram_similarity(query)
+            entities_from_trigram = [res.entity for res in trigram_results]
+
+            fts_results = game_log_fts(query, limit=10)
+
             chunks = self.semantic_search(
                 search_query,
                 limit=self.max_context_chunks,
@@ -416,7 +430,7 @@ class RAGService:
                 content_types=content_types,
             )
 
-            if not chunks:
+            if not chunks and not entities_from_trigram and not fts_results:
                 response_data = {
                     "response": "I couldn't find any relevant information for that question. Could you try rephrasing it or asking about something more specific?",
                     "sources": [],
@@ -430,7 +444,92 @@ class RAGService:
                 return response_data
 
             # Build context for LLM
-            context, sources = self.build_context(chunks)
+            semantic_search_context = []
+            semantic_search_sources = []
+            if chunks:
+                for chunk in chunks:
+                    # Build context entry based on content type
+                    context_entry = self._format_context_entry(
+                        chunk.chunk_text, chunk.metadata, chunk.content_type
+                    )
+                    semantic_search_context.append(context_entry)
+
+                    # Build source info as Pydantic model
+                    source = self._build_source_info(
+                        chunk.metadata,
+                        chunk.similarity,
+                        chunk.chunk_id,
+                        chunk.content_type,
+                    )
+                    semantic_search_sources.append(source)
+
+            # Construct the context and the sources list
+            # - Determine what objects to use
+            # - Do the source objects make sense for the new retrievals?
+            # - Do we use content_processors for the text we'll include?
+            trigram_context_parts = []
+            for trigram_result in trigram_results:
+                entity = trigram_result.entity
+                source = None
+
+                processor = get_processor(
+                    entity.__class__.__name__.lower()
+                )  # doesn't work for game_log but does for entities
+                text = processor.extract_text(entity)
+
+                context_part = f"{entity.__class__.__name__} - {entity.name}:\n{text}"
+                trigram_context_parts.append(context_part)
+
+            fts_sources: list[GameLogSource] = []
+            fts_context_parts = []
+            for i, log in enumerate(fts_results):
+                fts_sources.append(
+                    GameLogSource(
+                        # similarity=fts_result.similarity, # PROBABLY WANT TO ADD RANK (i) HERE, OR WE ADD A COMBINED SCORE
+                        session_number=log.session_number,
+                        title=log.title,
+                        url=log.url,
+                        session_date=log.game_date,
+                        places=log.places_set_in,
+                    )
+                )
+                processor = get_processor("game_log")
+                text = processor.extract_text(log)
+                context_part = (
+                    f"Game Log - {log.title} (Session {log.session_number}):\n{text}"
+                )
+                fts_context_parts.append(context_part)
+
+            semantic_scores = [
+                ScoreSetElement(r.content_object, r.similarity) for r in chunks
+            ]
+            fts_scores = [
+                ScoreSetElement(r, (len(fts_results) - idx) / len(fts_results) * 1.0)
+                for idx, r in enumerate(fts_results)
+            ]
+            trigram_scores = [
+                ScoreSetElement(r.entity, r.similarity) for r in trigram_results
+            ]
+
+            semantic_scores_normalized = z_score_normalize(semantic_scores)
+            fts_scores_normalized = z_score_normalize(fts_scores)
+            trigram_scores_normalized = z_score_normalize(trigram_scores)
+
+            SEMANTIC_WEIGHT = 0.6
+            FTS_WEIGHT = 0.3
+            TRIGRAM_WEIGHT = 0.1
+
+            fused_results = hybrid_rank_fuse(
+                (semantic_scores_normalized, SEMANTIC_WEIGHT),
+                (fts_scores_normalized, FTS_WEIGHT),
+                (trigram_scores_normalized, TRIGRAM_WEIGHT),
+            )
+
+            # Sort by combined score, maybe separating by content type. We need the entity/log and not just the global_id and score.
+
+            context = "\n\n---\n\n".join(
+                [*fts_context_parts, *trigram_context_parts, *semantic_search_context]
+            )
 
             # Create system prompt with enhanced instructions
             #             _system_prompt = """You are a knowledgeable D&D campaign assistant with access to detailed information from an ongoing campaign including session logs, characters, places, items, artifacts, races, associations, and other campaign elements.
@@ -518,11 +617,11 @@ Your goal: Be the ultimate space fantasy campaign companion that understands the
             tokens_used = response.usage.total_tokens
 
             # Determine what content types were actually found
-            content_types_found = list(set(chunk[4] for chunk in chunks))
+            content_types_found = list(set(chunk.content_type for chunk in chunks))
 
             response_data = {
                 "response": response_text,
-                "sources": sources,
+                "sources": semantic_search_sources,
                 "tokens_used": tokens_used,
                 "similarity_threshold": similarity_threshold
                 or self.default_similarity_threshold,
