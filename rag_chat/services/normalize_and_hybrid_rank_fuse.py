@@ -30,9 +30,24 @@ def z_score_normalize(elements: Sequence[ScoreSetElement]) -> Sequence[ScoreSetE
     ]
 
 
+def remove_results_more_than_stddev_below_mean(
+    elements: Sequence[ScoreSetElement],
+) -> Sequence[ScoreSetElement]:
+    if not elements:
+        return []
+
+    mean_score = sum(s.score for s in elements) / len(elements)
+    stddev = (
+        (sum((s.score - mean_score) ** 2 for s in elements) / len(elements)) ** 0.5
+        if elements
+        else 1
+    )
+    return [s for s in elements if s.score > mean_score - stddev]
+
+
 def hybrid_rank_fuse(
     *sets_with_weights: tuple[Sequence[ScoreSetElement], float]
-) -> Dict[str, ScoreSetElement]:
+) -> Sequence[ScoreSetElement]:
     """
     hybrid_rank_fuse combines results from multiple search methods, each with a weight.
     """
@@ -47,4 +62,8 @@ def hybrid_rank_fuse(
                 score=weighted_score,
                 data=element.data,
             )
-    return all_parts_with_scores
+
+    # return a sorted list of ScoreSetElements, excluding scores more than a standard deviation below the mean
+    all_parts = list(all_parts_with_scores.values())
+    all_parts = sorted(all_parts, key=lambda s: s.score, reverse=True)
+    return all_parts

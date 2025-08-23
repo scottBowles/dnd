@@ -158,3 +158,12 @@ New content to summarize and merge:
             prompt_messages.append({"role": "assistant", "content": msg.response})
 
         return prompt_messages
+
+    def get_prompt_messages_str(self, new_message: str) -> str:
+        """
+        Get the list of messages to include in the prompt for the LLM for conversation context as a string.
+        """
+        messages = self.get_prompt_messages(new_message)
+        return "\n".join(
+            f"{msg['role']}: {msg['content']}" for msg in messages if "content" in msg
+        )
