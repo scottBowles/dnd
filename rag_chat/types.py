@@ -421,34 +421,6 @@ class RAGMutation:
                 success=False, message=f"Failed to queue processing task: {str(e)}"
             )
 
-    # @strawberry.mutation
-    # def process_custom_content(
-    #     self, info, input: ProcessCustomContentInput
-    # ) -> ProcessContentPayload:
-    #     user = info.context.request.user
-    #     if not user.is_authenticated or not user.is_superuser:
-    #         raise Exception("Only superusers can process content.")
-
-    #     from rag_chat.tasks import process_custom_content
-
-    #     try:
-    #         task = process_custom_content.delay(
-    #             title=input.title,
-    #             content=input.content,
-    #             object_id=input.object_id,
-    #             metadata=input.metadata,
-    #         )
-
-    #         return ProcessContentPayload(
-    #             success=True,
-    #             message=f"Processing custom content: {input.title}",
-    #             task_id=task.id,
-    #         )
-    #     except Exception as e:
-    #         return ProcessContentPayload(
-    #             success=False, message=f"Failed to queue processing task: {str(e)}"
-    #         )
-
     @strawberry.mutation
     def process_all_content(
         self, info, input: ProcessAllContentInput

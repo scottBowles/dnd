@@ -572,8 +572,7 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
             # --- Entities formatted ---
             entity_text = (
                 "\n".join(
-                    f"- **{e.name}** ({e.__class__.__name__}; aliases: {', '.join(a.name for a in e.aliases.all()) or 'none'})\n  {e.description}"
-                    for e in entities_to_include
+                    get_processor(e).format_for_llm(e) for e in entities_to_include
                 )
                 or "No entities retrieved."
             )
@@ -601,6 +600,7 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
                 assembled += f"=== {title} ===\n{content}\n\n"
 
             # --- Add full logs within budget ---
+            content_processor = get_processor("gamelog")
             logs_to_include = []
             tokens_added = count_tokens(assembled, model=self.model)
             for log in logs_to_include_candidates:
@@ -613,7 +613,7 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
 
             if logs_to_include:
                 logs_text = "\n\n".join(
-                    f"Log {log.session_number} (Full) — {log.title})\n{log.full_text}"
+                    content_processor.format_for_llm(log)
                     for log in sorted(logs_to_include, key=lambda l: l.session_number)
                 )
                 assembled += f"=== Full Logs (Retrieved Subset) ===\n{logs_text}\n\n"
