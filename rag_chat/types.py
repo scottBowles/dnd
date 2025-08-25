@@ -258,7 +258,7 @@ class RAGQuery:
 
         # Model mapping for getting object counts
         model_map = {
-            "game_log": ("nucleus", "GameLog"),
+            "gamelog": ("nucleus", "GameLog"),
             "character": ("character", "Character"),
             "place": ("place", "Place"),
             "item": ("item", "Item"),
@@ -467,7 +467,7 @@ class RAGMutation:
             )
 
             content_types = input.content_types or [
-                "game_log",
+                "gamelog",
                 "character",
                 "place",
                 "item",

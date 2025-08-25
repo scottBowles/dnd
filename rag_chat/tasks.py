@@ -20,7 +20,7 @@ def process_content(
     Process any content type into chunks with embeddings for RAG search
 
     Args:
-        content_type: Type of content (game_log, character, place, etc.)
+        content_type: Type of content (gamelog, character, place, etc.)
         object_id: ID of the object to process
         force_reprocess: If True, delete existing chunks and reprocess
     """
@@ -229,7 +229,7 @@ def process_all_content(
     """
     if content_types is None:
         content_types = [
-            "game_log",
+            "gamelog",
             "character",
             "place",
             "item",
@@ -341,7 +341,7 @@ def cleanup_orphaned_chunks():
 def get_content_object(content_type: str, object_id: str):
     """Get a content object by type and ID"""
     model_map = {
-        "game_log": ("nucleus", "GameLog"),
+        "gamelog": ("nucleus", "GameLog"),
         "character": ("character", "Character"),  # Adjust app names as needed
         "place": ("place", "Place"),
         "item": ("item", "Item"),
@@ -366,7 +366,7 @@ def get_content_objects(
 ):
     """Get objects to process for a given content type"""
     model_map = {
-        "game_log": ("nucleus", "GameLog"),
+        "gamelog": ("nucleus", "GameLog"),
         "character": ("character", "Character"),
         "place": ("place", "Place"),
         "item": ("item", "Item"),
@@ -416,7 +416,7 @@ def get_content_objects(
 def get_valid_object_ids(content_type: str):
     """Get valid object IDs for a content type"""
     model_map = {
-        "game_log": ("nucleus", "GameLog"),
+        "gamelog": ("nucleus", "GameLog"),
         "character": ("character", "Character"),
         "place": ("place", "Place"),
         "item": ("item", "Item"),

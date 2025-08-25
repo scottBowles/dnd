@@ -21,7 +21,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--type",
             choices=list(CONTENT_PROCESSORS.keys()),
-            help="Content type to process (game_log, character, place, etc.)",
+            help="Content type to process (gamelog, character, place, etc.)",
         )
         parser.add_argument(
             "--id",
@@ -133,7 +133,7 @@ class Command(BaseCommand):
         else:
             # Default to all main content types
             content_types = [
-                "game_log",
+                "gamelog",
                 "character",
                 "place",
                 "item",
@@ -289,7 +289,7 @@ class Command(BaseCommand):
         # Show available objects by type
         self.stdout.write("\nAvailable Objects by Type:")
         for content_type in [
-            "game_log",
+            "gamelog",
             "character",
             "place",
             "item",
@@ -313,7 +313,7 @@ class Command(BaseCommand):
     def get_object(self, content_type, object_id):
         """Get a single object by type and ID"""
         model_map = {
-            "game_log": ("nucleus", "GameLog"),
+            "gamelog": ("nucleus", "GameLog"),
             "character": ("character", "Character"),  # Adjust app names as needed
             "place": ("place", "Place"),
             "item": ("item", "Item"),
@@ -335,7 +335,7 @@ class Command(BaseCommand):
     def get_objects_to_process(self, content_type, force_reprocess=False, limit=None):
         """Get objects that need processing"""
         model_map = {
-            "game_log": ("nucleus", "GameLog"),
+            "gamelog": ("nucleus", "GameLog"),
             "character": ("character", "Character"),
             "place": ("place", "Place"),
             "item": ("item", "Item"),

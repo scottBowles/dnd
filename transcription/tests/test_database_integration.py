@@ -163,8 +163,13 @@ class DatabaseIntegrationTests(TestCase):
         service = TranscriptionService(self.config)
         service.context_service = Mock()
         # Patch VAD to always return a voiced segment
-        with patch("transcription.services.AudioProcessingService.VADProcessingService.extract_voiced_segments", return_value=[(0.0, 1.0)]), \
-             patch("transcription.services.AudioProcessingService.AudioSegment.from_file", return_value=AudioSegment.silent(duration=1000)):
+        with patch(
+            "transcription.services.AudioProcessingService.VADProcessingService.extract_voiced_segments",
+            return_value=[(0.0, 1.0)],
+        ), patch(
+            "transcription.services.AudioProcessingService.AudioSegment.from_file",
+            return_value=AudioSegment.silent(duration=1000),
+        ):
             service.context_service.get_campaign_context.return_value = {
                 "characters": [],
                 "places": [],
@@ -203,8 +208,13 @@ class DatabaseIntegrationTests(TestCase):
         service = TranscriptionService(self.config)
         service.context_service = Mock()
         # Patch VAD to always return a voiced segment
-        with patch("transcription.services.AudioProcessingService.VADProcessingService.extract_voiced_segments", return_value=[(0.0, 1.0)]), \
-             patch("transcription.services.AudioProcessingService.AudioSegment.from_file", return_value=AudioSegment.silent(duration=1000)):
+        with patch(
+            "transcription.services.AudioProcessingService.VADProcessingService.extract_voiced_segments",
+            return_value=[(0.0, 1.0)],
+        ), patch(
+            "transcription.services.AudioProcessingService.AudioSegment.from_file",
+            return_value=AudioSegment.silent(duration=1000),
+        ):
             service.context_service.get_campaign_context.return_value = {
                 "characters": [],
                 "places": [],
@@ -215,7 +225,7 @@ class DatabaseIntegrationTests(TestCase):
             service.context_service.get_formatted_context.return_value = "Test context"
             # Create test GameLog, bypassing Google Drive integration
             with patch("nucleus.models.GameLog.update_from_google"):
-                game_log = GameLog.objects.create(
+                gamelog = GameLog.objects.create(
                     title="Test Session 2", url="test-session-2"
                 )
             # Create test file and SessionAudio
@@ -223,7 +233,7 @@ class DatabaseIntegrationTests(TestCase):
             test_file.parent.mkdir(parents=True, exist_ok=True)
             test_file.write_text("small audio content")
             session_audio = SessionAudio.objects.create(
-                gamelog=game_log,
+                gamelog=gamelog,
                 file="audio/test_player.mp3",
                 original_filename="test_player.mp3",
             )
@@ -243,8 +253,13 @@ class DatabaseIntegrationTests(TestCase):
         service = TranscriptionService(self.config)
         service.context_service = Mock()
         # Patch VAD to always return a voiced segment
-        with patch("transcription.services.AudioProcessingService.VADProcessingService.extract_voiced_segments", return_value=[(0.0, 1.0)]), \
-             patch("transcription.services.AudioProcessingService.AudioSegment.from_file", return_value=AudioSegment.silent(duration=1000)):
+        with patch(
+            "transcription.services.AudioProcessingService.VADProcessingService.extract_voiced_segments",
+            return_value=[(0.0, 1.0)],
+        ), patch(
+            "transcription.services.AudioProcessingService.AudioSegment.from_file",
+            return_value=AudioSegment.silent(duration=1000),
+        ):
             service.context_service.get_campaign_context.return_value = {
                 "characters": [],
                 "places": [],
@@ -255,7 +270,7 @@ class DatabaseIntegrationTests(TestCase):
             service.context_service.get_formatted_context.return_value = "Test context"
             # Create test GameLog, bypassing Google Drive integration
             with patch("nucleus.models.GameLog.update_from_google"):
-                game_log = GameLog.objects.create(
+                gamelog = GameLog.objects.create(
                     title="Test Session 3", url="test-session-3"
                 )
             # Create test audio files and SessionAudio
@@ -267,7 +282,7 @@ class DatabaseIntegrationTests(TestCase):
             for file in test_files:
                 file.write_text("content")
                 sa = SessionAudio.objects.create(
-                    gamelog=game_log,
+                    gamelog=gamelog,
                     file=f"audio/{file.name}",
                     original_filename=file.name,
                 )

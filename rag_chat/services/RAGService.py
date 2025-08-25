@@ -260,7 +260,7 @@ class RAGService:
     ) -> str:
         """Format a context entry based on content type"""
 
-        if content_type == "game_log":
+        if content_type == "gamelog":
             session_info = f"Session {metadata.get('session_number', 'Unknown')}"
             if metadata.get("title"):
                 session_info = f"'{metadata['title']}'"
@@ -309,7 +309,7 @@ class RAGService:
             RaceSource,
         )
 
-        if content_type == "game_log":
+        if content_type == "gamelog":
             return GameLogSource(
                 type=content_type,
                 chunk_id=chunk_id,
@@ -429,7 +429,7 @@ class RAGService:
                 query_with_history,
                 limit=self.max_context_chunks,
                 similarity_threshold=similarity_threshold,
-                content_types=[ct for ct in (content_types or []) if ct != "game_log"],
+                content_types=[ct for ct in (content_types or []) if ct != "gamelog"],
             )
             entity_ids_in_query_enhancement = set()
             entities_for_query = []
@@ -514,10 +514,10 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
                 return response_data
 
             semantic_log_chunks = [
-                chunk for chunk in chunks if chunk.content_type == "game_log"
+                chunk for chunk in chunks if chunk.content_type == "gamelog"
             ]
             semantic_entity_chunks = [
-                chunk for chunk in chunks if chunk.content_type != "game_log"
+                chunk for chunk in chunks if chunk.content_type != "gamelog"
             ]
 
             semantic_log_scores = [
@@ -649,7 +649,7 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
 
             #     processor = get_processor(
             #         entity.__class__.__name__.lower()
-            #     )  # doesn't work for game_log but does for entities
+            #     )  # doesn't work for gamelog but does for entities
             #     text = processor.extract_text(entity)
 
             #     context_part = f"{entity.__class__.__name__} - {entity.name}:\n{text}"
@@ -668,7 +668,7 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
             #             places=log.places_set_in,
             #         )
             #     )
-            #     processor = get_processor("game_log")
+            #     processor = get_processor("gamelog")
             #     text = processor.extract_text(log)
             #     context_part = (
             #         f"Game Log - {log.title} (Session {log.session_number}):\n{text}"

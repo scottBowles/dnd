@@ -60,33 +60,33 @@ class BaseContentProcessor(ABC):
 
 
 class GameLogProcessor(BaseContentProcessor):
-    content_type = "game_log"
+    content_type = "gamelog"
 
-    def extract_text(self, game_log) -> str:
-        return game_log.log_text or ""
+    def extract_text(self, gamelog) -> str:
+        return gamelog.log_text or ""
 
-    def get_object_id(self, game_log) -> str:
-        return str(game_log.pk)
+    def get_object_id(self, gamelog) -> str:
+        return str(gamelog.pk)
 
     def build_metadata(
-        self, game_log, chunk_text: str = None, chunk_index: int = 0
+        self, gamelog, chunk_text: str = None, chunk_index: int = 0
     ) -> Dict[str, Any]:
         metadata = {
-            "title": game_log.title or "Untitled Session",
-            "session_number": game_log.session_number,
+            "title": gamelog.title or "Untitled Session",
+            "session_number": gamelog.session_number,
             "session_date": (
-                game_log.game_date.isoformat() if game_log.game_date else None
+                gamelog.game_date.isoformat() if gamelog.game_date else None
             ),
             "brief_summary": (
-                game_log.brief if game_log.brief and len(game_log.brief) < 200 else None
+                gamelog.brief if gamelog.brief and len(gamelog.brief) < 200 else None
             ),
-            "google_doc_url": game_log.url,
+            "google_doc_url": gamelog.url,
             "chunk_index": chunk_index,
         }
 
         # Add places
         try:
-            places = [place.name for place in game_log.places_set_in.all()[:5]]
+            places = [place.name for place in gamelog.places_set_in.all()[:5]]
             if places:
                 metadata["places_set_in"] = places
         except:
@@ -408,8 +408,9 @@ class CustomContentProcessor(BaseContentProcessor):
 
 
 # Registry of processors
+# keys are entity.__class__.__name__.lower()
 CONTENT_PROCESSORS = {
-    "game_log": GameLogProcessor,
+    "gamelog": GameLogProcessor,
     "character": CharacterProcessor,
     "place": PlaceProcessor,
     "item": ItemProcessor,

@@ -85,7 +85,7 @@ class ContentChunkAdmin(admin.ModelAdmin):
     def content_stats_view(self, request):
         # Model mapping for getting object counts
         model_map = {
-            "game_log": ("nucleus", "GameLog"),
+            "gamelog": ("nucleus", "GameLog"),
             "character": ("character", "Character"),
             "place": ("place", "Place"),
             "item": ("item", "Item"),

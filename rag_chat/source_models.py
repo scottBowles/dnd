@@ -3,7 +3,7 @@ from typing import List, Optional, Union, Literal
 
 
 class GameLogSource(BaseModel):
-    type: Literal["game_log"] = "game_log"
+    type: Literal["gamelog"] = "gamelog"
     chunk_id: Optional[int] = None
     similarity: float
     chunk_index: int
@@ -85,7 +85,7 @@ SourceUnion = Union[
 def parse_source(source: dict) -> SourceUnion:
     """Parse a dict into the correct SourceUnion type."""
     type_map = {
-        "game_log": GameLogSource,
+        "gamelog": GameLogSource,
         "character": CharacterSource,
         "place": PlaceSource,
         "item": ItemSource,
