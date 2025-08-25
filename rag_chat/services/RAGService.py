@@ -778,7 +778,7 @@ Your goal: Be the ultimate space fantasy campaign companion that understands the
                 model=self.model,
                 messages=messages,
                 temperature=0.3,
-                max_tokens=1200,  # Increased for more comprehensive responses
+                max_completion_tokens=2000,
             )
 
             response_text = response.choices[0].message.content
