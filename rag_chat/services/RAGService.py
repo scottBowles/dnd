@@ -402,9 +402,7 @@ class RAGService:
         from .ConversationMemoryService import ConversationMemoryService
 
         try:
-            search_query = query
-
-            # GET CONVERSATION HISTORY
+            ######### GET CONVERSATION HISTORY #########
             conversation_messages = (
                 list(
                     ConversationMemoryService(
@@ -419,7 +417,7 @@ class RAGService:
                 "\n".join(conversation_messages) + f"\n\nQuestion: {query}"
             )
 
-            # GET ENTITIES FOR QUERY ENHANCEMENT
+            ######### GET ENTITIES FOR QUERY ENHANCEMENT #########
 
             trigram_results_for_query_enhancement = find_entities_by_trigram_similarity(
                 query_with_history
@@ -451,7 +449,7 @@ class RAGService:
                 or "No entities retrieved."
             )
 
-            # ENHANCE QUERY
+            ######### ENHANCE QUERY #########
             system_prompt_for_query_enhancement = """You are a helpful assistant that rewrites user queries into enriched,
 contextually clear forms suitable for retrieving information from narrative logs
 and entity databases. 
@@ -488,7 +486,7 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
 
             logger.info(f"Enhanced search query: {enhanced_search_query[:100]}...")
 
-            # RETRIEVE LOGS AND ENTITIES USING ENHANCED QUERY
+            ######### RETRIEVE LOGS AND ENTITIES USING ENHANCED QUERY #########
 
             trigram_results = find_entities_by_trigram_similarity(enhanced_search_query)
             entities_from_trigram = [res.entity for res in trigram_results]
@@ -569,7 +567,7 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
             logs_to_include_candidates: list[GameLog] = [r.data for r in fused_log_results]  # type: ignore
             entities_to_include: list[Association | Character | Place | Item | Artifact | Race] = [r.data for r in fused_entity_results]  # type: ignore
 
-            # BUILD CONTEXT FROM THE RESULTS
+            ######### BUILD CONTEXT FROM THE RESULTS #########
 
             # --- Entities formatted ---
             entity_text = (
@@ -758,16 +756,6 @@ When users ask about predictions, future events, or "what might happen next":
 
 Your goal: Be the ultimate space fantasy campaign companion that understands the unique dynamics of this multi-world setting."""
 
-            # Build messages with system prompt, conversation history, and current context
-            # messages = [
-            #     {"role": "system", "content": system_prompt_for_query_enhancement},
-            #     *conversation_messages,
-            #     {
-            #         "role": "user",
-            #         "content": f"Context:\n{context}\n\nQuestion: {query}",
-            #     },
-            # ]
-
             messages: Iterable[ChatCompletionMessageParam] = [
                 {"role": "system", "content": system_prompt},
                 {"role": "assistant", "content": assembled},
@@ -801,12 +789,12 @@ Your goal: Be the ultimate space fantasy campaign companion that understands the
             }
 
             # Cache the response (only for non-conversational queries)
-            if not session:
-                self.cache_query_response(search_query, response_data, context_params)
+            # if not session:
+            #     self.cache_query_response(query, response_data, context_params)
 
             logger.info(
                 f"Generated response for query: {query[:50]}... "
-                f"(search_query: {search_query[:50]}..., tokens: {tokens_used}, content_types: {content_types_found})"
+                f"(query: {query[:50]}..., tokens: {tokens_used}, content_types: {content_types_found})"
             )
             return response_data
 
