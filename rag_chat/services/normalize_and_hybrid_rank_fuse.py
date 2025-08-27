@@ -18,6 +18,8 @@ class ScoreSetElement(NamedTuple):
 
 
 def z_score_normalize(elements: Sequence[ScoreSetElement]) -> Sequence[ScoreSetElement]:
+    if len(elements) == 0:
+        return []
     mean = sum(s.score for s in elements) / len(elements)
     squared_diffs = [(s.score - mean) ** 2 for s in elements]
     stddev = (sum(squared_diffs) / len(squared_diffs)) ** 0.5 if squared_diffs else 1

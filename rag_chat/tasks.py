@@ -1,13 +1,16 @@
 # rag_chat/tasks.py
+import logging
+
 from celery import shared_task
-from django.db import transaction
 from django.apps import apps
-from .models import ContentChunk
+from django.contrib.contenttypes.models import ContentType
+from django.db import transaction
+
+from .content_processors import CONTENT_PROCESSORS, get_processor
 
 # from .models import ContentChunk, GameLogChunk
 from .embeddings import get_embedding
-from .content_processors import get_processor, CONTENT_PROCESSORS
-import logging
+from .models import ContentChunk
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +38,9 @@ def process_content(
                 "message": f"Object not found: {content_type} with ID {object_id}",
             }
 
+        # Get the ContentType instance for this model
+        content_type_obj = ContentType.objects.get_for_model(obj)
+
         processor = get_processor(content_type)
 
         logger.info(
@@ -43,7 +49,7 @@ def process_content(
 
         # Check if already processed (unless forcing reprocess)
         existing_chunks = ContentChunk.objects.filter(
-            content_type=content_type, object_id=object_id
+            content_type=content_type_obj, object_id=object_id
         )
 
         if not force_reprocess and existing_chunks.exists():
@@ -95,7 +101,7 @@ def process_content(
                 # Create the chunk record
                 with transaction.atomic():
                     chunk_obj = ContentChunk.objects.create(
-                        content_type=content_type,
+                        content_type=content_type_obj,
                         object_id=object_id,
                         chunk_text=chunk_text,
                         chunk_index=i,
@@ -228,14 +234,32 @@ def cleanup_orphaned_chunks():
     """
     orphaned_count = 0
 
-    for content_type in CONTENT_PROCESSORS.keys():
-        if content_type == "custom":
+    for content_type_str in CONTENT_PROCESSORS.keys():
+        if content_type_str == "custom":
             continue  # Custom content doesn't have backing objects
 
         try:
+            # Get the model and ContentType instance
+            model_map = {
+                "gamelog": ("nucleus", "GameLog"),
+                "character": ("character", "Character"),
+                "place": ("place", "Place"),
+                "item": ("item", "Item"),
+                "artifact": ("item", "Artifact"),
+                "race": ("race", "Race"),
+                "association": ("association", "Association"),
+            }
+
+            if content_type_str not in model_map:
+                continue
+
+            app_label, model_name = model_map[content_type_str]
+            model = apps.get_model(app_label, model_name)
+            content_type_obj = ContentType.objects.get_for_model(model)
+
             # Get all chunk object_ids for this content type
             chunk_object_ids = set(
-                ContentChunk.objects.filter(content_type=content_type).values_list(
+                ContentChunk.objects.filter(content_type=content_type_obj).values_list(
                     "object_id", flat=True
                 )
             )
@@ -244,22 +268,24 @@ def cleanup_orphaned_chunks():
                 continue
 
             # Get valid object IDs from the actual model
-            valid_object_ids = set(str(id) for id in get_valid_object_ids(content_type))
+            valid_object_ids = set(
+                str(id) for id in model.objects.values_list("id", flat=True)
+            )
 
             # Find orphaned chunks
             orphaned_object_ids = chunk_object_ids - valid_object_ids
 
             if orphaned_object_ids:
                 deleted = ContentChunk.objects.filter(
-                    content_type=content_type, object_id__in=orphaned_object_ids
+                    content_type=content_type_obj, object_id__in=orphaned_object_ids
                 ).delete()
 
                 count = deleted[0] if deleted else 0
                 orphaned_count += count
-                logger.info(f"Cleaned up {count} orphaned {content_type} chunks")
+                logger.info(f"Cleaned up {count} orphaned {content_type_str} chunks")
 
         except Exception as e:
-            logger.error(f"Failed to cleanup {content_type} chunks: {str(e)}")
+            logger.error(f"Failed to cleanup {content_type_str} chunks: {str(e)}")
 
     return {
         "status": "completed",
@@ -314,17 +340,20 @@ def get_content_objects(
         app_label, model_name = model_map[content_type]
         model = apps.get_model(app_label, model_name)
 
+        # Get the ContentType instance for this model
+        content_type_obj = ContentType.objects.get_for_model(model)
+
         queryset = model.objects.all()
 
         # Filter out already processed objects unless forcing reprocess
         if not force_reprocess:
             processed_ids = (
-                ContentChunk.objects.filter(content_type=content_type)
+                ContentChunk.objects.filter(content_type=content_type_obj)
                 .values_list("object_id", flat=True)
                 .distinct()
             )
 
-            processed_ids = [int(id) for id in processed_ids if id.isdigit()]
+            processed_ids = [int(id) for id in processed_ids if str(id).isdigit()]
             queryset = queryset.exclude(id__in=processed_ids)
 
         # Apply ordering (customize as needed per model)

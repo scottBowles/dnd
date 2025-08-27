@@ -5,70 +5,10 @@ from strawberry import auto, relay
 from typing import List, Optional, Union
 from strawberry_django.relay import DjangoListConnection
 from . import models, services
-from .source_models import (
-    GameLogSource,
-    CharacterSource,
-    PlaceSource,
-    ItemSource,
-    ArtifactSource,
-    RaceSource,
-    AssociationSource,
-)
 import strawberry.experimental.pydantic
 
 from nucleus.types.user import User as UserType
 from nucleus.permissions import IsSuperuser
-
-
-# Strawberry types for each Pydantic source model
-@strawberry.experimental.pydantic.type(model=GameLogSource, all_fields=True)
-class GameLogSourceType:
-    pass
-
-
-@strawberry.experimental.pydantic.type(model=CharacterSource, all_fields=True)
-class CharacterSourceType:
-    pass
-
-
-@strawberry.experimental.pydantic.type(model=PlaceSource, all_fields=True)
-class PlaceSourceType:
-    pass
-
-
-@strawberry.experimental.pydantic.type(model=ItemSource, all_fields=True)
-class ItemSourceType:
-    pass
-
-
-@strawberry.experimental.pydantic.type(model=ArtifactSource, all_fields=True)
-class ArtifactSourceType:
-    pass
-
-
-@strawberry.experimental.pydantic.type(model=RaceSource, all_fields=True)
-class RaceSourceType:
-    pass
-
-
-@strawberry.experimental.pydantic.type(model=AssociationSource, all_fields=True)
-class AssociationSourceType:
-    pass
-
-
-# # Union for all source types
-# SourceTypeUnion = strawberry.union(
-#     "SourceTypeUnion",
-#     (
-#         GameLogSourceType,
-#         CharacterSourceType,
-#         PlaceSourceType,
-#         ItemSourceType,
-#         ArtifactSourceType,
-#         RaceSourceType,
-#         AssociationSourceType,
-#     ),
-# )
 
 
 @strawberry_django.type(models.ContentChunk)
@@ -88,7 +28,7 @@ class ChatSessionType(relay.Node):
     title: auto
     created_at: auto
     updated_at: auto
-    messages: List["ChatMessageType"]
+    # messages: List["ChatMessageType"]
 
     @strawberry.field
     def messages(self) -> List["ChatMessageType"]:
@@ -105,7 +45,6 @@ class ChatMessageType(relay.Node):
     content_types_searched: auto
     created_at: auto
 
-    # This doesn't work right now and I'm not sure why
     # @strawberry.field
     # def extra_sources(self) -> list["SourceTypeUnion"]:
     #     # Parse sources from DB and convert to Strawberry types

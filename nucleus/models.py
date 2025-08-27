@@ -213,7 +213,8 @@ class PessimisticConcurrencyLockModel(models.Model):
         return self
 
 
-class GameLog(ModelDiffMixin, PessimisticConcurrencyLockModel, models.Model):
+# class GameLog(ModelDiffMixin, PessimisticConcurrencyLockModel, models.Model):
+class GameLog(PessimisticConcurrencyLockModel, models.Model):
     url = models.CharField(max_length=255, unique=True)
     title = models.CharField(max_length=512, null=True, blank=True)
     google_id = models.CharField(max_length=255, null=True, blank=True, unique=True)
@@ -271,10 +272,10 @@ class GameLog(ModelDiffMixin, PessimisticConcurrencyLockModel, models.Model):
                 if latest_log:
                     self.last_game_log = latest_log
 
-        if self.is_changing("full_text"):
-            self.full_text_search_vector = SearchVector(
-                "full_text", config="simple"
-            )  # or config="english" if "simple" isn't working well for narrative. Simple is better for fantasy names.
+        # if self.is_changing("full_text"):
+        #     self.full_text_search_vector = SearchVector(
+        #         "full_text", config="simple"
+        #     )  # or config="english" if "simple" isn't working well for narrative. Simple is better for fantasy names.
 
         super().save(*args, **kwargs)
 
@@ -691,7 +692,7 @@ class Alias(models.Model):
 
 
 class Entity(
-    ModelDiffMixin,
+    # ModelDiffMixin,
     PessimisticConcurrencyLockModel,
     NameSlugDescriptionModel,
     NotesMarkdownModel,
@@ -701,21 +702,21 @@ class Entity(
     logs = models.ManyToManyField(GameLog, blank=True, related_name="%(class)ss")
     aliases = models.ManyToManyField(Alias, blank=True, related_name="base_%(class)ss")
 
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
+    # def save(self, *args, **kwargs):
+    #     super().save(*args, **kwargs)
 
-        # if name changed, get or create primary alias
-        if (
-            self.is_changing("name")
-            or self.aliases.filter(is_primary=True).count() == 0
-        ):
-            primary_alias = self.aliases.filter(is_primary=True).first()
-            if primary_alias:
-                primary_alias.name = self.name
-                primary_alias.save()
-            else:
-                new_alias = Alias.objects.create(name=self.name, is_primary=True)
-                self.aliases.add(new_alias)
+    #     # if name changed, get or create primary alias
+    #     if (
+    #         self.is_changing("name")
+    #         or self.aliases.filter(is_primary=True).count() == 0
+    #     ):
+    #         primary_alias = self.aliases.filter(is_primary=True).first()
+    #         if primary_alias:
+    #             primary_alias.name = self.name
+    #             primary_alias.save()
+    #         else:
+    #             new_alias = Alias.objects.create(name=self.name, is_primary=True)
+    #             self.aliases.add(new_alias)
 
     def __str__(self):
         return self.name

@@ -21,20 +21,12 @@ from rag_chat.services.normalize_and_hybrid_rank_fuse import (
     remove_results_more_than_stddev_below_mean,
     z_score_normalize,
 )
+from rag_chat.source_models import parse_source
 
 from ..content_processors import get_processor
 from ..embeddings import create_query_hash, get_embedding
 from ..models import ChatMessage, ChatSession, ContentChunk, QueryCache
-from ..source_models import (
-    ArtifactSource,
-    AssociationSource,
-    CharacterSource,
-    GameLogSource,
-    ItemSource,
-    PlaceSource,
-    RaceSource,
-    SourceUnion,
-)
+from ..source_models import SourceUnion
 from ..utils import count_tokens
 from .game_log_full_text_search import game_log_fts
 from .trigram_entity_search import find_entities_by_trigram_similarity
@@ -165,6 +157,7 @@ class RAGService:
 
             # Use Django ORM with pgvector
             from pgvector.django import CosineDistance
+            from django.contrib.contenttypes.models import ContentType
 
             queryset = ContentChunk.objects.annotate(
                 similarity=1 - CosineDistance("embedding", query_embedding)
@@ -172,22 +165,68 @@ class RAGService:
 
             # Filter by content types if specified
             if content_types:
-                queryset = queryset.filter(content_type__in=content_types)
+                # Convert string content types to ContentType instances
+                content_type_objects = []
+                for content_type_str in content_types:
+                    if content_type_str == "gamelog":
+                        content_type_obj = ContentType.objects.get(
+                            app_label="nucleus", model="gamelog"
+                        )
+                    elif content_type_str == "character":
+                        content_type_obj = ContentType.objects.get(
+                            app_label="character", model="character"
+                        )
+                    elif content_type_str == "place":
+                        content_type_obj = ContentType.objects.get(
+                            app_label="place", model="place"
+                        )
+                    elif content_type_str == "item":
+                        content_type_obj = ContentType.objects.get(
+                            app_label="item", model="item"
+                        )
+                    elif content_type_str == "artifact":
+                        content_type_obj = ContentType.objects.get(
+                            app_label="item", model="artifact"
+                        )
+                    elif content_type_str == "race":
+                        content_type_obj = ContentType.objects.get(
+                            app_label="race", model="race"
+                        )
+                    elif content_type_str == "association":
+                        content_type_obj = ContentType.objects.get(
+                            app_label="association", model="association"
+                        )
+                    else:
+                        continue
+                    content_type_objects.append(content_type_obj)
+
+                if content_type_objects:
+                    queryset = queryset.filter(content_type__in=content_type_objects)
 
             chunks = queryset.order_by("-similarity")[:limit]
 
             results = []
             for chunk in chunks:
-                results.append(
-                    SemanticSearchResult(
-                        chunk_text=chunk.chunk_text,
-                        metadata=chunk.metadata,
-                        similarity=float(chunk.similarity),
-                        chunk_id=chunk.pk,
-                        content_type=chunk.content_type,
-                        content_object=chunk.content_object,
-                    )
+                # Get the string representation of content type for backwards compatibility
+                content_type_str = (
+                    chunk.content_type.model if chunk.content_type else "unknown"
                 )
+
+                # The similarity is added by the annotation, so we access it directly
+                similarity_score = getattr(chunk, "similarity", 0.0)
+
+                # Ensure content_object exists before adding to results
+                if chunk.content_object:
+                    results.append(
+                        SemanticSearchResult(
+                            chunk_text=chunk.chunk_text,
+                            metadata=chunk.metadata,
+                            similarity=float(similarity_score),
+                            chunk_id=chunk.pk,
+                            content_type=content_type_str,
+                            content_object=chunk.content_object,
+                        )
+                    )
 
             logger.info(
                 f"Semantic search found {len(results)} relevant chunks for query: {query[:50]}... "
@@ -296,90 +335,6 @@ class RAGService:
         else:
             return f"Content ({content_type}):\n{chunk_text}"
 
-    def _build_source_info(
-        self, metadata: Dict, similarity: float, chunk_id: int, content_type: str
-    ):
-        from ..source_models import (
-            ArtifactSource,
-            AssociationSource,
-            CharacterSource,
-            GameLogSource,
-            ItemSource,
-            PlaceSource,
-            RaceSource,
-        )
-
-        if content_type == "gamelog":
-            return GameLogSource(
-                type=content_type,
-                chunk_id=chunk_id,
-                similarity=similarity,
-                chunk_index=metadata.get("chunk_index", 0),
-                session_number=metadata.get("session_number"),
-                title=metadata.get("title", "Unknown Session"),
-                url=metadata.get("google_doc_url", ""),
-                session_date=metadata.get("session_date"),
-                places=metadata.get("places_set_in", []),
-            )
-        elif content_type == "character":
-            return CharacterSource(
-                type=content_type,
-                chunk_id=chunk_id,
-                similarity=similarity,
-                chunk_index=metadata.get("chunk_index", 0),
-                name=metadata.get("name", "Unknown Character"),
-                mentioned_in_sessions=metadata.get("mentioned_in_sessions", []),
-                race=metadata.get("race"),
-            )
-        elif content_type == "place":
-            return PlaceSource(
-                type=content_type,
-                chunk_id=chunk_id,
-                similarity=similarity,
-                chunk_index=metadata.get("chunk_index", 0),
-                name=metadata.get("name", "Unknown Place"),
-                mentioned_in_sessions=metadata.get("mentioned_in_sessions", []),
-            )
-        elif content_type == "item":
-            return ItemSource(
-                type=content_type,
-                chunk_id=chunk_id,
-                similarity=similarity,
-                chunk_index=metadata.get("chunk_index", 0),
-                name=metadata.get("name", "Unknown Item"),
-                mentioned_in_sessions=metadata.get("mentioned_in_sessions", []),
-                item_type=metadata.get("item_type"),
-            )
-        elif content_type == "artifact":
-            return ArtifactSource(
-                type=content_type,
-                chunk_id=chunk_id,
-                similarity=similarity,
-                chunk_index=metadata.get("chunk_index", 0),
-                name=metadata.get("name", "Unknown Artifact"),
-                mentioned_in_sessions=metadata.get("mentioned_in_sessions", []),
-            )
-        elif content_type == "race":
-            return RaceSource(
-                type=content_type,
-                chunk_id=chunk_id,
-                similarity=similarity,
-                chunk_index=metadata.get("chunk_index", 0),
-                name=metadata.get("name", "Unknown Race"),
-                mentioned_in_sessions=metadata.get("mentioned_in_sessions", []),
-            )
-        elif content_type == "association":
-            return AssociationSource(
-                type=content_type,
-                chunk_id=chunk_id,
-                similarity=similarity,
-                chunk_index=metadata.get("chunk_index", 0),
-                name=metadata.get("name", "Unknown Association"),
-                mentioned_in_sessions=metadata.get("mentioned_in_sessions", []),
-            )
-        else:
-            raise ValueError(f"Unknown content_type: {content_type}")
-
     def generate_response(
         self,
         query: str,
@@ -404,18 +359,14 @@ class RAGService:
         try:
             ######### GET CONVERSATION HISTORY #########
             conversation_messages = (
-                list(
-                    ConversationMemoryService(
-                        session, model=self.model
-                    ).get_prompt_messages_str(query)
-                )
+                ConversationMemoryService(
+                    session, model=self.model
+                ).get_prompt_messages_str(query)
                 if session
-                else []
+                else ""
             )
 
-            query_with_history = (
-                "\n".join(conversation_messages) + f"\n\nQuestion: {query}"
-            )
+            query_with_history = conversation_messages + f"\n\nQuestion: {query}"
 
             ######### GET ENTITIES FOR QUERY ENHANCEMENT #########
 
@@ -429,7 +380,14 @@ class RAGService:
                 query_with_history,
                 limit=self.max_context_chunks,
                 similarity_threshold=similarity_threshold,
-                content_types=[ct for ct in (content_types or []) if ct != "gamelog"],
+                content_types=[
+                    "character",
+                    "place",
+                    "item",
+                    "artifact",
+                    "race",
+                    "association",
+                ],
             )
             entity_ids_in_query_enhancement = set()
             entities_for_query = []
@@ -441,10 +399,13 @@ class RAGService:
                 if result.content_object.pk not in entity_ids_in_query_enhancement:
                     entities_for_query.append(result.content_object)
                     entity_ids_in_query_enhancement.add(result.content_object.pk)
+
             entities_formatted_for_query_enhancement = (
                 "\n".join(
-                    f"- **{e['name']}** ({e.__class__.__name__})\n  Aliases: {', '.join(e.get('aliases', [])) or 'none'})\n  {e['description']}"
-                    for e in entities_for_query
+                    [
+                        f"- **{e.name}** ({e.__class__.__name__})\n  Aliases: {', '.join({alias.name for alias in e.aliases.all()}) or 'none'})\n  {e.description}"
+                        for e in entities_for_query
+                    ]
                 )
                 or "No entities retrieved."
             )
@@ -460,7 +421,7 @@ and entity databases.
 - Output only the rewritten enriched query, nothing else."""
             user_prompt_for_query_enhancement = f"""
 Conversation History:
-{"\n".join(conversation_messages) if conversation_messages else "No prior conversation."}
+{conversation_messages if conversation_messages else "No prior conversation."}
 
 Entities Retrieved:
 {entities_formatted_for_query_enhancement}
@@ -528,10 +489,16 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
                 ScoreSetElement(chunk.content_object, chunk.similarity)
                 for chunk in semantic_entity_chunks
             ]
-            fts_scores = [
-                ScoreSetElement(r, (len(fts_results) - idx) / len(fts_results) * 1.0)
-                for idx, r in enumerate(fts_results)
-            ]
+            fts_scores = (
+                [
+                    ScoreSetElement(
+                        r, (len(fts_results) - idx) / len(fts_results) * 1.0
+                    )
+                    for idx, r in enumerate(fts_results)
+                ]
+                if fts_results.count() > 0
+                else []
+            )
             trigram_scores = [
                 ScoreSetElement(r.entity, r.similarity) for r in trigram_results
             ]
@@ -572,7 +539,7 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
             # --- Entities formatted ---
             entity_text = (
                 "\n".join(
-                    get_processor(e).format_for_llm(e) for e in entities_to_include
+                    [get_processor(e).format_for_llm(e) for e in entities_to_include]
                 )
                 or "No entities retrieved."
             )
@@ -586,7 +553,7 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
             # --- Base sections ---
             sections = {
                 "Conversation History": (
-                    "\n".join(conversation_messages)
+                    conversation_messages
                     if conversation_messages
                     else "No prior conversation."
                 ),
@@ -613,8 +580,12 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
 
             if logs_to_include:
                 logs_text = "\n\n".join(
-                    content_processor.format_for_llm(log)
-                    for log in sorted(logs_to_include, key=lambda l: l.session_number)
+                    [
+                        content_processor.format_for_llm(log)
+                        for log in sorted(
+                            logs_to_include, key=lambda l: l.session_number
+                        )
+                    ]
                 )
                 assembled += f"=== Full Logs (Retrieved Subset) ===\n{logs_text}\n\n"
 
@@ -775,9 +746,26 @@ Your goal: Be the ultimate space fantasy campaign companion that understands the
             # Determine what content types were actually found
             content_types_found = list(set(chunk.content_type for chunk in chunks))
 
+            seen_sources = set()
+            sources = []
+            for entity in entities_to_include:
+                entity_type = entity.__class__.__name__.lower()
+                if (entity_type, entity.pk) not in seen_sources:
+                    source = {"id": entity.pk, "type": entity_type}
+                    sources.append(source)
+                    seen_sources.add((entity_type, entity.pk))
+            for log in logs_to_include:
+                if ("gamelog", log.pk) not in seen_sources:
+                    source = {
+                        "id": log.pk,
+                        "type": "gamelog",
+                    }
+                    sources.append(source)
+                    seen_sources.add(("gamelog", log.pk))
+
             response_data = {
                 "response": response_text,
-                "sources": semantic_search_sources,
+                "sources": [parse_source(s) for s in sources],
                 "tokens_used": tokens_used,
                 "similarity_threshold": similarity_threshold
                 or self.default_similarity_threshold,
@@ -854,14 +842,17 @@ Your goal: Be the ultimate space fantasy campaign companion that understands the
 
         stats = {}
 
-        # New content chunks
+        # New content chunks - get stats by content type model name
         chunk_stats = (
-            ContentChunk.objects.values("content_type")
+            ContentChunk.objects.select_related("content_type")
+            .values("content_type__model")
             .annotate(count=Count("id"))
-            .order_by("content_type")
+            .order_by("content_type__model")
         )
 
         for stat in chunk_stats:
-            stats[stat["content_type"]] = stat["count"]
+            content_type_name = stat["content_type__model"]
+            if content_type_name:
+                stats[content_type_name] = stat["count"]
 
         return stats
