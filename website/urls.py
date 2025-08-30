@@ -18,6 +18,7 @@ Including another URLconf
 import json
 from django.contrib import admin
 from django.urls import include, path
+from django.views.generic import RedirectView
 
 from django.views.decorators.csrf import csrf_exempt
 from strawberry.django.views import GraphQLView
@@ -55,6 +56,7 @@ class GraphQLViewWithLogging(GraphQLView):
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browsable API.
 urlpatterns = [
+    path("", RedirectView.as_view(url="/admin/", permanent=False)),
     path("healthcheck/", healthcheck),
     path("admin/", admin.site.urls),
     path("__debug__/", include("debug_toolbar.urls")),
