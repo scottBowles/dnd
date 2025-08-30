@@ -23,11 +23,13 @@ class ConversationMemoryService:
     def __init__(
         self,
         session: ChatSession,
-        max_tokens_before_summary: int = 1500,
+        max_tokens_before_summary: int = 1000,  # High-water mark - triggers summarization
+        target_tokens_after_summary: int = 500,  # Low-water mark - how much to keep after summary
         model: str = settings.OPENAI_CHEAP_CHAT_MODEL,
     ):
         self.session = session
         self.max_tokens_before_summary = max_tokens_before_summary
+        self.target_tokens_after_summary = target_tokens_after_summary
         self.model = model
 
     def _divide_messages_for_conversation_memory(
@@ -35,7 +37,8 @@ class ConversationMemoryService:
     ) -> Tuple[List[ChatMessage], List[ChatMessage]]:
         """
         Based on the max_tokens limit, determine which previous messages to include in full
-        and which to add to the session summary.
+        and which to add to the session summary. Uses high/low watermark approach to reduce
+        summarization frequency.
         """
         # Get all messages in the session not already included in the summary, most recent first
         messages = self.session.messages.filter(included_in_summary=False).order_by(
@@ -44,22 +47,32 @@ class ConversationMemoryService:
 
         new_message_token_count = count_tokens(new_message)
 
+        # First pass: check if we need to summarize at all
+        total_unsummarized_tokens = new_message_token_count
+        for msg in messages:
+            total_unsummarized_tokens += count_tokens(msg.message) + count_tokens(
+                msg.response
+            )
+
+        # If we're under the high-water mark, include everything
+        if total_unsummarized_tokens <= self.max_tokens_before_summary:
+            return list(messages), []
+
+        # We need to summarize - find the cutoff point for the low-water mark
         messages_to_include = []
         messages_to_add_to_summary = []
-        total_tokens = new_message_token_count
+        tokens_to_keep = new_message_token_count
+
         for msg in messages:
-            # If we're already over the limit, add remaining messages to summary -- no need to count tokens
-            if total_tokens >= self.max_tokens_before_summary:
-                messages_to_add_to_summary.append(msg)
+            msg_token_count = count_tokens(msg.message) + count_tokens(msg.response)
+
+            # If adding this message would keep us under the target, include it
+            if tokens_to_keep + msg_token_count <= self.target_tokens_after_summary:
+                messages_to_include.append(msg)
+                tokens_to_keep += msg_token_count
             else:
-                # If the message would not exceed the token limit, include it in the context in full
-                msg_token_count = count_tokens(msg.message) + count_tokens(msg.response)
-                if total_tokens + msg_token_count <= self.max_tokens_before_summary:
-                    messages_to_include.append(msg)
-                # If it would exceed, add it to the summary list
-                else:
-                    messages_to_add_to_summary.append(msg)
-                total_tokens += msg_token_count
+                # Add this and all remaining older messages to summary
+                messages_to_add_to_summary.append(msg)
 
         return messages_to_include, messages_to_add_to_summary
 
