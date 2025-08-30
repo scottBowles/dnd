@@ -2,13 +2,33 @@ from django.conf import settings
 import strawberry
 import strawberry_django
 from strawberry import auto, relay
-from typing import List, Optional, Union
+from strawberry.scalars import JSON
+from typing import List, Optional, Union, Any, TYPE_CHECKING, Sequence
+
 from strawberry_django.relay import DjangoListConnection
 from . import models, services
 import strawberry.experimental.pydantic
+import strawberry.scalars
 
 from nucleus.types.user import User as UserType
 from nucleus.permissions import IsSuperuser
+from .source_models import parse_sources
+from strawberry import union
+from nucleus.types.gamelog import GameLog as GameLogType
+from character.types.character import Character as CharacterType
+from place.types.place import Place as PlaceType
+from item.types.item import Item as ItemType
+from item.types.artifact import Artifact as ArtifactType
+from association.types import Association as AssociationType
+from race.types.race import Race as RaceType
+
+# Import Django models for type annotations
+from nucleus.models import GameLog
+from character.models import Character
+from place.models import Place
+from item.models import Item, Artifact
+from association.models import Association
+from race.models import Race
 
 
 @strawberry_django.type(models.ContentChunk)
@@ -28,9 +48,8 @@ class ChatSessionType(relay.Node):
     title: auto
     created_at: auto
     updated_at: auto
-    # messages: List["ChatMessageType"]
 
-    @strawberry.field
+    @strawberry_django.field
     def messages(self) -> List["ChatMessageType"]:
         return self.messages.all().order_by("created_at")
 
@@ -45,29 +64,32 @@ class ChatMessageType(relay.Node):
     content_types_searched: auto
     created_at: auto
 
-    # @strawberry.field
-    # def extra_sources(self) -> list["SourceTypeUnion"]:
-    #     # Parse sources from DB and convert to Strawberry types
-    #     from .services import RAGService
+    # @strawberry_django.field
+    # def sources(
+    #     self,
+    # ) -> Sequence[
+    #     Union[
+    #         GameLog,
+    #         Character,
+    #         Place,
+    #         Item,
+    #         Artifact,
+    #         Race,
+    #         Association,
+    #     ]
+    # ]:
+    #     """Get the sources used for this chat message response."""
+    #     # Access the actual model field data
+    #     sources_data = getattr(self, "sources", None)
+    #     if not sources_data:
+    #         return []
 
-    #     pydantic_sources = RAGService().parse_sources_from_db(self.sources)
-    #     result = []
-    #     for s in pydantic_sources:
-    #         if isinstance(s, GameLogSource):
-    #             result.append(GameLogSourceType.from_pydantic(s))
-    #         elif isinstance(s, CharacterSource):
-    #             result.append(CharacterSourceType.from_pydantic(s))
-    #         elif isinstance(s, PlaceSource):
-    #             result.append(PlaceSourceType.from_pydantic(s))
-    #         elif isinstance(s, ItemSource):
-    #             result.append(ItemSourceType.from_pydantic(s))
-    #         elif isinstance(s, ArtifactSource):
-    #             result.append(ArtifactSourceType.from_pydantic(s))
-    #         elif isinstance(s, RaceSource):
-    #             result.append(RaceSourceType.from_pydantic(s))
-    #         elif isinstance(s, AssociationSource):
-    #             result.append(AssociationSourceType.from_pydantic(s))
-    #     return result
+    #     try:
+    #         # Parse the sources from the stored JSON
+    #         return parse_sources(sources_data).sources
+    #     except Exception:
+    #         # If parsing fails, return empty list
+    #         return []
 
 
 @strawberry_django.type(models.QueryCache)
@@ -331,6 +353,7 @@ class RAGMutation:
         )
 
         message = rag_service.save_chat_message(session, input.message, response_data)
+
         return SendChatMessagePayload(message=message, session=session)
 
     @strawberry.mutation

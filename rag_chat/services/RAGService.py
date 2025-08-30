@@ -21,15 +21,15 @@ from rag_chat.services.normalize_and_hybrid_rank_fuse import (
     remove_results_more_than_stddev_below_mean,
     z_score_normalize,
 )
-from rag_chat.source_models import parse_source
 
 from ..content_processors import get_processor
 from ..embeddings import create_query_hash, get_embedding
 from ..models import ChatMessage, ChatSession, ContentChunk, QueryCache
-from ..source_models import SourceUnion
+from ..source_models import create_sources, parse_sources
 from ..utils import count_tokens
 from .game_log_full_text_search import game_log_fts
-from .trigram_entity_search import find_entities_by_trigram_similarity
+from .trigram_entity_search import search_entities_in_query
+
 
 logger = logging.getLogger(__name__)
 
@@ -356,6 +356,7 @@ class RAGService:
         """
         from .ConversationMemoryService import ConversationMemoryService
 
+        print("START")
         try:
             ######### GET CONVERSATION HISTORY #########
             conversation_messages = (
@@ -365,17 +366,17 @@ class RAGService:
                 if session
                 else ""
             )
+            print("got conversation messages")
 
             query_with_history = conversation_messages + f"\n\nQuestion: {query}"
 
             ######### GET ENTITIES FOR QUERY ENHANCEMENT #########
 
-            trigram_results_for_query_enhancement = find_entities_by_trigram_similarity(
-                query_with_history
-            )
+            trigram_results_for_query_enhancement = search_entities_in_query(query)
             trigram_entities_for_query_enhancement = [
                 res.entity for res in trigram_results_for_query_enhancement
             ]
+            print("got trigram entities for query enhancement")
             semantic_search_results_for_query_enhancement = self.semantic_search(
                 query_with_history,
                 limit=self.max_context_chunks,
@@ -389,6 +390,14 @@ class RAGService:
                     "association",
                 ],
             )
+            print("got semantic search results for query enhancement")
+            entities_from_past_messages = [
+                source
+                for message in session.messages.all()
+                for source in parse_sources(message.sources).sources
+                if not isinstance(source, GameLog)
+            ]
+            print("got entities from past messages")
             entity_ids_in_query_enhancement = set()
             entities_for_query = []
             for entity in trigram_entities_for_query_enhancement:
@@ -399,6 +408,10 @@ class RAGService:
                 if result.content_object.pk not in entity_ids_in_query_enhancement:
                     entities_for_query.append(result.content_object)
                     entity_ids_in_query_enhancement.add(result.content_object.pk)
+            for entity in entities_from_past_messages:
+                if entity.pk not in entity_ids_in_query_enhancement:
+                    entities_for_query.append(entity)
+                    entity_ids_in_query_enhancement.add(entity.pk)
 
             entities_formatted_for_query_enhancement = (
                 "\n".join(
@@ -413,7 +426,7 @@ class RAGService:
             ######### ENHANCE QUERY #########
             system_prompt_for_query_enhancement = """You are a helpful assistant that rewrites user queries into enriched,
 contextually clear forms suitable for retrieving information from narrative logs
-and entity databases. 
+and entity databases.
 
 - Always resolve vague references by grounding them in entity names and aliases.
 - Incorporate relevant details from the conversation history and summary.
@@ -446,13 +459,16 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
             ).strip()
 
             logger.info(f"Enhanced search query: {enhanced_search_query[:100]}...")
+            print(f"Enhanced search query: {enhanced_search_query}")
 
             ######### RETRIEVE LOGS AND ENTITIES USING ENHANCED QUERY #########
 
-            trigram_results = find_entities_by_trigram_similarity(enhanced_search_query)
+            trigram_results = search_entities_in_query(enhanced_search_query)
             entities_from_trigram = [res.entity for res in trigram_results]
+            print("got trigram results")
 
             fts_results = game_log_fts(enhanced_search_query, limit=10)
+            print("got fts results")
 
             chunks = self.semantic_search(
                 enhanced_search_query,
@@ -460,6 +476,7 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
                 similarity_threshold=similarity_threshold,
                 content_types=content_types,
             )
+            print("got semantic search chunks")
 
             if not chunks and not entities_from_trigram and not fts_results:
                 response_data = {
@@ -568,7 +585,7 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
 
             # --- Add full logs within budget ---
             content_processor = get_processor("gamelog")
-            logs_to_include = []
+            logs_to_include: list[GameLog] = []
             tokens_added = count_tokens(assembled, model=self.model)
             for log in logs_to_include_candidates:
                 candidate = f"Log {log.session_number} (Full) — {log.title}:\n{log.full_text}\n\n"
@@ -589,93 +606,7 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
                 )
                 assembled += f"=== Full Logs (Retrieved Subset) ===\n{logs_text}\n\n"
 
-            # # Build context for LLM
-            # semantic_search_context = []
-            # semantic_search_sources = []
-            # if chunks:
-            #     for chunk in chunks:
-            #         # Build context entry based on content type
-            #         context_entry = self._format_context_entry(
-            #             chunk.chunk_text, chunk.metadata, chunk.content_type
-            #         )
-            #         semantic_search_context.append(context_entry)
-
-            #         # Build source info as Pydantic model
-            #         source = self._build_source_info(
-            #             chunk.metadata,
-            #             chunk.similarity,
-            #             chunk.chunk_id,
-            #             chunk.content_type,
-            #         )
-            #         semantic_search_sources.append(source)
-
-            # # Construct the context and the sources list
-            # # - Determine what objects to use
-            # # - Do the source objects make sense for the new retrievals?
-            # # - Do we use content_processors for the text we'll include?
-            # trigram_context_parts = []
-            # for trigram_result in trigram_results:
-            #     entity = trigram_result.entity
-            #     source = None
-
-            #     processor = get_processor(
-            #         entity.__class__.__name__.lower()
-            #     )  # doesn't work for gamelog but does for entities
-            #     text = processor.extract_text(entity)
-
-            #     context_part = f"{entity.__class__.__name__} - {entity.name}:\n{text}"
-            #     trigram_context_parts.append(context_part)
-
-            # fts_sources: list[GameLogSource] = []
-            # fts_context_parts = []
-            # for i, log in enumerate(fts_results):
-            #     fts_sources.append(
-            #         GameLogSource(
-            #             # similarity=fts_result.similarity, # PROBABLY WANT TO ADD RANK (i) HERE, OR WE ADD A COMBINED SCORE
-            #             session_number=log.session_number,
-            #             title=log.title,
-            #             url=log.url,
-            #             session_date=log.game_date,
-            #             places=log.places_set_in,
-            #         )
-            #     )
-            #     processor = get_processor("gamelog")
-            #     text = processor.extract_text(log)
-            #     context_part = (
-            #         f"Game Log - {log.title} (Session {log.session_number}):\n{text}"
-            #     )
-            #     fts_context_parts.append(context_part)
-
-            # semantic_scores = [
-            #     ScoreSetElement(r.content_object, r.similarity) for r in chunks
-            # ]
-            # fts_scores = [
-            #     ScoreSetElement(r, (len(fts_results) - idx) / len(fts_results) * 1.0)
-            #     for idx, r in enumerate(fts_results)
-            # ]
-            # trigram_scores = [
-            #     ScoreSetElement(r.entity, r.similarity) for r in trigram_results
-            # ]
-
-            # semantic_scores_normalized = z_score_normalize(semantic_scores)
-            # fts_scores_normalized = z_score_normalize(fts_scores)
-            # trigram_scores_normalized = z_score_normalize(trigram_scores)
-
-            # SEMANTIC_WEIGHT = 0.6
-            # FTS_WEIGHT = 0.3
-            # TRIGRAM_WEIGHT = 0.1
-
-            # fused_results = hybrid_rank_fuse(
-            #     (semantic_scores_normalized, SEMANTIC_WEIGHT),
-            #     (fts_scores_normalized, FTS_WEIGHT),
-            #     (trigram_scores_normalized, TRIGRAM_WEIGHT),
-            # )
-
-            # # Sort by combined score, maybe separating by content type. We need the entity/log and not just the global_id and score.
-
-            # context = "\n\n---\n\n".join(
-            #     [*fts_context_parts, *trigram_context_parts, *semantic_search_context]
-            # )
+            print("Assembled context")
 
             # Create system prompt with enhanced instructions
             #             _system_prompt = """You are a knowledgeable D&D campaign assistant with access to detailed information from an ongoing campaign including session logs, characters, places, items, artifacts, races, associations, and other campaign elements.
@@ -733,12 +664,16 @@ Your goal: Be the ultimate space fantasy campaign companion that understands the
                 {"role": "user", "content": query},
             ]
 
+            print("getting response from openai")
+
             response = openai_client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 temperature=0.3,
                 max_completion_tokens=2000,
             )
+
+            print("got response from openai")
 
             response_text = response.choices[0].message.content
             tokens_used = response.usage.total_tokens if response.usage else None
@@ -747,25 +682,24 @@ Your goal: Be the ultimate space fantasy campaign companion that understands the
             content_types_found = list(set(chunk.content_type for chunk in chunks))
 
             seen_sources = set()
-            sources = []
+            sources: list[
+                GameLog | Association | Character | Place | Item | Artifact | Race
+            ] = []
             for entity in entities_to_include:
                 entity_type = entity.__class__.__name__.lower()
                 if (entity_type, entity.pk) not in seen_sources:
-                    source = {"id": entity.pk, "type": entity_type}
-                    sources.append(source)
+                    sources.append(entity)
                     seen_sources.add((entity_type, entity.pk))
             for log in logs_to_include:
                 if ("gamelog", log.pk) not in seen_sources:
-                    source = {
-                        "id": log.pk,
-                        "type": "gamelog",
-                    }
-                    sources.append(source)
+                    sources.append(log)
                     seen_sources.add(("gamelog", log.pk))
+
+            print("assembling response data")
 
             response_data = {
                 "response": response_text,
-                "sources": [parse_source(s) for s in sources],
+                "sources": create_sources(sources),
                 "tokens_used": tokens_used,
                 "similarity_threshold": similarity_threshold
                 or self.default_similarity_threshold,
@@ -776,21 +710,18 @@ Your goal: Be the ultimate space fantasy campaign companion that understands the
                 "used_session_context": session is not None,
             }
 
-            # Cache the response (only for non-conversational queries)
-            # if not session:
-            #     self.cache_query_response(query, response_data, context_params)
-
             logger.info(
                 f"Generated response for query: {query[:50]}... "
                 f"(query: {query[:50]}..., tokens: {tokens_used}, content_types: {content_types_found})"
             )
+            print("generated response")
             return response_data
 
         except Exception as e:
             logger.error(f"Failed to generate response: {str(e)}")
             return {
                 "response": f"I encountered an error while processing your question: {str(e)}",
-                "sources": [],
+                "sources": create_sources([]),
                 "tokens_used": 0,
                 "error": str(e),
             }
@@ -807,24 +738,20 @@ Your goal: Be the ultimate space fantasy campaign companion that understands the
         """
         Save a chat exchange to the database
         """
-        sources = response_data.get("sources", [])
-        sources_dicts = [s.dict() if hasattr(s, "dict") else s for s in sources]
+        sources = response_data.get("sources")
+        sources_json = sources.to_json()
+
         return ChatMessage.objects.create(
             session=session,
             message=message,
             response=response_data["response"],
-            sources=sources_dicts,
+            sources=sources_json,
             tokens_used=response_data.get("tokens_used", 0),
             similarity_threshold=response_data.get(
                 "similarity_threshold", self.default_similarity_threshold
             ),
             content_types_searched=response_data.get("content_types_searched", []),
         )
-
-    def parse_sources_from_db(self, sources: List[dict]) -> List[SourceUnion]:
-        from ..source_models import parse_source
-
-        return [parse_source(s) for s in sources]
 
     def get_user_chat_sessions(
         self, user, limit: int = 10

@@ -1,4 +1,4 @@
-import re
+from collections import namedtuple
 from dataclasses import dataclass
 
 from django.contrib.postgres.search import TrigramSimilarity
@@ -9,29 +9,8 @@ from item.models import Artifact, Item
 from nucleus.models import Alias
 from place.models import Place
 from race.models import Race
-from collections import namedtuple
 
-ENTITY_MODELS = [Character, Race, Place, Item, Artifact, Association]
-
-NGramRange = namedtuple("NGramRange", ["min", "max"])
-
-
-# Here a 'gram' is essentially a word
-@dataclass
-class EntityResolverConfig:
-    # Minimum similarity value to consider the entity a match
-    threshold: float = 0.3
-    # Max total entities to return
-    max_results: int = 50
-    # Generate n-grams from min to max words, to search phrases of word lengths in this range
-    ngram_range: NGramRange = NGramRange(
-        min=1,
-        max=5,
-    )
-    # Max aliases to return per n-gram, in case a given word or phrase matches multiple aliases
-    max_aliases_per_ngram: int = 5
-    # Minimum character length for aliases to consider in trigram search (reduces false positives)
-    min_alias_length: int = 4
+from .entity_extractor import entity_extractor
 
 
 @dataclass
@@ -44,71 +23,110 @@ class SearchResult:
     similarity: float
 
 
-def clean_text(text: str) -> str:
-    """Basic cleanup: remove punctuation, normalize whitespace."""
-    return re.sub(r"[^a-zA-Z0-9\s]", "", text).strip()
-
-
-def generate_ngrams(text: str, ngram_range: NGramRange) -> list[str]:
-    """Generate 1–5 word n-grams from text."""
-    tokens = clean_text(text).split()
-    ngrams = []
-    for n in range(ngram_range.min, ngram_range.max + 1):
-        ngrams.extend([" ".join(tokens[i : i + n]) for i in range(len(tokens) - n + 1)])
-    return ngrams
-
-
-def search_aliases(query: str, config: EntityResolverConfig):
-    """
-    Search entity aliases using trigram similarity.
-    Returns max_aliases_per_ngram results, each linked to its parent entity.
-    Only considers aliases with at least min_alias_length characters.
-    """
-    threshold = config.threshold
-    max_aliases_per_ngram = config.max_aliases_per_ngram
-    min_alias_length = config.min_alias_length
-
-    alias_qs = (
-        Alias.objects.annotate(similarity=TrigramSimilarity("name", query))
-        .filter(similarity__gt=threshold)
-        .extra(where=["CHAR_LENGTH(name) >= %s"], params=[min_alias_length])
-        .order_by("-similarity")[:max_aliases_per_ngram]
-    )
-    return alias_qs
-
-
-def find_entities_by_trigram_similarity(
-    query: str, config: EntityResolverConfig = EntityResolverConfig()
+def search_entities_in_query(
+    query_text: str,
+    similarity_threshold: float = 0.3,
+    max_results: int = 20,
+    max_ngram: int = 5,
+    max_aliases_per_ngram: int = 5,
+    min_alias_length: int = 4,
 ) -> list[SearchResult]:
-    """Resolve entities from a free-text query."""
-    ngrams = generate_ngrams(query, config.ngram_range)
+    """
+    Find entities mentioned in a query using NER + trigram similarity.
 
-    found_aliases = (
-        Alias.objects.none()
-        .union(*[search_aliases(ng, config) for ng in ngrams])
-        .order_by("-similarity")
+    Args:
+        query_text: The user's query (can be long)
+        limit: Maximum number of entities to return
+        similarity_threshold: Minimum similarity score (0.0-1.0)
+
+    Returns:
+        List of dicts with keys: id, name, entity_id, similarity, matched_phrase
+    """
+    if not query_text.strip():
+        return []
+
+    # Extract potential entity mentions
+    candidates = entity_extractor.extract_candidates(query_text, max_ngram=max_ngram)
+
+    if not candidates:
+        return []
+
+    # Search for each candidate phrase
+    all_matches = []
+
+    for candidate in candidates:
+        # Query database with trigram similarity
+        matches = (
+            Alias.objects.annotate(similarity=TrigramSimilarity("name", candidate))
+            .filter(similarity__gt=similarity_threshold)
+            .extra(where=["CHAR_LENGTH(name) >= %s"], params=[min_alias_length])
+            .order_by("-similarity")[:max_aliases_per_ngram]
+        )
+
+        all_matches.extend(list(matches))
+
+    AliasEntity = namedtuple("AliasEntity", ["alias", "entity"])
+
+    # Deduplicate by entity_id, keeping highest similarity
+    entity_matches: dict[int, AliasEntity] = {}
+    for m in all_matches:
+        entity = m.entity
+        entity_id = entity.pk
+        if (
+            entity_id not in entity_matches
+            or m.similarity > entity_matches[entity_id].alias.similarity
+        ):
+            entity_matches[entity_id] = AliasEntity(alias=m, entity=entity)
+
+    # Sort by similarity and limit results
+    aliases_with_entities = sorted(
+        entity_matches.values(), key=lambda x: x.alias.similarity, reverse=True
+    )[:max_results]
+
+    results: list[SearchResult] = []
+
+    for r in aliases_with_entities:
+        alias = r.alias
+        entity = r.entity
+        results.append(
+            SearchResult(
+                entity_id=entity.pk,
+                entity_type=entity.__class__.__name__,
+                entity=entity,
+                entity_name=entity.name,
+                matched_name=alias.name,
+                similarity=alias.similarity,
+            )
+        )
+
+    return results
+
+
+def search_entities_simple(
+    query_text: str, limit: int = 20, similarity_threshold: float = 0.3
+) -> list[SearchResult]:
+    """
+    Fallback: Direct trigram search on entire query (for short queries).
+    """
+    aliases = (
+        Alias.objects.annotate(similarity=TrigramSimilarity("name", query_text))
+        .filter(similarity__gt=similarity_threshold)
+        .order_by("-similarity")[:limit]
     )
 
     results: list[SearchResult] = []
-    seen_entity_global_ids = set()
 
-    for alias in found_aliases:
+    for alias in aliases:
         entity = alias.entity
-        entity_global_id = entity.global_id()
-        if entity_global_id not in seen_entity_global_ids:
-            results.append(
-                SearchResult(
-                    entity_id=entity.id,
-                    entity_type=entity.__class__.__name__,
-                    entity=entity,
-                    entity_name=entity.name,
-                    matched_name=alias.name,
-                    similarity=alias.similarity,
-                )
+        results.append(
+            SearchResult(
+                entity_id=entity.pk,
+                entity_type=entity.__class__.__name__,
+                entity=entity,
+                entity_name=entity.name,
+                matched_name=alias.name,
+                similarity=alias.similarity,
             )
-            seen_entity_global_ids.add(entity_global_id)
-
-        if len(results) >= config.max_results:
-            break
+        )
 
     return results
