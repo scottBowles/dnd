@@ -1,17 +1,16 @@
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, List, Optional
 
 from django.conf import settings
 from django.db.models import QuerySet
 from openai import OpenAI
-from openai.types.chat import ChatCompletionMessageParam
 
 from association.models import Association
-
 from character.models import Character
 from item.models import Artifact, Item
-from nucleus.models import GameLog
+from nucleus.models import GameLog, Entity, Alias
+from nucleus.utils import dedupe_model_instances
 from place.models import Place
 from race.models import Race
 from rag_chat.services.normalize_and_hybrid_rank_fuse import (
@@ -23,13 +22,12 @@ from rag_chat.services.normalize_and_hybrid_rank_fuse import (
 
 from ..content_processors import get_processor
 from ..embeddings import get_embedding
-from ..models import ChatMessage, ChatSession, ContentChunk, QueryCache
+from ..models import ChatMessage, ChatSession, ContentChunk
 from ..source_models import create_sources, parse_sources
 from ..utils import count_tokens
-from .game_log_full_text_search import game_log_fts
-from .trigram_entity_search import search_entities_in_query
-from nucleus.utils import dedupe_model_instances
-
+from .game_log_full_text_search import weighted_fts_search_logs
+from .trigram_entity_search import trigram_entity_search
+from .game_log_full_text_search import key_terms
 
 logger = logging.getLogger(__name__)
 
@@ -87,8 +85,8 @@ class RAGService:
             query_embedding = get_embedding(query)
 
             # Use Django ORM with pgvector
-            from pgvector.django import CosineDistance
             from django.contrib.contenttypes.models import ContentType
+            from pgvector.django import CosineDistance
 
             queryset = ContentChunk.objects.annotate(
                 similarity=1 - CosineDistance("embedding", query_embedding)
@@ -169,6 +167,59 @@ class RAGService:
             logger.error(f"Semantic search failed: {str(e)}")
             return []
 
+    def build_enriched_text_for_semantic_search(
+        self,
+        raw_query: str,
+        entities: list[Entity],
+        alias_cap=2,
+        keyterm_cap=5,
+        max_chars=512,
+    ):
+        lines = [raw_query.strip(), "Entities:"]
+        for e in entities:
+            # Work with local copies to avoid modifying the original lists
+            current_aliases = list(e.aliases.all()[:alias_cap])
+            current_terms = key_terms(e.description)[:keyterm_cap]
+
+            # Build the initial entity line
+            def build_entity_line(
+                aliases_list: list[Alias], terms_list: list[str]
+            ) -> str:
+                alias_str = (
+                    ("aka: " + ", ".join(str(a) for a in aliases_list) + "; ")
+                    if aliases_list
+                    else ""
+                )
+                separator = "; " if aliases_list and terms_list else ""
+                terms_str = (
+                    ("about: " + ", ".join(terms_list) + "; ") if terms_list else ""
+                )
+                return f"- {e.name} ({alias_str}{separator}{terms_str})"
+
+            entity_line = build_entity_line(current_aliases, current_terms)
+            lines.append(entity_line)
+
+            current_text = "\n".join(lines)
+            if len(current_text) > max_chars:
+                # Back off: trim terms first, then aliases, then drop this entity entirely
+
+                # Step 1: Trim terms one by one
+                while current_terms and len("\n".join(lines)) > max_chars:
+                    current_terms = current_terms[:-1]
+                    lines[-1] = build_entity_line(current_aliases, current_terms)
+
+                # Step 2: Trim aliases one by one if still too long
+                while current_aliases and len("\n".join(lines)) > max_chars:
+                    current_aliases = current_aliases[:-1]
+                    lines[-1] = build_entity_line(current_aliases, current_terms)
+
+                # Step 3: If still too long, drop this entity entirely
+                if len("\n".join(lines)) > max_chars:
+                    lines.pop()  # Remove this entity block
+                    break  # Stop processing more entities
+
+        return "\n".join(lines)[:max_chars]
+
     def _get_enhanced_query(
         self,
         query: str,
@@ -179,7 +230,7 @@ class RAGService:
         ######### GET ENTITIES FOR QUERY ENHANCEMENT #########
         query_with_history = conversation_messages + f"\n\nQuestion: {query}"
 
-        trigram_results_for_query_enhancement = search_entities_in_query(query)
+        trigram_results_for_query_enhancement = trigram_entity_search(query)
         trigram_entities_for_query_enhancement = [
             res.entity for res in trigram_results_for_query_enhancement
         ]
@@ -263,7 +314,6 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
         enhanced_search_query = (
             enhancement_response.choices[0].message.content or query
         ).strip()
-
         logger.info(f"Enhanced search query: {enhanced_search_query[:100]}...")
         print(f"Enhanced search query: {enhanced_search_query}")
 
@@ -278,38 +328,70 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
         List[GameLog], List[Association | Character | Place | Item | Artifact | Race]
     ]:
         ######### RETRIEVE LOGS AND ENTITIES USING ENHANCED QUERY #########
-        trigram_results = search_entities_in_query(query)
-        entities_from_trigram = [res.entity for res in trigram_results]
+        SEMANTIC_WEIGHT = 0.6
+        FTS_WEIGHT = 0.3
+        TRIGRAM_WEIGHT = 0.1
+
+        trigram_results = trigram_entity_search(query)
         print("got trigram results")
 
-        fts_results = game_log_fts(query, limit=10)
-        print("got fts results")
-
-        chunks = self.semantic_search(
+        semantic_entity_chunks = self.semantic_search(
             query,
             limit=self.max_context_chunks,
             similarity_threshold=similarity_threshold,
-            content_types=content_types,
+            content_types=[
+                "character",
+                "place",
+                "item",
+                "artifact",
+                "race",
+                "association",
+            ],
+        )
+
+        semantic_entity_scores = [
+            ScoreSetElement(chunk.content_object, chunk.similarity)
+            for chunk in semantic_entity_chunks
+        ]
+        trigram_scores = [
+            ScoreSetElement(r.entity, r.similarity) for r in trigram_results
+        ]
+
+        semantic_entity_scores_normalized = z_score_normalize(semantic_entity_scores)
+        trigram_scores_normalized = z_score_normalize(trigram_scores)
+
+        all_fused_entity_results = hybrid_rank_fuse(
+            (semantic_entity_scores_normalized, SEMANTIC_WEIGHT),
+            (trigram_scores_normalized, TRIGRAM_WEIGHT),
+        )
+        fused_entity_results = remove_results_more_than_stddev_below_mean(
+            all_fused_entity_results
+        )
+
+        fts_results = weighted_fts_search_logs(
+            query,
+            [r.data for r in fused_entity_results if not isinstance(r.data, GameLog)],
+        )
+        print("got fts results")
+
+        enhanced_query_for_log_search = self.build_enriched_text_for_semantic_search(
+            query,
+            [r.data for r in fused_entity_results if not isinstance(r.data, GameLog)],
+        )
+        semantic_log_chunks = self.semantic_search(
+            enhanced_query_for_log_search,
+            limit=self.max_context_chunks,
+            similarity_threshold=similarity_threshold,
+            content_types=["gamelog"],
         )
         print("got semantic search chunks")
 
-        if not chunks and not entities_from_trigram and not fts_results:
+        if not semantic_log_chunks and not fused_entity_results and not fts_results:
             return [], []
-
-        semantic_log_chunks = [
-            chunk for chunk in chunks if chunk.content_type == "gamelog"
-        ]
-        semantic_entity_chunks = [
-            chunk for chunk in chunks if chunk.content_type != "gamelog"
-        ]
 
         semantic_log_scores = [
             ScoreSetElement(chunk.content_object, chunk.similarity)
             for chunk in semantic_log_chunks
-        ]
-        semantic_entity_scores = [
-            ScoreSetElement(chunk.content_object, chunk.similarity)
-            for chunk in semantic_entity_chunks
         ]
         fts_scores = (
             [
@@ -319,33 +401,17 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
             if fts_results.count() > 0
             else []
         )
-        trigram_scores = [
-            ScoreSetElement(r.entity, r.similarity) for r in trigram_results
-        ]
 
         semantic_log_scores_normalized = z_score_normalize(semantic_log_scores)
-        semantic_entity_scores_normalized = z_score_normalize(semantic_entity_scores)
         fts_scores_normalized = z_score_normalize(fts_scores)
-        trigram_scores_normalized = z_score_normalize(trigram_scores)
-
-        SEMANTIC_WEIGHT = 0.6
-        FTS_WEIGHT = 0.3
-        TRIGRAM_WEIGHT = 0.1
 
         all_fused_log_results = hybrid_rank_fuse(
             (semantic_log_scores_normalized, SEMANTIC_WEIGHT),
             (fts_scores_normalized, FTS_WEIGHT),
         )
-        all_fused_entity_results = hybrid_rank_fuse(
-            (semantic_entity_scores_normalized, SEMANTIC_WEIGHT),
-            (trigram_scores_normalized, TRIGRAM_WEIGHT),
-        )
 
         fused_log_results = remove_results_more_than_stddev_below_mean(
             all_fused_log_results
-        )
-        fused_entity_results = remove_results_more_than_stddev_below_mean(
-            all_fused_entity_results
         )
 
         # Type assertions since we know the specific types from how we constructed the scores
@@ -420,7 +486,6 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
         self,
         query: str,
         similarity_threshold: Optional[float] = None,
-        content_types: Optional[List[str]] = None,
         session: Optional[ChatSession] = None,
     ) -> Dict[str, Any]:
         """
@@ -429,7 +494,6 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
         Args:
             query: User's question
             similarity_threshold: Minimum similarity for chunk inclusion
-            content_types: List of content types to search
             session: Optional chat session for building contextual search queries and conversation memory
 
         Returns:
@@ -462,7 +526,6 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
                 self._get_logs_and_entities_for_query(
                     enhanced_search_query,
                     similarity_threshold=similarity_threshold,
-                    content_types=content_types,
                 )
             )
 
@@ -474,7 +537,6 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
                     "similarity_threshold": similarity_threshold
                     or self.default_similarity_threshold,
                     "chunks_found": 0,
-                    "content_types_searched": content_types or ["all"],
                     "used_session_context": session is not None,
                 }
                 return response_data
@@ -566,7 +628,6 @@ Your goal: Be the ultimate space fantasy campaign companion that understands the
                 "tokens_used": tokens_used,
                 "similarity_threshold": similarity_threshold
                 or self.default_similarity_threshold,
-                "content_types_searched": content_types or ["all"],
                 "used_session_context": session is not None,
             }
 
@@ -610,7 +671,6 @@ Your goal: Be the ultimate space fantasy campaign companion that understands the
             similarity_threshold=response_data.get(
                 "similarity_threshold", self.default_similarity_threshold
             ),
-            content_types_searched=response_data.get("content_types_searched", []),
         )
 
     def get_user_chat_sessions(

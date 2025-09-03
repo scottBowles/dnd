@@ -23,12 +23,12 @@ class SearchResult:
     similarity: float
 
 
-def search_entities_in_query(
+def trigram_entity_search(
     query_text: str,
     similarity_threshold: float = 0.3,
     max_results: int = 20,
     max_ngram: int = 5,
-    max_aliases_per_ngram: int = 5,
+    max_aliases_per_ngram: int = 2,
     min_alias_length: int = 4,
 ) -> list[SearchResult]:
     """

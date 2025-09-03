@@ -125,7 +125,6 @@ class SendChatMessageInput:
     session_id: relay.GlobalID
     message: str
     similarity_threshold: Optional[float] = None
-    content_types: Optional[List[str]] = None
 
 
 @strawberry.input
@@ -348,7 +347,6 @@ class RAGMutation:
         response_data = rag_service.generate_response(
             query=input.message,
             similarity_threshold=input.similarity_threshold,
-            content_types=input.content_types,
             session=session,
         )
 
