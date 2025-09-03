@@ -324,7 +324,8 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
         self,
         query: str,
         similarity_threshold: Optional[float] = None,
-        content_types: Optional[List[str]] = None,
+        max_logs_to_include: int = 10,
+        max_entities_to_include: int = 15,
     ) -> tuple[
         List[GameLog], List[Association | Character | Place | Item | Artifact | Race]
     ]:
@@ -432,7 +433,10 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
         logs_to_include_candidates: list[GameLog] = [r.data for r in fused_log_results]  # type: ignore
         entities_to_include: list[Association | Character | Place | Item | Artifact | Race] = [r.data for r in fused_entity_results]  # type: ignore
 
-        return logs_to_include_candidates, entities_to_include
+        return (
+            logs_to_include_candidates[:max_logs_to_include],
+            entities_to_include[:max_entities_to_include],
+        )
 
     def _assemble_context(
         self,
@@ -501,6 +505,8 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
         query: str,
         similarity_threshold: Optional[float] = None,
         session: Optional[ChatSession] = None,
+        max_logs_to_include: int = 10,
+        max_entities_to_include: int = 15,
     ) -> Dict[str, Any]:
         """
         Main RAG pipeline: search, build context, generate response
@@ -540,6 +546,8 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
                 self._get_logs_and_entities_for_query(
                     enhanced_search_query,
                     similarity_threshold=similarity_threshold,
+                    max_logs_to_include=max_logs_to_include,
+                    max_entities_to_include=max_entities_to_include,
                 )
             )
 
