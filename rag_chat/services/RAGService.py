@@ -304,8 +304,10 @@ Task:
 Rewrite the original query so that it is explicit, unambiguous, and makes
 use of relevant entities, aliases, or prior context. Output only the enriched query.
 """
+        # Use a cheaper, faster model for query enhancement since it's a simpler rewriting task
+        enhancement_model = settings.OPENAI_CHEAP_CHAT_MODEL
         enhancement_response = openai_client.chat.completions.create(
-            model=self.model,
+            model=enhancement_model,
             messages=[
                 {"role": "system", "content": system_prompt_for_query_enhancement},
                 {"role": "user", "content": user_prompt_for_query_enhancement},
