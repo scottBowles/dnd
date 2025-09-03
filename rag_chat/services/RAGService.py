@@ -1,3 +1,4 @@
+import concurrent.futures
 import logging
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
@@ -327,27 +328,28 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
     ) -> tuple[
         List[GameLog], List[Association | Character | Place | Item | Artifact | Race]
     ]:
-        ######### RETRIEVE LOGS AND ENTITIES USING ENHANCED QUERY #########
         SEMANTIC_WEIGHT = 0.6
         FTS_WEIGHT = 0.3
         TRIGRAM_WEIGHT = 0.1
 
-        trigram_results = trigram_entity_search(query)
-        print("got trigram results")
+        # Run the entity search operations in parallel
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            # Submit both entity searches simultaneously
+            trigram_future = executor.submit(trigram_entity_search, query)
 
-        semantic_entity_chunks = self.semantic_search(
-            query,
-            limit=self.max_context_chunks,
-            similarity_threshold=similarity_threshold,
-            content_types=[
-                "character",
-                "place",
-                "item",
-                "artifact",
-                "race",
-                "association",
-            ],
-        )
+            semantic_entity_future = executor.submit(
+                self.semantic_search,
+                query,
+                self.max_context_chunks,
+                similarity_threshold,
+                ["character", "place", "item", "artifact", "race", "association"],
+            )
+
+            # Wait for results
+            trigram_results = trigram_future.result()
+            semantic_entity_chunks = semantic_entity_future.result()
+
+        print("got trigram and semantic entity results")
 
         semantic_entity_scores = [
             ScoreSetElement(chunk.content_object, chunk.similarity)
@@ -368,23 +370,35 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
             all_fused_entity_results
         )
 
-        fts_results = weighted_fts_search_logs(
-            query,
-            [r.data for r in fused_entity_results if not isinstance(r.data, GameLog)],
-        )
-        print("got fts results")
+        # Now run log searches in parallel
+        entities_for_log_search: list[Entity] = [
+            r.data for r in fused_entity_results if not isinstance(r.data, GameLog)
+        ]
 
-        enhanced_query_for_log_search = self.build_enriched_text_for_semantic_search(
-            query,
-            [r.data for r in fused_entity_results if not isinstance(r.data, GameLog)],
-        )
-        semantic_log_chunks = self.semantic_search(
-            enhanced_query_for_log_search,
-            limit=self.max_context_chunks,
-            similarity_threshold=similarity_threshold,
-            content_types=["gamelog"],
-        )
-        print("got semantic search chunks")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as log_executor:
+            fts_future = log_executor.submit(
+                weighted_fts_search_logs, query, entities_for_log_search
+            )
+
+            enhanced_query_for_log_search = (
+                self.build_enriched_text_for_semantic_search(
+                    query,
+                    entities_for_log_search,
+                )
+            )
+            semantic_log_future = log_executor.submit(
+                self.semantic_search,
+                enhanced_query_for_log_search,
+                self.max_context_chunks,
+                similarity_threshold,
+                ["gamelog"],
+            )
+
+            # Get log search results
+            fts_results = fts_future.result()
+            semantic_log_chunks = semantic_log_future.result()
+
+        print("got fts and semantic log results")
 
         if not semantic_log_chunks and not fused_entity_results and not fts_results:
             return [], []
