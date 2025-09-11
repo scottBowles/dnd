@@ -101,6 +101,10 @@ class ChatSession(models.Model):
 
     class Meta:
         ordering = ["-updated_at"]
+        permissions = [
+            ("can_use_rag_chat", "Can use RAG chat"),
+            ("can_start_chat_session", "Can start new chat sessions"),
+        ]
 
     def __str__(self):
         return f"{self.user.username} - {self.title or 'Chat Session'}"
@@ -144,6 +148,9 @@ class ChatMessage(models.Model):
 
     class Meta:
         ordering = ["created_at"]
+        permissions = [
+            ("can_send_chat_message", "Can send chat messages"),
+        ]
 
     def __str__(self):
         return f"{self.session} - {self.message[:50]}..."

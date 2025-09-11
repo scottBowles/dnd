@@ -12,6 +12,7 @@ import strawberry.scalars
 
 from nucleus.types.user import User as UserType
 from nucleus.permissions import IsSuperuser
+from .permissions import CanUseRAGChat, CanStartChatSession, CanSendChatMessage
 from .source_models import parse_sources
 from strawberry import union
 from nucleus.types.gamelog import GameLog as GameLogType
@@ -187,18 +188,14 @@ class RAGQuery:
         permission_classes=[IsSuperuser]
     )
 
-    @strawberry_django.connection(DjangoListConnection[ChatSessionType])
+    @strawberry_django.connection(DjangoListConnection[ChatSessionType], permission_classes=[CanUseRAGChat])
     def chat_sessions(self, info) -> list[models.ChatSession]:
         user = info.context.request.user
-        if not user.is_authenticated:
-            raise Exception("Authentication required.")
         return models.ChatSession.objects.filter(user=user)
 
-    @strawberry_django.connection(DjangoListConnection[ChatMessageType])
+    @strawberry_django.connection(DjangoListConnection[ChatMessageType], permission_classes=[CanUseRAGChat])
     def chat_messages(self, info) -> list[models.ChatMessage]:
         user = info.context.request.user
-        if not user.is_authenticated:
-            raise Exception("Authentication required.")
         return models.ChatMessage.objects.filter(session__user=user)
 
     @strawberry.field(permission_classes=[IsSuperuser])
@@ -299,9 +296,9 @@ class RAGQuery:
 
         # Convert results to ContentChunk objects for GraphQL
         chunks = []
-        for chunk_text, metadata, similarity, chunk_id, content_type in results:
+        for result in results:
             try:
-                chunk = models.ContentChunk.objects.get(id=chunk_id)
+                chunk = models.ContentChunk.objects.get(id=result.chunk_id)
                 chunks.append(chunk)
             except models.ContentChunk.DoesNotExist:
                 continue
@@ -311,23 +308,18 @@ class RAGQuery:
 
 @strawberry.type
 class RAGMutation:
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[CanStartChatSession])
     def start_chat_session(self, info, input: StartChatSessionInput) -> ChatSessionType:
         user = info.context.request.user
-        if not user.is_authenticated:
-            raise Exception("User must be authenticated to start a chat session.")
-
         rag_service = services.RAGService()
         session = rag_service.create_chat_session(user, title=input.title)
         return session
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[CanSendChatMessage])
     def send_chat_message(
         self, info, input: SendChatMessageInput
     ) -> SendChatMessagePayload:
         user = info.context.request.user
-        if not user.is_authenticated:
-            raise Exception("User must be authenticated to send messages.")
 
         # Use better model for staff users
         if user.is_staff:
