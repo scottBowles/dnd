@@ -27,6 +27,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
+# Install NLTK data required for query expansion
+# RUN python -m nltk.downloader punkt punkt_tab averaged_perceptron_tagger stopwords
+RUN python -m nltk.downloader -d /usr/local/share/nltk_data punkt punkt_tab averaged_perceptron_tagger averaged_perceptron_tagger_eng stopwords
+
+
 # Copy application code
 COPY . .
 

@@ -140,9 +140,9 @@ session = TranscriptionSession.objects.create(
 )
 
 # Create session linked to GameLog
-game_log = GameLog.objects.get(id=1)
+gamelog = GameLog.objects.get(id=1)
 session = TranscriptionSession.objects.create(
-    log=game_log,
+    log=gamelog,
     notes="Session notes"
 )
 ```
@@ -341,7 +341,7 @@ success = service.process_file_with_splitting(
     audio_file,
     previous_transcript="Previous session context...",
     session_notes="Important events this session...",
-    log=game_log  # Optional: link to GameLog
+    log=gamelog  # Optional: link to GameLog
 )
 
 if success:
@@ -357,7 +357,7 @@ else:
 processed_count = service.process_all_files(
     previous_transcript="Last session context...",
     session_notes="Tonight we explore the dungeon...",
-    log=game_log  # Optional: link to GameLog
+    log=gamelog  # Optional: link to GameLog
 )
 
 print(f"Successfully processed {processed_count} files")
@@ -523,7 +523,7 @@ try:
     success = service.process_file_with_splitting(
         audio_file,
         session_notes="Game session notes...",
-        log=game_log  # Optional: link to GameLog
+        log=gamelog  # Optional: link to GameLog
     )
     if success:
         print("Transcription completed successfully")

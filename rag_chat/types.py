@@ -2,80 +2,34 @@ from django.conf import settings
 import strawberry
 import strawberry_django
 from strawberry import auto, relay
-from typing import List, Optional, Union
+from strawberry.scalars import JSON
+from typing import List, Optional, Union, Any, TYPE_CHECKING, Sequence
+
 from strawberry_django.relay import DjangoListConnection
 from . import models, services
-from .source_models import (
-    GameLogSource,
-    CharacterSource,
-    PlaceSource,
-    ItemSource,
-    ArtifactSource,
-    RaceSource,
-    AssociationSource,
-    CustomSource,
-)
 import strawberry.experimental.pydantic
+import strawberry.scalars
 
 from nucleus.types.user import User as UserType
 from nucleus.permissions import IsSuperuser
+from .permissions import CanUseRAGChat, CanStartChatSession, CanSendChatMessage
+from .source_models import parse_sources
+from strawberry import union
+from nucleus.types.gamelog import GameLog as GameLogType
+from character.types.character import Character as CharacterType
+from place.types.place import Place as PlaceType
+from item.types.item import Item as ItemType
+from item.types.artifact import Artifact as ArtifactType
+from association.types import Association as AssociationType
+from race.types.race import Race as RaceType
 
-
-# Strawberry types for each Pydantic source model
-@strawberry.experimental.pydantic.type(model=GameLogSource, all_fields=True)
-class GameLogSourceType:
-    pass
-
-
-@strawberry.experimental.pydantic.type(model=CharacterSource, all_fields=True)
-class CharacterSourceType:
-    pass
-
-
-@strawberry.experimental.pydantic.type(model=PlaceSource, all_fields=True)
-class PlaceSourceType:
-    pass
-
-
-@strawberry.experimental.pydantic.type(model=ItemSource, all_fields=True)
-class ItemSourceType:
-    pass
-
-
-@strawberry.experimental.pydantic.type(model=ArtifactSource, all_fields=True)
-class ArtifactSourceType:
-    pass
-
-
-@strawberry.experimental.pydantic.type(model=RaceSource, all_fields=True)
-class RaceSourceType:
-    pass
-
-
-@strawberry.experimental.pydantic.type(model=AssociationSource, all_fields=True)
-class AssociationSourceType:
-    pass
-
-
-@strawberry.experimental.pydantic.type(model=CustomSource, all_fields=True)
-class CustomSourceType:
-    pass
-
-
-# # Union for all source types
-# SourceTypeUnion = strawberry.union(
-#     "SourceTypeUnion",
-#     (
-#         GameLogSourceType,
-#         CharacterSourceType,
-#         PlaceSourceType,
-#         ItemSourceType,
-#         ArtifactSourceType,
-#         RaceSourceType,
-#         AssociationSourceType,
-#         CustomSourceType,
-#     ),
-# )
+# Import Django models for type annotations
+from nucleus.models import GameLog
+from character.models import Character
+from place.models import Place
+from item.models import Item, Artifact
+from association.models import Association
+from race.models import Race
 
 
 @strawberry_django.type(models.ContentChunk)
@@ -95,9 +49,8 @@ class ChatSessionType(relay.Node):
     title: auto
     created_at: auto
     updated_at: auto
-    messages: List["ChatMessageType"]
 
-    @strawberry.field
+    @strawberry_django.field
     def messages(self) -> List["ChatMessageType"]:
         return self.messages.all().order_by("created_at")
 
@@ -112,32 +65,32 @@ class ChatMessageType(relay.Node):
     content_types_searched: auto
     created_at: auto
 
-    # This doesn't work right now and I'm not sure why
-    # @strawberry.field
-    # def extra_sources(self) -> list["SourceTypeUnion"]:
-    #     # Parse sources from DB and convert to Strawberry types
-    #     from .services import RAGService
+    # @strawberry_django.field
+    # def sources(
+    #     self,
+    # ) -> Sequence[
+    #     Union[
+    #         GameLog,
+    #         Character,
+    #         Place,
+    #         Item,
+    #         Artifact,
+    #         Race,
+    #         Association,
+    #     ]
+    # ]:
+    #     """Get the sources used for this chat message response."""
+    #     # Access the actual model field data
+    #     sources_data = getattr(self, "sources", None)
+    #     if not sources_data:
+    #         return []
 
-    #     pydantic_sources = RAGService().parse_sources_from_db(self.sources)
-    #     result = []
-    #     for s in pydantic_sources:
-    #         if isinstance(s, GameLogSource):
-    #             result.append(GameLogSourceType.from_pydantic(s))
-    #         elif isinstance(s, CharacterSource):
-    #             result.append(CharacterSourceType.from_pydantic(s))
-    #         elif isinstance(s, PlaceSource):
-    #             result.append(PlaceSourceType.from_pydantic(s))
-    #         elif isinstance(s, ItemSource):
-    #             result.append(ItemSourceType.from_pydantic(s))
-    #         elif isinstance(s, ArtifactSource):
-    #             result.append(ArtifactSourceType.from_pydantic(s))
-    #         elif isinstance(s, RaceSource):
-    #             result.append(RaceSourceType.from_pydantic(s))
-    #         elif isinstance(s, AssociationSource):
-    #             result.append(AssociationSourceType.from_pydantic(s))
-    #         elif isinstance(s, CustomSource):
-    #             result.append(CustomSourceType.from_pydantic(s))
-    #     return result
+    #     try:
+    #         # Parse the sources from the stored JSON
+    #         return parse_sources(sources_data).sources
+    #     except Exception:
+    #         # If parsing fails, return empty list
+    #         return []
 
 
 @strawberry_django.type(models.QueryCache)
@@ -173,7 +126,6 @@ class SendChatMessageInput:
     session_id: relay.GlobalID
     message: str
     similarity_threshold: Optional[float] = None
-    content_types: Optional[List[str]] = None
 
 
 @strawberry.input
@@ -236,18 +188,14 @@ class RAGQuery:
         permission_classes=[IsSuperuser]
     )
 
-    @strawberry_django.connection(DjangoListConnection[ChatSessionType])
+    @strawberry_django.connection(DjangoListConnection[ChatSessionType], permission_classes=[CanUseRAGChat])
     def chat_sessions(self, info) -> list[models.ChatSession]:
         user = info.context.request.user
-        if not user.is_authenticated:
-            raise Exception("Authentication required.")
         return models.ChatSession.objects.filter(user=user)
 
-    @strawberry_django.connection(DjangoListConnection[ChatMessageType])
+    @strawberry_django.connection(DjangoListConnection[ChatMessageType], permission_classes=[CanUseRAGChat])
     def chat_messages(self, info) -> list[models.ChatMessage]:
         user = info.context.request.user
-        if not user.is_authenticated:
-            raise Exception("Authentication required.")
         return models.ChatMessage.objects.filter(session__user=user)
 
     @strawberry.field(permission_classes=[IsSuperuser])
@@ -267,7 +215,7 @@ class RAGQuery:
 
         # Model mapping for getting object counts
         model_map = {
-            "game_log": ("nucleus", "GameLog"),
+            "gamelog": ("nucleus", "GameLog"),
             "character": ("character", "Character"),
             "place": ("place", "Place"),
             "item": ("item", "Item"),
@@ -348,9 +296,9 @@ class RAGQuery:
 
         # Convert results to ContentChunk objects for GraphQL
         chunks = []
-        for chunk_text, metadata, similarity, chunk_id, content_type in results:
+        for result in results:
             try:
-                chunk = models.ContentChunk.objects.get(id=chunk_id)
+                chunk = models.ContentChunk.objects.get(id=result.chunk_id)
                 chunks.append(chunk)
             except models.ContentChunk.DoesNotExist:
                 continue
@@ -360,23 +308,18 @@ class RAGQuery:
 
 @strawberry.type
 class RAGMutation:
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[CanStartChatSession])
     def start_chat_session(self, info, input: StartChatSessionInput) -> ChatSessionType:
         user = info.context.request.user
-        if not user.is_authenticated:
-            raise Exception("User must be authenticated to start a chat session.")
-
         rag_service = services.RAGService()
         session = rag_service.create_chat_session(user, title=input.title)
         return session
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[CanSendChatMessage])
     def send_chat_message(
         self, info, input: SendChatMessageInput
     ) -> SendChatMessagePayload:
         user = info.context.request.user
-        if not user.is_authenticated:
-            raise Exception("User must be authenticated to send messages.")
 
         # Use better model for staff users
         if user.is_staff:
@@ -396,11 +339,11 @@ class RAGMutation:
         response_data = rag_service.generate_response(
             query=input.message,
             similarity_threshold=input.similarity_threshold,
-            content_types=input.content_types,
             session=session,
         )
 
         message = rag_service.save_chat_message(session, input.message, response_data)
+
         return SendChatMessagePayload(message=message, session=session)
 
     @strawberry.mutation
@@ -430,34 +373,6 @@ class RAGMutation:
                 success=False, message=f"Failed to queue processing task: {str(e)}"
             )
 
-    # @strawberry.mutation
-    # def process_custom_content(
-    #     self, info, input: ProcessCustomContentInput
-    # ) -> ProcessContentPayload:
-    #     user = info.context.request.user
-    #     if not user.is_authenticated or not user.is_superuser:
-    #         raise Exception("Only superusers can process content.")
-
-    #     from rag_chat.tasks import process_custom_content
-
-    #     try:
-    #         task = process_custom_content.delay(
-    #             title=input.title,
-    #             content=input.content,
-    #             object_id=input.object_id,
-    #             metadata=input.metadata,
-    #         )
-
-    #         return ProcessContentPayload(
-    #             success=True,
-    #             message=f"Processing custom content: {input.title}",
-    #             task_id=task.id,
-    #         )
-    #     except Exception as e:
-    #         return ProcessContentPayload(
-    #             success=False, message=f"Failed to queue processing task: {str(e)}"
-    #         )
-
     @strawberry.mutation
     def process_all_content(
         self, info, input: ProcessAllContentInput
@@ -476,7 +391,7 @@ class RAGMutation:
             )
 
             content_types = input.content_types or [
-                "game_log",
+                "gamelog",
                 "character",
                 "place",
                 "item",

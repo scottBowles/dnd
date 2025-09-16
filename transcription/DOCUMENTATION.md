@@ -83,7 +83,7 @@ service = TranscriptionService(config)
 success = service.process_file_with_splitting(
     Path("session.mp3"),
     session_notes="Tonight we explore the dungeon...",
-    log=game_log  # Optional: link to GameLog for database storage
+    log=gamelog  # Optional: link to GameLog for database storage
 )
 
 # Get campaign context for custom usage

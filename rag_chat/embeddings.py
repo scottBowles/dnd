@@ -1,6 +1,6 @@
 import hashlib
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from django.conf import settings
 from openai import OpenAI
@@ -101,7 +101,9 @@ def clean_text(text: str) -> str:
     return text
 
 
-def create_query_hash(query: str, context_params: Dict[str, Any] = None) -> str:
+def create_query_hash(
+    query: str, context_params: Optional[Dict[str, Any]] = None
+) -> str:
     """
     Create a hash for caching query results
     """

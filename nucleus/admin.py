@@ -300,6 +300,15 @@ class UserAdmin(BaseUserAdmin):
             },
         ),
         (
+            "Permissions",
+            {
+                "fields": (
+                    "groups",
+                    "user_permissions",
+                ),
+            },
+        ),
+        (
             "Important dates",
             {"fields": ("last_activity_display", "last_login", "date_joined")},
         ),
@@ -334,7 +343,7 @@ class UserAdmin(BaseUserAdmin):
     )
     search_fields = ("username", "first_name", "last_name", "email")
     ordering = ("username",)
-    filter_horizontal = ()
+    filter_horizontal = ("groups", "user_permissions")
     readonly_fields = ("last_login", "date_joined", "last_activity_display")
 
     @admin.display(description="Last activity")

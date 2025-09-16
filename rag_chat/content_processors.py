@@ -1,7 +1,22 @@
 # rag_chat/content_processors.py
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Tuple
+from typing import Any, Dict, List, Tuple
+
+from association.models import Association
+from character.models import Character
+from item.models import Artifact, Item
+from nucleus.models import GameLog
+from place.models import Place
+from race.models import Race
+
 from .embeddings import chunk_document, clean_text
+
+
+def entity_name_description_lines(entity) -> str:
+    aliases = ", ".join(a.name for a in entity.aliases.all()) or None
+    name_line = f"- **{entity.name}** ({entity.__class__.__name__}){f' aliases: {aliases}' if aliases else ''}\n"
+    description_line = f"  {entity.description}\n" if entity.description else ""
+    return name_line + description_line
 
 
 class BaseContentProcessor(ABC):
@@ -9,7 +24,7 @@ class BaseContentProcessor(ABC):
     Abstract base class for processing different content types into embeddings
     """
 
-    content_type: str = None
+    content_type: str | None = None
 
     @abstractmethod
     def extract_text(self, obj) -> str:
@@ -17,8 +32,16 @@ class BaseContentProcessor(ABC):
         pass
 
     @abstractmethod
+    def format_for_llm(self, obj) -> str:
+        """
+        Format the content for the language model
+        Currently this doesn't account for chunks but assumes the llm will receive full texts
+        """
+        pass
+
+    @abstractmethod
     def build_metadata(
-        self, obj, chunk_text: str = None, chunk_index: int = 0
+        self, obj, chunk_text: str | None = None, chunk_index: int = 0
     ) -> Dict[str, Any]:
         """Build metadata for the content chunk"""
         pass
@@ -60,33 +83,36 @@ class BaseContentProcessor(ABC):
 
 
 class GameLogProcessor(BaseContentProcessor):
-    content_type = "game_log"
+    content_type = "gamelog"
 
-    def extract_text(self, game_log) -> str:
-        return game_log.log_text or ""
+    def extract_text(self, gamelog) -> str:
+        return gamelog.log_text or ""
 
-    def get_object_id(self, game_log) -> str:
-        return str(game_log.pk)
+    def format_for_llm(self, gamelog) -> str:
+        return f"Log {gamelog.session_number} (Full) — {gamelog.title})\n{gamelog.full_text}"
+
+    def get_object_id(self, gamelog) -> str:
+        return str(gamelog.pk)
 
     def build_metadata(
-        self, game_log, chunk_text: str = None, chunk_index: int = 0
+        self, gamelog, chunk_text: str | None = None, chunk_index: int = 0
     ) -> Dict[str, Any]:
         metadata = {
-            "title": game_log.title or "Untitled Session",
-            "session_number": game_log.session_number,
+            "title": gamelog.title or "Untitled Session",
+            "session_number": gamelog.session_number,
             "session_date": (
-                game_log.game_date.isoformat() if game_log.game_date else None
+                gamelog.game_date.isoformat() if gamelog.game_date else None
             ),
             "brief_summary": (
-                game_log.brief if game_log.brief and len(game_log.brief) < 200 else None
+                gamelog.brief if gamelog.brief and len(gamelog.brief) < 200 else None
             ),
-            "google_doc_url": game_log.url,
+            "google_doc_url": gamelog.url,
             "chunk_index": chunk_index,
         }
 
         # Add places
         try:
-            places = [place.name for place in game_log.places_set_in.all()[:5]]
+            places = [place.name for place in gamelog.places_set_in.all()[:5]]
             if places:
                 metadata["places_set_in"] = places
         except:
@@ -118,6 +144,15 @@ class CharacterProcessor(BaseContentProcessor):
 
         return "\n\n".join(text_parts)
 
+    def format_for_llm(self, character) -> str:
+        race = character.race.name if hasattr(character.race, "name") else None
+        associations = ", ".join(a.name for a in character.associations.all())
+
+        name_and_description = entity_name_description_lines(character)
+        race_line = f"  Race: {race}\n" if race else ""
+        associations_line = f"  Associations: {associations}\n" if associations else ""
+        return name_and_description + race_line + associations_line
+
     def get_object_id(self, character) -> str:
         return str(character.pk)
 
@@ -126,7 +161,7 @@ class CharacterProcessor(BaseContentProcessor):
         return len(text.split()) > 1000
 
     def build_metadata(
-        self, character, chunk_text: str = None, chunk_index: int = 0
+        self, character, chunk_text: str | None = None, chunk_index: int = 0
     ) -> Dict[str, Any]:
         metadata = {
             "name": getattr(character, "name", "Unknown Character"),
@@ -175,6 +210,16 @@ class PlaceProcessor(BaseContentProcessor):
 
         return "\n\n".join(text_parts)
 
+    def format_for_llm(self, place) -> str:
+        name_and_description = entity_name_description_lines(place)
+        type_line = f"  Place Type: {place.place_type}\n" if place.place_type else ""
+        parent_line = (
+            f"  Is in: {place.parent.name} ({place.parent.place_type})\n"
+            if place.parent
+            else ""
+        )
+        return name_and_description + type_line + parent_line
+
     def get_object_id(self, place) -> str:
         return str(place.pk)
 
@@ -182,7 +227,7 @@ class PlaceProcessor(BaseContentProcessor):
         return len(text.split()) > 1200
 
     def build_metadata(
-        self, place, chunk_text: str = None, chunk_index: int = 0
+        self, place, chunk_text: str | None = None, chunk_index: int = 0
     ) -> Dict[str, Any]:
         metadata = {
             "name": getattr(place, "name", "Unknown Place"),
@@ -215,6 +260,10 @@ class ItemProcessor(BaseContentProcessor):
 
         return "\n\n".join(text_parts)
 
+    def format_for_llm(self, item) -> str:
+        name_and_description = entity_name_description_lines(item)
+        return name_and_description
+
     def get_object_id(self, item) -> str:
         return str(item.id)
 
@@ -222,7 +271,7 @@ class ItemProcessor(BaseContentProcessor):
         return len(text.split()) > 800
 
     def build_metadata(
-        self, item, chunk_text: str = None, chunk_index: int = 0
+        self, item, chunk_text: str | None = None, chunk_index: int = 0
     ) -> Dict[str, Any]:
         metadata = {
             "name": getattr(item, "name", "Unknown Item"),
@@ -260,6 +309,15 @@ class ArtifactProcessor(BaseContentProcessor):
 
         return "\n\n".join(text_parts)
 
+    def format_for_llm(self, artifact) -> str:
+        name_and_description = entity_name_description_lines(artifact)
+        items_line = (
+            f"  Is a: {', '.join(item.name for item in artifact.items.all())}\n"
+            if hasattr(artifact, "items") and artifact.items.exists()
+            else ""
+        )
+        return name_and_description + items_line
+
     def get_object_id(self, artifact) -> str:
         return str(artifact.id)
 
@@ -267,7 +325,7 @@ class ArtifactProcessor(BaseContentProcessor):
         return len(text.split()) > 1000
 
     def build_metadata(
-        self, artifact, chunk_text: str = None, chunk_index: int = 0
+        self, artifact, chunk_text: str | None = None, chunk_index: int = 0
     ) -> Dict[str, Any]:
         metadata = {
             "name": getattr(artifact, "name", "Unknown Artifact"),
@@ -303,6 +361,10 @@ class RaceProcessor(BaseContentProcessor):
 
         return "\n\n".join(text_parts)
 
+    def format_for_llm(self, race) -> str:
+        name_and_description = entity_name_description_lines(race)
+        return name_and_description
+
     def get_object_id(self, race) -> str:
         return str(race.id)
 
@@ -310,7 +372,7 @@ class RaceProcessor(BaseContentProcessor):
         return len(text.split()) > 1200
 
     def build_metadata(
-        self, race, chunk_text: str = None, chunk_index: int = 0
+        self, race, chunk_text: str | None = None, chunk_index: int = 0
     ) -> Dict[str, Any]:
         metadata = {
             "name": getattr(race, "name", "Unknown Race"),
@@ -342,6 +404,10 @@ class AssociationProcessor(BaseContentProcessor):
 
         return "\n\n".join(text_parts)
 
+    def format_for_llm(self, association) -> str:
+        name_and_description = entity_name_description_lines(association)
+        return name_and_description
+
     def get_object_id(self, association) -> str:
         return str(association.id)
 
@@ -349,7 +415,7 @@ class AssociationProcessor(BaseContentProcessor):
         return len(text.split()) > 1200
 
     def build_metadata(
-        self, association, chunk_text: str = None, chunk_index: int = 0
+        self, association, chunk_text: str | None = None, chunk_index: int = 0
     ) -> Dict[str, Any]:
         metadata = {
             "name": getattr(association, "name", "Unknown Association"),
@@ -371,57 +437,28 @@ class AssociationProcessor(BaseContentProcessor):
         return metadata
 
 
-class CustomContentProcessor(BaseContentProcessor):
-    """
-    Processor for custom/ad-hoc content that doesn't fit other categories
-    """
-
-    content_type = "custom"
-
-    def __init__(
-        self,
-        title: str,
-        content: str,
-        object_id: str = None,
-        metadata: Dict[str, Any] = None,
-    ):
-        self.title = title
-        self.content = content
-        self.custom_object_id = object_id or title
-        self.custom_metadata = metadata or {}
-
-    def extract_text(self, obj=None) -> str:
-        return self.content
-
-    def get_object_id(self, obj=None) -> str:
-        return self.custom_object_id
-
-    def build_metadata(
-        self, obj=None, chunk_text: str = None, chunk_index: int = 0
-    ) -> Dict[str, Any]:
-        metadata = {
-            "title": self.title,
-            "chunk_index": chunk_index,
-            **self.custom_metadata,
-        }
-        return metadata
-
-
 # Registry of processors
+# keys are entity.__class__.__name__.lower()
 CONTENT_PROCESSORS = {
-    "game_log": GameLogProcessor,
+    "gamelog": GameLogProcessor,
     "character": CharacterProcessor,
     "place": PlaceProcessor,
     "item": ItemProcessor,
     "artifact": ArtifactProcessor,
     "race": RaceProcessor,
     "association": AssociationProcessor,
-    "custom": CustomContentProcessor,
 }
 
 
-def get_processor(content_type: str) -> BaseContentProcessor:
+def get_processor(
+    content_type: (
+        str | Association | Character | Place | Item | Artifact | Race | GameLog
+    ),
+) -> BaseContentProcessor:
     """Get the appropriate processor for a content type"""
+    if not isinstance(content_type, str):
+        content_type = content_type.__class__.__name__.lower()
+
     processor_class = CONTENT_PROCESSORS.get(content_type)
     if not processor_class:
         raise ValueError(f"No processor found for content type: {content_type}")

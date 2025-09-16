@@ -10,7 +10,6 @@ from rag_chat.tasks import (
     cleanup_orphaned_chunks,
     process_all_content,
     process_content,
-    process_custom_content,
 )
 
 
@@ -21,7 +20,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--type",
             choices=list(CONTENT_PROCESSORS.keys()),
-            help="Content type to process (game_log, character, place, etc.)",
+            help="Content type to process (gamelog, character, place, etc.)",
         )
         parser.add_argument(
             "--id",
@@ -36,8 +35,8 @@ class Command(BaseCommand):
         parser.add_argument(
             "--types",
             nargs="+",
-            choices=[k for k in CONTENT_PROCESSORS.keys() if k != "custom"],
-            help="Multiple content types to process (excludes custom)",
+            choices=[k for k in CONTENT_PROCESSORS.keys()],
+            help="Multiple content types to process",
         )
         parser.add_argument(
             "--force",
@@ -53,10 +52,6 @@ class Command(BaseCommand):
             "--sync",
             action="store_true",
             help="Run synchronously instead of using Celery (for testing)",
-        )
-        parser.add_argument(
-            "--custom",
-            help="Process custom content from JSON file or string",
         )
         parser.add_argument(
             "--cleanup",
@@ -78,10 +73,6 @@ class Command(BaseCommand):
             self.handle_cleanup(options)
             return
 
-        if options["custom"]:
-            self.handle_custom_content(options)
-            return
-
         if options["id"] and options["type"]:
             self.handle_single_object(options)
         elif options["all"] or options["types"]:
@@ -89,7 +80,7 @@ class Command(BaseCommand):
         else:
             self.stdout.write(
                 self.style.ERROR(
-                    "Please specify one of: --id with --type, --all, --types, --custom, --cleanup, or --stats"
+                    "Please specify one of: --id with --type, --all, --types, --cleanup, or --stats"
                 )
             )
 
@@ -133,7 +124,7 @@ class Command(BaseCommand):
         else:
             # Default to all main content types
             content_types = [
-                "game_log",
+                "gamelog",
                 "character",
                 "place",
                 "item",
@@ -197,61 +188,6 @@ class Command(BaseCommand):
                     self.style.ERROR(f"Failed to process {content_type}: {str(e)}")
                 )
 
-    def handle_custom_content(self, options):
-        """Handle custom content processing"""
-        custom_input = options["custom"]
-
-        try:
-            # Try to parse as JSON first
-            if custom_input.startswith("{") or custom_input.endswith(".json"):
-                if custom_input.endswith(".json"):
-                    with open(custom_input, "r") as f:
-                        data = json.load(f)
-                else:
-                    data = json.loads(custom_input)
-
-                # Handle single object or list
-                if isinstance(data, list):
-                    for item in data:
-                        self.process_single_custom_content(item, options)
-                else:
-                    self.process_single_custom_content(data, options)
-            else:
-                # Treat as simple text content
-                data = {"title": "Custom Content", "content": custom_input}
-                self.process_single_custom_content(data, options)
-
-        except Exception as e:
-            self.stdout.write(
-                self.style.ERROR(f"Failed to process custom content: {str(e)}")
-            )
-
-    def process_single_custom_content(self, data, options):
-        """Process a single custom content item"""
-        required_fields = ["title", "content"]
-        if not all(field in data for field in required_fields):
-            self.stdout.write(
-                self.style.ERROR(
-                    f"Custom content must have 'title' and 'content' fields"
-                )
-            )
-            return
-
-        title = data["title"]
-        content = data["content"]
-        object_id = data.get("object_id")
-        metadata = data.get("metadata", {})
-
-        self.stdout.write(f"Processing custom content: {title}")
-
-        if options["sync"]:
-            result = process_custom_content(title, content, object_id, metadata)
-        else:
-            task = process_custom_content.delay(title, content, object_id, metadata)
-            result = {"task_id": task.id, "status": "queued"}
-
-        self.stdout.write(self.style.SUCCESS(f"Result: {result}"))
-
     def handle_cleanup(self, options):
         """Handle orphaned chunk cleanup"""
         self.stdout.write("Starting cleanup of orphaned chunks...")
@@ -289,7 +225,7 @@ class Command(BaseCommand):
         # Show available objects by type
         self.stdout.write("\nAvailable Objects by Type:")
         for content_type in [
-            "game_log",
+            "gamelog",
             "character",
             "place",
             "item",
@@ -313,7 +249,7 @@ class Command(BaseCommand):
     def get_object(self, content_type, object_id):
         """Get a single object by type and ID"""
         model_map = {
-            "game_log": ("nucleus", "GameLog"),
+            "gamelog": ("nucleus", "GameLog"),
             "character": ("character", "Character"),  # Adjust app names as needed
             "place": ("place", "Place"),
             "item": ("item", "Item"),
@@ -335,7 +271,7 @@ class Command(BaseCommand):
     def get_objects_to_process(self, content_type, force_reprocess=False, limit=None):
         """Get objects that need processing"""
         model_map = {
-            "game_log": ("nucleus", "GameLog"),
+            "gamelog": ("nucleus", "GameLog"),
             "character": ("character", "Character"),
             "place": ("place", "Place"),
             "item": ("item", "Item"),

@@ -100,6 +100,12 @@ class Character(Entity):
         names = language_proficiencies.values_list("name", flat=True)
         return list(Language.objects.filter(name__in=names))
 
+    def global_id(self):
+        return to_global_id("Character", self.id)
+
+    def __str__(self):
+        return self.name or ""
+
     # TODO: These will need to use items as they exist, which themselves may need to be
     # amended so artifacts or unique objects are handled appropriately. Also, the through
     # tables will need to be created and we will need to make sure they do not clash with
@@ -135,9 +141,3 @@ class Character(Entity):
 
     # OTHER
     size = models.CharField(max_length=10, choices=SIZES, null=True, blank=True)
-
-    def global_id(self):
-        return to_global_id("Character", self.id)
-
-    def __str__(self):
-        return self.name or ""

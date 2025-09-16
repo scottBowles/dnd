@@ -1,13 +1,72 @@
 import datetime
-from django.utils import timezone
-from django.db import models
-from django.contrib.auth.models import AbstractUser
-from django_extensions.db.fields import AutoSlugField
-from django.utils.translation import gettext_lazy as _
+
 from django.conf import settings
+from django.contrib.auth.models import AbstractUser
 from django.contrib.postgres.fields import ArrayField
+from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.search import SearchVector, SearchVectorField
+from django.db import models
 from django.db.models import Q
+from django.forms.models import model_to_dict
+from django.utils import timezone
 from django.utils.functional import cached_property
+from django.utils.translation import gettext_lazy as _
+from django_extensions.db.fields import AutoSlugField
+from graphql_relay import to_global_id
+
+
+class ModelDiffMixin:
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__initial = self._dict
+        self.__changed_attributes = {}
+
+    @property
+    def _dict(self):
+        return model_to_dict(self, fields=[field.name for field in self._meta.fields])
+
+    @property
+    def changed_values(self):
+        return list(self.__changed_attributes.keys())
+
+    @property
+    def diff(self):
+        initial_fields = self.__initial
+        current_fields = self._dict
+        diffs = [
+            (k, (v, current_fields[k]))
+            for k, v in list(initial_fields.items())
+            if not v == current_fields[k]
+        ]
+        return dict(diffs)
+
+    def is_changing(self, field_name):
+        return bool(self.diff.get(field_name, False))
+
+    def is_adding(self, field_name):
+        initial_fields = self.__initial
+        return self.is_changing(field_name) and not initial_fields.get(field_name)
+
+    def is_removing(self, field_name):
+        return self.is_changing(field_name) and not getattr(self, field_name)
+
+    def has_changed(self, field_name):
+        return bool(self.__changed_attributes.get(field_name, False))
+
+    def previous_value(self, field_name):
+        value = self.__changed_attributes.get(field_name)
+        if value:
+            return value[0]
+
+    def has_added(self, field_name):
+        if self.__changed_attributes.get(field_name, False):
+            return self.__changed_attributes.get(field_name)[0] is None
+        return False
+
+    def save(self, *args, **kwargs):
+        self.__changed_attributes = self.diff
+        super().save(*args, **kwargs)
+        self.__initial = self._dict
 
 
 class User(AbstractUser):
@@ -154,6 +213,7 @@ class PessimisticConcurrencyLockModel(models.Model):
         return self
 
 
+# class GameLog(ModelDiffMixin, PessimisticConcurrencyLockModel, models.Model):
 class GameLog(PessimisticConcurrencyLockModel, models.Model):
     url = models.CharField(max_length=255, unique=True)
     title = models.CharField(max_length=512, null=True, blank=True)
@@ -163,6 +223,8 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
     brief = models.TextField(null=True, blank=True)
     synopsis = models.TextField(null=True, blank=True)
     summary = models.TextField(null=True, blank=True)
+    full_text = models.TextField(default="", blank=True)
+    full_text_search_vector = SearchVectorField(null=True, editable=False)
     places_set_in = models.ManyToManyField(
         "place.Place", blank=True, related_name="logs_set_in"
     )
@@ -188,6 +250,14 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
         help_text="Sequential session number for ordering and reference",
     )
 
+    class Meta:
+        indexes = [
+            GinIndex(
+                fields=["full_text_search_vector"],
+                name="gamelog_fulltext_idx",
+            ),
+        ]
+
     def __str__(self):
         return self.title or self.url
 
@@ -201,6 +271,12 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
                 )
                 if latest_log:
                     self.last_game_log = latest_log
+
+        # if self.is_changing("full_text"):
+        #     self.full_text_search_vector = SearchVector(
+        #         "full_text", config="simple"
+        #     )  # or config="english" if "simple" isn't working well for narrative. Simple is better for fantasy names.
+
         super().save(*args, **kwargs)
 
     def update_from_google(self, overwrite=False):
@@ -224,6 +300,9 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
                     self.game_date = self.get_game_date_from_title()
                 except ValueError:
                     self.game_date = file_info["createdTime"]
+            if overwrite or not self.full_text:
+                print("fetching full text from google")
+                self.full_text = self.get_text()
 
         except Exception as e:
             raise e
@@ -255,12 +334,13 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
         """
         Returns the generated log text if it exists, otherwise falls back to the Google Doc text.
         """
-        # if self.generated_log_text and self.generated_log_text.strip():
-        #     return self.generated_log_text
+        if self.full_text:
+            return self.full_text
 
         from nucleus.gdrive import fetch_airel_file_text
 
-        return fetch_airel_file_text(self.google_id)
+        self.full_text = fetch_airel_file_text(self.google_id)
+        return self.full_text
 
     def copy_text_for_summary(self):
         if not self.google_id:
@@ -338,8 +418,9 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
         return text
 
     def get_ai_log_suggestions(self):
-        from nucleus.ai_helpers import openai_summarize_text_chat
         import json
+
+        from nucleus.ai_helpers import openai_summarize_text_chat
 
         if self.ailogsuggestion_set.count() > 0:
             return self.ailogsuggestion_set.first()
@@ -381,6 +462,9 @@ class GameLog(PessimisticConcurrencyLockModel, models.Model):
             )
         except GameLog.DoesNotExist:
             return None
+
+    def global_id(self):
+        return to_global_id("GameLog", self.id)
 
 
 class CombinedAiLogSuggestion:
@@ -578,11 +662,37 @@ class Alias(models.Model):
     name = models.CharField(max_length=255)
     is_primary = models.BooleanField(default=False)
 
+    @property
+    def entity(self):
+        try:
+            return (
+                self.base_characters.first()
+                or self.base_places.first()
+                or self.base_items.first()
+                or self.base_artifacts.first()
+                or self.base_associations.first()
+                or self.base_races.first()
+            )
+        except Exception:
+            raise ValueError(
+                "Alias is not associated with any entity. Did I recently add a new entity type, or could an alias be orphaned?"
+            )
+
     def __str__(self):
         return self.name
 
+    class Meta:
+        indexes = [
+            GinIndex(
+                fields=["name"],
+                name="alias_name_trgm_idx",
+                opclasses=["gin_trgm_ops"],
+            ),
+        ]
+
 
 class Entity(
+    # ModelDiffMixin,
     PessimisticConcurrencyLockModel,
     NameSlugDescriptionModel,
     NotesMarkdownModel,
@@ -591,6 +701,22 @@ class Entity(
 ):
     logs = models.ManyToManyField(GameLog, blank=True, related_name="%(class)ss")
     aliases = models.ManyToManyField(Alias, blank=True, related_name="base_%(class)ss")
+
+    # def save(self, *args, **kwargs):
+    #     super().save(*args, **kwargs)
+
+    #     # if name changed, get or create primary alias
+    #     if (
+    #         self.is_changing("name")
+    #         or self.aliases.filter(is_primary=True).count() == 0
+    #     ):
+    #         primary_alias = self.aliases.filter(is_primary=True).first()
+    #         if primary_alias:
+    #             primary_alias.name = self.name
+    #             primary_alias.save()
+    #         else:
+    #             new_alias = Alias.objects.create(name=self.name, is_primary=True)
+    #             self.aliases.add(new_alias)
 
     def __str__(self):
         return self.name
