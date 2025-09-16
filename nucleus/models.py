@@ -72,6 +72,7 @@ class ModelDiffMixin:
 class User(AbstractUser):
     isDM = models.BooleanField(default=False)
     last_activity = models.DateTimeField(default=timezone.now)
+    pc_name = models.CharField(max_length=255, blank=True, null=True)
 
 
 class CreatableModel(models.Model):
