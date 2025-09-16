@@ -137,7 +137,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "strawberry_django.middlewares.debug_toolbar.DebugToolbarMiddleware",
     "gqlauth.core.middlewares.django_jwt_middleware",
-    "website.middleware.UpdateLastActivityMiddleware",
+    "website.middleware.TokenRefreshActivityMiddleware",
     "website.middleware.PrintRequestsMiddleware",
 ]
 
