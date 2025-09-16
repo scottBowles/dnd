@@ -9,11 +9,15 @@ from nucleus.gdrive import fetch_airel_file_text
 def fill_gamelog_full_text_from_google(apps, schema_editor):
     GameLog = apps.get_model("nucleus", "GameLog")
     for log in GameLog.objects.all():
-        if log.full_text is None or log.full_text.strip() == "":
-            log.full_text = fetch_airel_file_text(log.google_id)
+        try:
+            if log.full_text is None or log.full_text.strip() == "":
+                log.full_text = fetch_airel_file_text(log.google_id)
+                log.save()
+            log.full_text_search_vector = SearchVector("full_text", config="simple")
             log.save()
-        log.full_text_search_vector = SearchVector("full_text", config="simple")
-        log.save()
+        except Exception as e:
+            print(f"Error processing log {log.id}: {e}")
+            continue
 
 
 class Migration(migrations.Migration):
