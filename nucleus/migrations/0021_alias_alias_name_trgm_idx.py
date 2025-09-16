@@ -2,6 +2,7 @@
 
 import django.contrib.postgres.indexes
 from django.db import migrations
+from django.contrib.postgres.operations import TrigramExtension
 
 
 class Migration(migrations.Migration):
@@ -10,6 +11,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        TrigramExtension(),
         migrations.AddIndex(
             model_name="alias",
             index=django.contrib.postgres.indexes.GinIndex(
