@@ -114,5 +114,7 @@ Query = merge_types("Query", queries)
 Mutation = merge_types("Mutation", mutations)
 
 schema = JwtSchema(
-    query=Query, mutation=Mutation, extensions=[DjangoOptimizerExtension]
+    query=Query, 
+    mutation=Mutation, 
+    extensions=[DjangoOptimizerExtension]
 )

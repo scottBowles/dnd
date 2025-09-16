@@ -1,5 +1,10 @@
+import json
+
+from django.contrib.auth import get_user_model
 from django.utils import timezone
-from nucleus.models import User
+from gqlauth.models import RefreshToken
+
+User = get_user_model()
 
 
 class PrintRequestsMiddleware:
@@ -29,13 +34,69 @@ class PrintRequestsMiddleware:
         return response
 
 
-class UpdateLastActivityMiddleware(object):
+class TokenRefreshActivityMiddleware:
+    """
+    Middleware that updates user activity when refresh token mutations are called.
+    """
+
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        if request.user.is_authenticated:
-            User.objects.filter(pk=request.user.id).update(last_activity=timezone.now())
+        refresh_token = self._request_token_if_is_token_refresh(request)
+
+        # Process the request
         response = self.get_response(request)
 
+        if refresh_token and response.status_code == 200:
+            user = self._get_user_from_refresh_token(refresh_token)
+            if user:
+                User.objects.filter(pk=user.pk).update(last_activity=timezone.now())
+
         return response
+
+    def _request_token_if_is_token_refresh(self, request):
+        """
+        If this is a refresh token mutation, return the token from the request.
+        Otherwise return None.
+        """
+        if (
+            request.path.startswith("/graphql")
+            and request.method == "POST"
+            and request.content_type == "application/json"
+        ):
+            try:
+                body = json.loads(request.body.decode("utf-8"))
+                query = body.get("query", "")
+                variables = body.get("variables", {})
+
+                # Check if this is a refresh token mutation and extract the token
+                if ("refreshToken" in query or "refresh_token" in query) and variables:
+                    # Extract refresh token from variables
+                    return variables.get("refreshToken") or variables.get(
+                        "refresh_token"
+                    )
+
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                pass
+
+        return None
+
+    def _get_user_from_refresh_token(self, refresh_token):
+        """
+        Given a refresh token string, return the associated user or None.
+        """
+        try:
+            token_obj = (
+                RefreshToken.objects.select_related("user")
+                .filter(
+                    token=refresh_token,
+                    revoked__isnull=True,  # Only active (non-revoked) tokens
+                )
+                .first()
+            )
+            if token_obj:
+                return token_obj.user
+        except Exception:
+            pass
+        return None

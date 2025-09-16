@@ -135,9 +135,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "website.middleware.UpdateLastActivityMiddleware",
     "strawberry_django.middlewares.debug_toolbar.DebugToolbarMiddleware",
     "gqlauth.core.middlewares.django_jwt_middleware",
+    "website.middleware.TokenRefreshActivityMiddleware",  # Update activity on token refresh
     "website.middleware.PrintRequestsMiddleware",
 ]
 
@@ -292,6 +292,7 @@ GQL_AUTH = GqlAuthSettings(
     REGISTER_REQUIRE_CAPTCHA=False,
     JWT_TIME_FORMAT="%Y-%m-%dT%H:%M:%S%z",
     JWT_LONG_RUNNING_REFRESH_TOKEN=True,
+    JWT_EXPIRATION_DELTA=datetime.timedelta(seconds=15),
 )
 
 # Cloudflare R2 Storage (django-storages S3Boto3)

@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from google.auth.transport import requests
 from google.oauth2 import id_token
 from gqlauth.jwt.types_ import ObtainJSONWebTokenType
+from ..signals import update_user_activity
 
 user_model = get_user_model()
 
@@ -32,6 +33,9 @@ class LoginMutation:
                 last_name=idinfo["family_name"],
                 # password="",  # set unusable password?
             )
+
+        # Update last activity for Google login
+        update_user_activity(user)
 
         # same return as gqlauth's token_auth mutation
         return ObtainJSONWebTokenType.from_user(user)
