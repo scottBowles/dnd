@@ -56,13 +56,13 @@ class PlaceInputPartial(EntityInputPartial, strawberry_django.NodeInput):
 class PlaceQuery:
     places: DjangoListConnection[Place] = strawberry_django.connection()
 
-    @strawberry_django.connection(DjangoListConnection[Place])
-    def Places_connection_filtered(self, name_startswith: str) -> Iterable[Place]:
-        # Note that this resolver is special. It should not resolve the connection, but
-        # the iterable of nodes itself. Thus, any arguments defined here will be appended
-        # to the query, and the pagination of the iterable returned here will be
-        # automatically handled.
-        return models.Place.objects.filter(name__startswith=name_startswith)
+    # @strawberry_django.connection(DjangoListConnection[Place])
+    # def places_connection_filtered(self, name_startswith: str) -> Iterable[Place]:
+    #     # Note that this resolver is special. It should not resolve the connection, but
+    #     # the iterable of nodes itself. Thus, any arguments defined here will be appended
+    #     # to the query, and the pagination of the iterable returned here will be
+    #     # automatically handled.
+    #     return models.Place.objects.filter(name__startswith=name_startswith)
 
 
 @strawberry.type

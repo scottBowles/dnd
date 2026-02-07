@@ -65,15 +65,15 @@ class CharacterInputPartial(EntityInputPartial, strawberry_django.NodeInput):
 class CharacterQuery:
     characters: DjangoListConnection[Character] = strawberry_django.connection()
 
-    @strawberry_django.connection(DjangoListConnection[Character])
-    def Characters_connection_filtered(
-        self, name_startswith: str
-    ) -> Iterable[Character]:
-        # Note that this resolver is special. It should not resolve the connection, but
-        # the iterable of nodes itself. Thus, any arguments defined here will be appended
-        # to the query, and the pagination of the iterable returned here will be
-        # automatically handled.
-        return models.Character.objects.filter(name__startswith=name_startswith)
+    # @strawberry_django.connection(DjangoListConnection[Character])
+    # def characters_connection_filtered(
+    #     self, name_startswith: str
+    # ) -> Iterable[Character]:
+    #     # Note that this resolver is special. It should not resolve the connection, but
+    #     # the iterable of nodes itself. Thus, any arguments defined here will be appended
+    #     # to the query, and the pagination of the iterable returned here will be
+    #     # automatically handled.
+    #     return models.Character.objects.filter(name__startswith=name_startswith)
 
 
 @strawberry.type

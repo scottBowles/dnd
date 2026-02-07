@@ -49,13 +49,13 @@ class RaceInputPartial(EntityInputPartial, strawberry_django.NodeInput):
 class RaceQuery:
     races: DjangoListConnection[Race] = strawberry_django.connection()
 
-    @strawberry_django.connection(DjangoListConnection[Race])
-    def Races_connection_filtered(self, name_startswith: str) -> Iterable[Race]:
-        # Note that this resolver is special. It should not resolve the connection, but
-        # the iterable of nodes itself. Thus, any arguments defined here will be appended
-        # to the query, and the pagination of the iterable returned here will be
-        # automatically handled.
-        return models.Race.objects.filter(name__startswith=name_startswith)
+    # @strawberry_django.connection(DjangoListConnection[Race])
+    # def races_connection_filtered(self, name_startswith: str) -> Iterable[Race]:
+    #     # Note that this resolver is special. It should not resolve the connection, but
+    #     # the iterable of nodes itself. Thus, any arguments defined here will be appended
+    #     # to the query, and the pagination of the iterable returned here will be
+    #     # automatically handled.
+    #     return models.Race.objects.filter(name__startswith=name_startswith)
 
 
 @strawberry.type

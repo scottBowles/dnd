@@ -4,6 +4,7 @@ from gqlauth.user.queries import UserQueries
 from gqlauth.core.middlewares import JwtSchema
 from gqlauth.user import relay as mutations
 from strawberry_django.optimizer import DjangoOptimizerExtension
+from strawberry.schema.config import StrawberryConfig
 
 
 from association.types import AssociationQuery, AssociationMutation
@@ -66,21 +67,21 @@ class GqlAuthMutation:
 
 
 queries = (
-    AbilityScoreIncreaseQuery,
+    # AbilityScoreIncreaseQuery,
     ArtifactQuery,
     AssociationQuery,
-    ExportQuery,
-    FeatureQuery,
+    # ExportQuery,
+    # FeatureQuery,
     GameLogQuery,
     ItemQuery,
-    LanguageQuery,
+    # LanguageQuery,
     CharacterQuery,
     PlaceQuery,
-    ProficiencyQuery,
+    # ProficiencyQuery,
     RaceQuery,
-    ScriptQuery,
-    SkillQuery,
-    TraitQuery,
+    # ScriptQuery,
+    # SkillQuery,
+    # TraitQuery,
     RAGQuery,
     UserQuery,
     UserQueries,
@@ -88,24 +89,24 @@ queries = (
 )
 
 mutations = (
-    AbilityScoreIncreaseMutation,
+    # AbilityScoreIncreaseMutation,
     ArtifactMutation,
     AssociationMutation,
     EntityMutation,
-    ExportMutation,
-    FeatureMutation,
+    # ExportMutation,
+    # FeatureMutation,
     GameLogMutation,
     GqlAuthMutation,
     ItemMutation,
-    LanguageMutation,
+    # LanguageMutation,
     LoginMutation,
     CharacterMutation,
     PlaceMutation,
-    ProficiencyMutation,
+    # ProficiencyMutation,
     RaceMutation,
-    ScriptMutation,
-    SkillMutation,
-    TraitMutation,
+    # ScriptMutation,
+    # SkillMutation,
+    # TraitMutation,
     RAGMutation,
     UserMutation,
 )
@@ -114,7 +115,8 @@ Query = merge_types("Query", queries)
 Mutation = merge_types("Mutation", mutations)
 
 schema = JwtSchema(
-    query=Query, 
-    mutation=Mutation, 
-    extensions=[DjangoOptimizerExtension]
+    query=Query,
+    mutation=Mutation,
+    extensions=[DjangoOptimizerExtension],
+    config=StrawberryConfig(relay_max_results=999),
 )

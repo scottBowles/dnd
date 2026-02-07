@@ -40,13 +40,13 @@ class FeatureInputPartial(strawberry_django.NodeInput):
 class FeatureQuery:
     features: DjangoListConnection[Feature] = strawberry_django.connection()
 
-    @strawberry_django.connection(DjangoListConnection[Feature])
-    def Features_connection_filtered(self, name_startswith: str) -> Iterable[Feature]:
-        # Note that this resolver is special. It should not resolve the connection, but
-        # the iterable of nodes itself. Thus, any arguments defined here will be appended
-        # to the query, and the pagination of the iterable returned here will be
-        # automatically handled.
-        return models.Feature.objects.filter(name__startswith=name_startswith)
+    # @strawberry_django.connection(DjangoListConnection[Feature])
+    # def features_connection_filtered(self, name_startswith: str) -> Iterable[Feature]:
+    #     # Note that this resolver is special. It should not resolve the connection, but
+    #     # the iterable of nodes itself. Thus, any arguments defined here will be appended
+    #     # to the query, and the pagination of the iterable returned here will be
+    #     # automatically handled.
+    #     return models.Feature.objects.filter(name__startswith=name_startswith)
 
 
 @strawberry.type

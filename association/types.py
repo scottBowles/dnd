@@ -48,15 +48,15 @@ class AssociationInputPartial(EntityInputPartial, strawberry_django.NodeInput):
 class AssociationQuery:
     associations: DjangoListConnection[Association] = strawberry_django.connection()
 
-    @strawberry_django.connection(DjangoListConnection[Association])
-    def associations_connection_filtered(
-        self, name_startswith: str
-    ) -> Iterable[Association]:
-        # Note that this resolver is special. It should not resolve the connection, but
-        # the iterable of nodes itself. Thus, any arguments defined here will be appended
-        # to the query, and the pagination of the iterable returned here will be
-        # automatically handled.
-        return models.Association.objects.filter(name__startswith=name_startswith)
+    # @strawberry_django.connection(DjangoListConnection[Association])
+    # def associations_connection_filtered(
+    #     self, name_startswith: str
+    # ) -> Iterable[Association]:
+    #     # Note that this resolver is special. It should not resolve the connection, but
+    #     # the iterable of nodes itself. Thus, any arguments defined here will be appended
+    #     # to the query, and the pagination of the iterable returned here will be
+    #     # automatically handled.
+    #     return models.Association.objects.filter(name__startswith=name_startswith)
 
 
 @strawberry.type

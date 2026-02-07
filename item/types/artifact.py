@@ -51,13 +51,13 @@ class ArtifactInputPartial(EntityInputPartial, strawberry_django.NodeInput):
 class ArtifactQuery:
     artifacts: DjangoListConnection[Artifact] = strawberry_django.connection()
 
-    @strawberry_django.connection(DjangoListConnection[Artifact])
-    def Artifacts_connection_filtered(self, name_startswith: str) -> Iterable[Artifact]:
-        # Note that this resolver is special. It should not resolve the connection, but
-        # the iterable of nodes itself. Thus, any arguments defined here will be appended
-        # to the query, and the pagination of the iterable returned here will be
-        # automatically handled.
-        return models.Artifact.objects.filter(name__startswith=name_startswith)
+    # @strawberry_django.connection(DjangoListConnection[Artifact])
+    # def artifacts_connection_filtered(self, name_startswith: str) -> Iterable[Artifact]:
+    #     # Note that this resolver is special. It should not resolve the connection, but
+    #     # the iterable of nodes itself. Thus, any arguments defined here will be appended
+    #     # to the query, and the pagination of the iterable returned here will be
+    #     # automatically handled.
+    #     return models.Artifact.objects.filter(name__startswith=name_startswith)
 
 
 @strawberry.type

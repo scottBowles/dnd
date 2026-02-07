@@ -32,13 +32,13 @@ class TraitInputPartial(strawberry_django.NodeInput):
 class TraitQuery:
     traits: DjangoListConnection[Trait] = strawberry_django.connection()
 
-    @strawberry_django.connection(DjangoListConnection[Trait])
-    def Traits_connection_filtered(self, name_startswith: str) -> Iterable[Trait]:
-        # Note that this resolver is special. It should not resolve the connection, but
-        # the iterable of nodes itself. Thus, any arguments defined here will be appended
-        # to the query, and the pagination of the iterable returned here will be
-        # automatically handled.
-        return models.Trait.objects.filter(name__startswith=name_startswith)
+    # @strawberry_django.connection(DjangoListConnection[Trait])
+    # def traits_connection_filtered(self, name_startswith: str) -> Iterable[Trait]:
+    #     # Note that this resolver is special. It should not resolve the connection, but
+    #     # the iterable of nodes itself. Thus, any arguments defined here will be appended
+    #     # to the query, and the pagination of the iterable returned here will be
+    #     # automatically handled.
+    #     return models.Trait.objects.filter(name__startswith=name_startswith)
 
 
 @strawberry.type

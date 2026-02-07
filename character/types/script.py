@@ -33,13 +33,13 @@ class ScriptInputPartial(strawberry_django.NodeInput):
 class ScriptQuery:
     scripts: DjangoListConnection[Script] = strawberry_django.connection()
 
-    @strawberry_django.connection(DjangoListConnection[Script])
-    def Scripts_connection_filtered(self, name_startswith: str) -> Iterable[Script]:
-        # Note that this resolver is special. It should not resolve the connection, but
-        # the iterable of nodes itself. Thus, any arguments defined here will be appended
-        # to the query, and the pagination of the iterable returned here will be
-        # automatically handled.
-        return models.Script.objects.filter(name__startswith=name_startswith)
+    # @strawberry_django.connection(DjangoListConnection[Script])
+    # def scripts_connection_filtered(self, name_startswith: str) -> Iterable[Script]:
+    #     # Note that this resolver is special. It should not resolve the connection, but
+    #     # the iterable of nodes itself. Thus, any arguments defined here will be appended
+    #     # to the query, and the pagination of the iterable returned here will be
+    #     # automatically handled.
+    #     return models.Script.objects.filter(name__startswith=name_startswith)
 
 
 @strawberry.type

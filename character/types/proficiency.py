@@ -43,15 +43,15 @@ class ProficiencyInputPartial(strawberry_django.NodeInput):
 class ProficiencyQuery:
     proficiencies: DjangoListConnection[Proficiency] = strawberry_django.connection()
 
-    @strawberry_django.connection(DjangoListConnection[Proficiency])
-    def Proficiencys_connection_filtered(
-        self, name_startswith: str
-    ) -> Iterable[Proficiency]:
-        # Note that this resolver is special. It should not resolve the connection, but
-        # the iterable of nodes itself. Thus, any arguments defined here will be appended
-        # to the query, and the pagination of the iterable returned here will be
-        # automatically handled.
-        return models.Proficiency.objects.filter(name__startswith=name_startswith)
+    # @strawberry_django.connection(DjangoListConnection[Proficiency])
+    # def proficiencys_connection_filtered(
+    #     self, name_startswith: str
+    # ) -> Iterable[Proficiency]:
+    #     # Note that this resolver is special. It should not resolve the connection, but
+    #     # the iterable of nodes itself. Thus, any arguments defined here will be appended
+    #     # to the query, and the pagination of the iterable returned here will be
+    #     # automatically handled.
+    #     return models.Proficiency.objects.filter(name__startswith=name_startswith)
 
 
 @strawberry.type
