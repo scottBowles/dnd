@@ -122,6 +122,12 @@ class EntityAddImageInput:
 
 
 @strawberry.input
+class EntitySetImageIdsInput:
+    id: strawberry.relay.GlobalID
+    image_ids: List[str]
+
+
+@strawberry.input
 class EntityAddAliasInput:
     id: strawberry.relay.GlobalID
     alias: str
@@ -170,6 +176,13 @@ class EntityMutation:
     def entity_add_image(self, info, input: EntityAddImageInput) -> relay.Node:
         obj = input.id.resolve_node_sync(info)
         obj.image_ids = obj.image_ids + [input.image_id]
+        obj.save()
+        return obj
+
+    @strawberry.mutation(permission_classes=[IsStaff])
+    def entity_set_image_ids(self, info, input: EntitySetImageIdsInput) -> relay.Node:
+        obj = input.id.resolve_node_sync(info)
+        obj.image_ids = input.image_ids
         obj.save()
         return obj
 
