@@ -83,30 +83,30 @@ class ArtifactMutation:
         artifact.release_lock(info.context.request.user)
         return artifact
 
-    delete_artifact: Artifact = strawberry_django.mutations.delete(
-        strawberry_django.NodeInput,
-        permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked],
-    )
+    # delete_artifact: Artifact = strawberry_django.mutations.delete(
+    #     strawberry_django.NodeInput,
+    #     permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked],
+    # )
 
-    @strawberry_django.input_mutation(permission_classes=[IsStaff])
-    def artifact_add_image(
-        self, info, id: strawberry.relay.GlobalID, image_id: str
-    ) -> Artifact:
-        obj = id.resolve_node_sync(info)
-        obj.image_ids = obj.image_ids + [image_id]
-        obj.save()
-        return obj
+    # @strawberry_django.input_mutation(permission_classes=[IsStaff])
+    # def artifact_add_image(
+    #     self, info, id: strawberry.relay.GlobalID, image_id: str
+    # ) -> Artifact:
+    #     obj = id.resolve_node_sync(info)
+    #     obj.image_ids = obj.image_ids + [image_id]
+    #     obj.save()
+    #     return obj
 
-    @strawberry_django.input_mutation(permission_classes=[IsStaff])
-    def artifact_lock(self, info, id: strawberry.relay.GlobalID) -> Artifact:
-        artifact = id.resolve_node_sync(info)
-        artifact = artifact.lock(info.context.request.user)
-        return artifact
+    # @strawberry_django.input_mutation(permission_classes=[IsStaff])
+    # def artifact_lock(self, info, id: strawberry.relay.GlobalID) -> Artifact:
+    #     artifact = id.resolve_node_sync(info)
+    #     artifact = artifact.lock(info.context.request.user)
+    #     return artifact
 
-    @strawberry_django.input_mutation(
-        permission_classes=[IsLockUserOrSuperuserIfLocked]
-    )
-    def artifact_release_lock(self, info, id: strawberry.relay.GlobalID) -> Artifact:
-        artifact = id.resolve_node_sync(info)
-        artifact = artifact.release_lock(info.context.request.user)
-        return artifact
+    # @strawberry_django.input_mutation(
+    #     permission_classes=[IsLockUserOrSuperuserIfLocked]
+    # )
+    # def artifact_release_lock(self, info, id: strawberry.relay.GlobalID) -> Artifact:
+    #     artifact = id.resolve_node_sync(info)
+    #     artifact = artifact.release_lock(info.context.request.user)
+    #     return artifact

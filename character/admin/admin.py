@@ -175,16 +175,18 @@ class CharacterAdmin(admin.ModelAdmin):
     )
     list_filter = ("created", "updated")
     readonly_fields = (
-        "lock_user",
-        "lock_time",
         "updated",
         "created",
     )
     fields = (
         "name",
         "description",
+        "markdown_notes",
+        "race",
         "lock_user",
         "lock_time",
+        "image_ids",
+        "global_id",
         "updated",
         "created",
         "related_characters",

@@ -21,9 +21,9 @@ class User(relay.Node):
     last_login: auto
 
 
-@strawberry.type
-class UserQuery:
-    users: DjangoListConnection[User] = strawberry_django.connection()
+# @strawberry.type
+# class UserQuery:
+#     users: DjangoListConnection[User] = strawberry_django.connection()
 
 
 @strawberry_django.input(models.User)

@@ -21,6 +21,7 @@ class AssociationAdmin(admin.ModelAdmin):
     fields = (
         "name",
         "description",
+        "markdown_notes",
         "related_associations",
         "related_artifacts",
         "related_characters",
@@ -31,4 +32,5 @@ class AssociationAdmin(admin.ModelAdmin):
         "lock_time",
         "updated",
         "created",
+        "global_id",
     )

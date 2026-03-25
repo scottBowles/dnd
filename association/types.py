@@ -83,36 +83,36 @@ class AssociationMutation:
         association.release_lock(info.context.request.user)
         return association
 
-    delete_association: Association = strawberry_django.mutations.delete(
-        strawberry_django.NodeInput,
-        permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked],
-    )
+    # delete_association: Association = strawberry_django.mutations.delete(
+    #     strawberry_django.NodeInput,
+    #     permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked],
+    # )
 
-    @strawberry_django.input_mutation(permission_classes=[IsStaff])
-    def association_add_image(
-        self, info, id: strawberry.relay.GlobalID, image_id: str
-    ) -> Association:
-        obj = id.resolve_node_sync(info)
-        obj.image_ids = obj.image_ids + [image_id]
-        obj.save()
-        return obj
+    # @strawberry_django.input_mutation(permission_classes=[IsStaff])
+    # def association_add_image(
+    #     self, info, id: strawberry.relay.GlobalID, image_id: str
+    # ) -> Association:
+    #     obj = id.resolve_node_sync(info)
+    #     obj.image_ids = obj.image_ids + [image_id]
+    #     obj.save()
+    #     return obj
 
-    @strawberry_django.input_mutation(permission_classes=[IsStaff])
-    def association_lock(
-        self,
-        info,
-        id: strawberry.relay.GlobalID,
-    ) -> Association:
-        association = id.resolve_node_sync(info)
-        association = association.lock(info.context.request.user)
-        return association
+    # @strawberry_django.input_mutation(permission_classes=[IsStaff])
+    # def association_lock(
+    #     self,
+    #     info,
+    #     id: strawberry.relay.GlobalID,
+    # ) -> Association:
+    #     association = id.resolve_node_sync(info)
+    #     association = association.lock(info.context.request.user)
+    #     return association
 
-    @strawberry_django.input_mutation(
-        permission_classes=[IsLockUserOrSuperuserIfLocked]
-    )
-    def association_release_lock(
-        self, info, id: strawberry.relay.GlobalID
-    ) -> Association:
-        association = id.resolve_node_sync(info)
-        association = association.release_lock(info.context.request.user)
-        return association
+    # @strawberry_django.input_mutation(
+    #     permission_classes=[IsLockUserOrSuperuserIfLocked]
+    # )
+    # def association_release_lock(
+    #     self, info, id: strawberry.relay.GlobalID
+    # ) -> Association:
+    #     association = id.resolve_node_sync(info)
+    #     association = association.release_lock(info.context.request.user)
+    #     return association

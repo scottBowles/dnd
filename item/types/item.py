@@ -207,30 +207,30 @@ class ItemMutation:
 
         return item
 
-    delete_item: Item = strawberry_django.mutations.delete(
-        strawberry_django.NodeInput,
-        permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked],
-    )
+    # delete_item: Item = strawberry_django.mutations.delete(
+    #     strawberry_django.NodeInput,
+    #     permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked],
+    # )
 
-    @strawberry_django.input_mutation(permission_classes=[IsStaff])
-    def item_add_image(
-        self, info, id: strawberry.relay.GlobalID, image_id: str
-    ) -> Item:
-        obj = id.resolve_node_sync(info)
-        obj.image_ids = obj.image_ids + [image_id]
-        obj.save()
-        return obj
+    # @strawberry_django.input_mutation(permission_classes=[IsStaff])
+    # def item_add_image(
+    #     self, info, id: strawberry.relay.GlobalID, image_id: str
+    # ) -> Item:
+    #     obj = id.resolve_node_sync(info)
+    #     obj.image_ids = obj.image_ids + [image_id]
+    #     obj.save()
+    #     return obj
 
-    @strawberry_django.input_mutation(permission_classes=[IsStaff])
-    def item_lock(self, info, id: strawberry.relay.GlobalID) -> Item:
-        item = id.resolve_node_sync(info)
-        item = item.lock(info.context.request.user)
-        return item
+    # @strawberry_django.input_mutation(permission_classes=[IsStaff])
+    # def item_lock(self, info, id: strawberry.relay.GlobalID) -> Item:
+    #     item = id.resolve_node_sync(info)
+    #     item = item.lock(info.context.request.user)
+    #     return item
 
-    @strawberry_django.input_mutation(
-        permission_classes=[IsLockUserOrSuperuserIfLocked]
-    )
-    def item_release_lock(self, info, id: strawberry.relay.GlobalID) -> Item:
-        item = id.resolve_node_sync(info)
-        item = item.release_lock(info.context.request.user)
-        return item
+    # @strawberry_django.input_mutation(
+    #     permission_classes=[IsLockUserOrSuperuserIfLocked]
+    # )
+    # def item_release_lock(self, info, id: strawberry.relay.GlobalID) -> Item:
+    #     item = id.resolve_node_sync(info)
+    #     item = item.release_lock(info.context.request.user)
+    #     return item

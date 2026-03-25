@@ -79,30 +79,30 @@ class RaceMutation:
         race.release_lock(info.context.request.user)
         return race
 
-    delete_race: Race = strawberry_django.mutations.delete(
-        strawberry_django.NodeInput,
-        permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked],
-    )
+    # delete_race: Race = strawberry_django.mutations.delete(
+    #     strawberry_django.NodeInput,
+    #     permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked],
+    # )
 
-    @strawberry_django.input_mutation(permission_classes=[IsStaff])
-    def race_add_image(
-        self, info, id: strawberry.relay.GlobalID, image_id: str
-    ) -> Race:
-        obj = id.resolve_node_sync(info)
-        obj.image_ids = obj.image_ids + [image_id]
-        obj.save()
-        return obj
+    # @strawberry_django.input_mutation(permission_classes=[IsStaff])
+    # def race_add_image(
+    #     self, info, id: strawberry.relay.GlobalID, image_id: str
+    # ) -> Race:
+    #     obj = id.resolve_node_sync(info)
+    #     obj.image_ids = obj.image_ids + [image_id]
+    #     obj.save()
+    #     return obj
 
-    @strawberry_django.input_mutation(permission_classes=[IsStaff])
-    def race_lock(self, info, id: strawberry.relay.GlobalID) -> Race:
-        race = id.resolve_node_sync(info)
-        race = race.lock(info.context.request.user)
-        return race
+    # @strawberry_django.input_mutation(permission_classes=[IsStaff])
+    # def race_lock(self, info, id: strawberry.relay.GlobalID) -> Race:
+    #     race = id.resolve_node_sync(info)
+    #     race = race.lock(info.context.request.user)
+    #     return race
 
-    @strawberry_django.input_mutation(
-        permission_classes=[IsLockUserOrSuperuserIfLocked]
-    )
-    def race_release_lock(self, info, id: strawberry.relay.GlobalID) -> Race:
-        race = id.resolve_node_sync(info)
-        race = race.release_lock(info.context.request.user)
-        return race
+    # @strawberry_django.input_mutation(
+    #     permission_classes=[IsLockUserOrSuperuserIfLocked]
+    # )
+    # def race_release_lock(self, info, id: strawberry.relay.GlobalID) -> Race:
+    #     race = id.resolve_node_sync(info)
+    #     race = race.release_lock(info.context.request.user)
+    #     return race

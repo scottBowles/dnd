@@ -27,8 +27,10 @@ class RaceAdmin(admin.ModelAdmin):
     fields = (
         "name",
         "description",
+        "markdown_notes",
         "lock_user",
         "lock_time",
+        "global_id",
         "updated",
         "created",
         "related_races",

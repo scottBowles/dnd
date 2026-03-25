@@ -10,6 +10,7 @@ from nucleus import models
 from nucleus.permissions import IsStaff
 from strawberry_django.relay import DjangoListConnection
 
+from .ordering import GameLogOrder
 from .user import User
 
 if TYPE_CHECKING:
@@ -56,7 +57,7 @@ class Entity(Lockable):
     updated: datetime.datetime
     logs: DjangoListConnection[
         Annotated["GameLog", strawberry.lazy("nucleus.types.gamelog")]
-    ] = strawberry_django.connection()
+    ] = strawberry_django.connection(order=GameLogOrder)
     lock_user: Optional[User]
     lock_time: Optional[datetime.datetime]
     locked_by_self: bool = strawberry.field(resolver=locked_by_self)

@@ -9,6 +9,7 @@ from strawberry_django.mutations import resolvers
 from nucleus.permissions import IsLockUserOrSuperuserIfLocked, IsStaff, IsSuperuser
 from strawberry_django.relay import DjangoListConnection
 from nucleus.types.entity import Lockable, locked_by_self
+from nucleus.types.ordering import GameLogOrder
 from nucleus.types.user import User
 
 from .. import models
@@ -75,7 +76,7 @@ class GameLog(Lockable, relay.Node):
     game_date: auto
     brief: auto
     synopsis: auto
-    summary: auto
+    # summary: auto
     places_set_in: DjangoListConnection[
         Annotated["Place", strawberry.lazy("place.types.place")]
     ] = strawberry_django.connection()
@@ -141,11 +142,6 @@ class RemoveEntityLogInput:
     log_id: strawberry.relay.GlobalID
 
 
-@strawberry_django.order_type(models.GameLog)
-class GameLogOrder:
-    game_date: auto
-
-
 @strawberry.type
 class GameLogQuery:
     game_logs: DjangoListConnection[GameLog] = strawberry_django.connection(
@@ -160,14 +156,14 @@ class GameLogQuery:
         aiLogSummary = gamelog.get_ai_log_suggestions()
         return aiLogSummary
 
-    @strawberry.field(permission_classes=[IsStaff])
-    def consolidated_ai_log_suggestions(
-        self, info, id: strawberry.relay.GlobalID
-    ) -> CombinedGameLogAiSummary:
-        from ..models import CombinedAiLogSuggestion
+    # @strawberry.field(permission_classes=[IsStaff])
+    # def consolidated_ai_log_suggestions(
+    #     self, info, id: strawberry.relay.GlobalID
+    # ) -> CombinedGameLogAiSummary:
+    #     from ..models import CombinedAiLogSuggestion
 
-        gamelog = id.resolve_node_sync(info, ensure_type=models.GameLog)
-        return CombinedAiLogSuggestion(gamelog)
+    #     gamelog = id.resolve_node_sync(info, ensure_type=models.GameLog)
+    #     return CombinedAiLogSuggestion(gamelog)
 
 
 @strawberry.type
@@ -197,28 +193,28 @@ class GameLogMutation:
         gameLog.release_lock(info.context.request.user)
         return gameLog
 
-    delete_game_log: GameLog = strawberry_django.mutations.delete(
-        strawberry_django.NodeInput,
-        permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked],
-    )
+    # delete_game_log: GameLog = strawberry_django.mutations.delete(
+    #     strawberry_django.NodeInput,
+    #     permission_classes=[IsSuperuser, IsLockUserOrSuperuserIfLocked],
+    # )
 
-    @strawberry_django.input_mutation(permission_classes=[IsStaff])
-    def gamelog_lock(
-        self,
-        info,
-        id: strawberry.relay.GlobalID,
-    ) -> GameLog:
-        gamelog = id.resolve_node_sync(info, ensure_type=models.GameLog)
-        gamelog = gamelog.lock(info.context.request.user)
-        return gamelog
+    # @strawberry_django.input_mutation(permission_classes=[IsStaff])
+    # def gamelog_lock(
+    #     self,
+    #     info,
+    #     id: strawberry.relay.GlobalID,
+    # ) -> GameLog:
+    #     gamelog = id.resolve_node_sync(info, ensure_type=models.GameLog)
+    #     gamelog = gamelog.lock(info.context.request.user)
+    #     return gamelog
 
-    @strawberry_django.input_mutation(
-        permission_classes=[IsLockUserOrSuperuserIfLocked]
-    )
-    def gamelog_release_lock(self, info, id: strawberry.relay.GlobalID) -> GameLog:
-        gamelog = id.resolve_node_sync(info, ensure_type=models.GameLog)
-        gamelog = gamelog.release_lock(info.context.request.user)
-        return gamelog
+    # @strawberry_django.input_mutation(
+    #     permission_classes=[IsLockUserOrSuperuserIfLocked]
+    # )
+    # def gamelog_release_lock(self, info, id: strawberry.relay.GlobalID) -> GameLog:
+    #     gamelog = id.resolve_node_sync(info, ensure_type=models.GameLog)
+    #     gamelog = gamelog.release_lock(info.context.request.user)
+    #     return gamelog
 
     @strawberry_django.input_mutation(permission_classes=[IsStaff])
     def add_ai_log_suggestion(

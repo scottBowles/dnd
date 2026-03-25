@@ -1,5 +1,6 @@
 import strawberry
 from strawberry.tools import merge_types
+
 from gqlauth.user.queries import UserQueries
 from gqlauth.core.middlewares import JwtSchema
 from gqlauth.user import relay as mutations
@@ -9,24 +10,24 @@ from strawberry.schema.config import StrawberryConfig
 
 from association.types import AssociationQuery, AssociationMutation
 from character.types import (
-    FeatureQuery,
-    LanguageQuery,
+    # FeatureQuery,
+    # LanguageQuery,
     CharacterQuery,
-    ProficiencyQuery,
-    ScriptQuery,
-    SkillQuery,
-    FeatureMutation,
-    LanguageMutation,
+    # ProficiencyQuery,
+    # ScriptQuery,
+    # SkillQuery,
+    # FeatureMutation,
+    # LanguageMutation,
     CharacterMutation,
-    ProficiencyMutation,
-    ScriptMutation,
-    SkillMutation,
+    # ProficiencyMutation,
+    # ScriptMutation,
+    # SkillMutation,
 )
 from item.types import ArtifactQuery, ItemQuery, ArtifactMutation, ItemMutation
 from nucleus.types import (
     GameLogQuery,
     NodeQuery,
-    UserQuery,
+    # UserQuery,
     EntityMutation,
     GameLogMutation,
     LoginMutation,
@@ -34,12 +35,12 @@ from nucleus.types import (
 )
 from place.types import PlaceQuery, PlaceMutation, ExportQuery, ExportMutation
 from race.types import (
-    AbilityScoreIncreaseQuery,
+    # AbilityScoreIncreaseQuery,
     RaceQuery,
-    TraitQuery,
-    AbilityScoreIncreaseMutation,
+    # TraitQuery,
+    # AbilityScoreIncreaseMutation,
     RaceMutation,
-    TraitMutation,
+    # TraitMutation,
 )
 from rag_chat.types import RAGQuery, RAGMutation
 
@@ -83,7 +84,7 @@ queries = (
     # SkillQuery,
     # TraitQuery,
     RAGQuery,
-    UserQuery,
+    # UserQuery,
     UserQueries,
     NodeQuery,
 )

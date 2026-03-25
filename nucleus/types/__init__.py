@@ -5,7 +5,8 @@ from .gamelog import *
 from .user import *
 from .login import *
 
-queries = (GameLogQuery, UserQuery)
+# queries = (GameLogQuery, UserQuery)
+queries = (GameLogQuery,)
 mutations = (GameLogMutation, LoginMutation, UserMutation)
 
 Query = merge_types("Query", queries)
