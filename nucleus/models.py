@@ -75,6 +75,40 @@ class User(AbstractUser):
     pc_name = models.CharField(max_length=255, blank=True, null=True)
 
 
+class ActivityType(models.TextChoices):
+    PAGE_VIEW = "PAGE_VIEW", _("Page View")
+    LOGIN = "LOGIN", _("Login")
+    TOKEN_REFRESH = "TOKEN_REFRESH", _("Token Refresh")
+
+
+class UserActivity(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="activities",
+        null=True,
+        blank=True,
+    )
+    activity_type = models.CharField(
+        max_length=20,
+        choices=ActivityType.choices,
+    )
+    path = models.CharField(max_length=2048, blank=True, null=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    metadata = models.JSONField(blank=True, null=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "timestamp"]),
+            models.Index(fields=["activity_type", "timestamp"]),
+        ]
+        ordering = ["-timestamp"]
+
+    def __str__(self):
+        user_str = self.user.username if self.user else "anonymous"
+        return f"{user_str} - {self.activity_type} - {self.timestamp}"
+
+
 class CreatableModel(models.Model):
     created = models.DateTimeField(auto_now_add=True)
 

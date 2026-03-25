@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User, GameLog, AiLogSuggestion, SessionAudio
+from .models import User, UserActivity, GameLog, AiLogSuggestion, SessionAudio
 from django.utils import timezone
 import zoneinfo
 from django.utils.safestring import mark_safe
@@ -361,6 +361,24 @@ class UserAdmin(BaseUserAdmin):
             "%B %d, %Y %-I:%M %p %Z"
         )
         return formatted_date
+
+
+@admin.register(UserActivity)
+class UserActivityAdmin(admin.ModelAdmin):
+    list_display = ("user", "activity_type", "path", "timestamp")
+    list_filter = ("activity_type", "timestamp")
+    search_fields = ("user__username", "path")
+    readonly_fields = ("user", "activity_type", "path", "timestamp", "metadata")
+    ordering = ("-timestamp",)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
 
 
 @admin.register(SessionAudio)

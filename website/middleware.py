@@ -4,6 +4,9 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from gqlauth.models import RefreshToken
 
+from nucleus.models import ActivityType
+from nucleus.signals import record_activity
+
 User = get_user_model()
 
 
@@ -51,7 +54,7 @@ class TokenRefreshActivityMiddleware:
         if refresh_token and response.status_code == 200:
             user = self._get_user_from_refresh_token(refresh_token)
             if user:
-                User.objects.filter(pk=user.pk).update(last_activity=timezone.now())
+                record_activity(user=user, activity_type=ActivityType.TOKEN_REFRESH)
 
         return response
 
