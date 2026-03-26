@@ -1,7 +1,7 @@
 import concurrent.futures
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Generator, List, Optional
 
 from django.conf import settings
 from django.db.models import QuerySet
@@ -46,6 +46,19 @@ class SemanticSearchResult:
     chunk_id: int
     content_type: str
     content_object: Association | Character | Place | Item | Artifact | Race | GameLog
+
+
+@dataclass
+class PreparedContext:
+    """All the pre-LLM pipeline output needed to generate a response."""
+
+    system_prompt: str
+    assembled_context: str
+    sources: Any  # SourcesV1
+    entities_to_include: List[Any]
+    logs_included: List[GameLog]
+    similarity_threshold: float
+    used_session_context: bool
 
 
 class RAGService:
@@ -502,106 +515,15 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
 
         return assembled, logs_to_include
 
-    def generate_response(
-        self,
-        query: str,
-        similarity_threshold: Optional[float] = None,
-        session: Optional[ChatSession] = None,
-        max_logs_to_include: int = 10,
-        max_entities_to_include: int = 15,
-    ) -> Dict[str, Any]:
-        """
-        Main RAG pipeline: search, build context, generate response
+    def _build_system_prompt(self, session: Optional[ChatSession] = None) -> str:
+        """Build the system prompt for the LLM."""
+        pc_name = (
+            session.user.pc_name
+            if session and session.user and session.user.pc_name
+            else None
+        )
 
-        Args:
-            query: User's question
-            similarity_threshold: Minimum similarity for chunk inclusion
-            session: Optional chat session for building contextual search queries and conversation memory
-
-        Returns:
-            Dict with response, sources, tokens_used, etc.
-        """
-        from .ConversationMemoryService import ConversationMemoryService
-
-        print("START")
-        try:
-            ######### GET CONVERSATION HISTORY #########
-            conversation_messages = (
-                ConversationMemoryService(
-                    session, model=self.model
-                ).get_prompt_messages_str(query)
-                if session
-                else ""
-            )
-            print("got conversation messages")
-
-            ######### ENHANCE QUERY WITH CONTEXT #########
-            enhanced_search_query = self._get_enhanced_query(
-                query,
-                conversation_messages=conversation_messages,
-                session=session,
-                similarity_threshold=similarity_threshold,
-            )
-
-            ######### RETRIEVE LOGS AND ENTITIES USING ENHANCED QUERY #########
-            logs_to_include_candidates, entities_to_include = (
-                self._get_logs_and_entities_for_query(
-                    enhanced_search_query,
-                    similarity_threshold=similarity_threshold,
-                    max_logs_to_include=max_logs_to_include,
-                    max_entities_to_include=max_entities_to_include,
-                )
-            )
-
-            if not logs_to_include_candidates and not entities_to_include:
-                response_data = {
-                    "response": "I couldn't find any relevant information for that question. Could you try rephrasing it or asking about something more specific?",
-                    "sources": create_sources([]),
-                    "tokens_used": 0,
-                    "similarity_threshold": similarity_threshold
-                    or self.default_similarity_threshold,
-                    "chunks_found": 0,
-                    "used_session_context": session is not None,
-                }
-                return response_data
-
-            ######### BUILD CONTEXT FROM THE RESULTS #########
-
-            assembled_context, logs_included = self._assemble_context(
-                conversation_messages=conversation_messages,
-                entities_to_include=entities_to_include,
-                logs_to_include_candidates=logs_to_include_candidates,
-            )
-
-            print("Assembled context")
-
-            # Create system prompt with enhanced instructions
-            #             _system_prompt = """You are a knowledgeable D&D campaign assistant with access to detailed information from an ongoing campaign including session logs, characters, places, items, artifacts, races, associations, and other campaign elements.
-
-            # Your role is to help players and the DM recall information, understand relationships, remember important details, and connect story elements across different aspects of the campaign.
-
-            # Guidelines:
-            # - Answer questions using the provided context from various sources
-            # - When referencing game sessions, mention specific session titles/numbers and dates when available
-            # - When discussing characters, places, items, etc., use their proper names and reference where they appeared
-            # - Be conversational and engaging, like a helpful fellow player who has perfect recall
-            # - If information spans multiple sources, weave them together naturally to tell a complete story
-            # - If you can't find relevant information, say so clearly but suggest related topics that might help
-            # - For entity questions (characters, places, items, artifacts, races, associations), focus on what actually happened or was described in the campaign
-            # - Maintain the narrative tone of the campaign
-            # - Always distinguish between different types of sources (session logs vs character descriptions vs place details, etc.)
-            # - Do not make up information or editorialize.
-
-            # The context below contains information from relevant campaign sources:"""
-
-            # Get PC name for context if available
-            pc_name = (
-                session.user.pc_name
-                if session and session.user and session.user.pc_name
-                else None
-            )
-
-            system_prompt = f"""# D&D Bi-Solar Campaign Onboard Intelligence
+        return f"""# D&D Bi-Solar Campaign Onboard Intelligence
 You are the ship's computer for a D&D homebrew campaign set in a bi-solar system with multiple planets connected by spaceship travel. You have access to embeddings containing game logs, places, characters, items, artifacts, associations, and races from this space fantasy setting.
 
 ## Core Rules
@@ -639,48 +561,183 @@ When users ask about predictions, future events, or "what might happen next":
     - Dorinda, played by Joel
     - Darnit, played by Wes
 - The primary objective of the Branch of Teresias is to free the gods from their imprisonment by the Vardum. The Vardum seek to control the gods.
-- The Codex of Teresias is a key artifact that contains difficult-to-decipher prophecies about the gods, the Vardum, and the Branch of Teresias. It is currently in the possession of Bode Augur, who the group believes, with the Vardum, seeks to use it to construct a Solar Cannon, capable of destroying the gods.{f'''
+- The Codex of Teresias is a key artifact that contains difficult-to-decipher prophecies about the gods, the Vardum, and the Branch of Teresias. It is currently in the possession of Bode Augur, who the group believes, with the Vardum, seeks to use it to construct a Solar Cannon, capable of destroying the gods.{f"""
 
 ## Current User Context
-You are currently interfacing with {pc_name}.''' if pc_name else ""}
+You are currently interfacing with {pc_name}.""" if pc_name else ""}
 
 Your goal: Be the ultimate space fantasy campaign ship's computer that understands the unique dynamics of this multi-world setting. **Remember** to also respond in character as the ship's AI."""
 
-            print("getting response from openai")
+    def prepare_context(
+        self,
+        query: str,
+        similarity_threshold: Optional[float] = None,
+        session: Optional[ChatSession] = None,
+        max_logs_to_include: int = 10,
+        max_entities_to_include: int = 15,
+    ) -> Optional[PreparedContext]:
+        """
+        Run the full pre-LLM pipeline: conversation history, query enhancement,
+        retrieval, context assembly, system prompt. Returns None if no relevant
+        context is found.
+        """
+        from .ConversationMemoryService import ConversationMemoryService
+
+        ######### GET CONVERSATION HISTORY #########
+        conversation_messages = (
+            ConversationMemoryService(
+                session, model=self.model
+            ).get_prompt_messages_str(query)
+            if session
+            else ""
+        )
+
+        ######### ENHANCE QUERY WITH CONTEXT #########
+        enhanced_search_query = self._get_enhanced_query(
+            query,
+            conversation_messages=conversation_messages,
+            session=session,
+            similarity_threshold=similarity_threshold,
+        )
+
+        ######### RETRIEVE LOGS AND ENTITIES USING ENHANCED QUERY #########
+        logs_to_include_candidates, entities_to_include = (
+            self._get_logs_and_entities_for_query(
+                enhanced_search_query,
+                similarity_threshold=similarity_threshold,
+                max_logs_to_include=max_logs_to_include,
+                max_entities_to_include=max_entities_to_include,
+            )
+        )
+
+        if not logs_to_include_candidates and not entities_to_include:
+            return None
+
+        ######### BUILD CONTEXT FROM THE RESULTS #########
+        assembled_context, logs_included = self._assemble_context(
+            conversation_messages=conversation_messages,
+            entities_to_include=entities_to_include,
+            logs_to_include_candidates=logs_to_include_candidates,
+        )
+
+        system_prompt = self._build_system_prompt(session)
+        sources = create_sources(entities_to_include + logs_included)
+
+        return PreparedContext(
+            system_prompt=system_prompt,
+            assembled_context=assembled_context,
+            sources=sources,
+            entities_to_include=entities_to_include,
+            logs_included=logs_included,
+            similarity_threshold=similarity_threshold
+            or self.default_similarity_threshold,
+            used_session_context=session is not None,
+        )
+
+    def generate_response_stream(
+        self,
+        query: str,
+        prepared: PreparedContext,
+    ) -> Generator[Dict[str, Any], None, None]:
+        """
+        Stream the LLM response token-by-token. Yields dicts:
+          {"type": "token", "token": "..."} for each content chunk
+          {"type": "done", "tokens_used": N} on completion
+          {"type": "error", "error": "..."} on failure
+        """
+        try:
+            stream = openai_client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": prepared.system_prompt},
+                    {"role": "assistant", "content": prepared.assembled_context},
+                    {"role": "user", "content": query},
+                ],
+                temperature=0.3,
+                max_completion_tokens=2000,
+                stream=True,
+                stream_options={"include_usage": True},
+            )
+
+            tokens_used = None
+            for chunk in stream:
+                if chunk.usage:
+                    tokens_used = chunk.usage.total_tokens
+
+                if chunk.choices and chunk.choices[0].delta.content:
+                    yield {"type": "token", "token": chunk.choices[0].delta.content}
+
+            yield {"type": "done", "tokens_used": tokens_used}
+
+        except Exception as e:
+            logger.error(f"Streaming response failed: {str(e)}")
+            yield {"type": "error", "error": str(e)}
+
+    def generate_response(
+        self,
+        query: str,
+        similarity_threshold: Optional[float] = None,
+        session: Optional[ChatSession] = None,
+        max_logs_to_include: int = 10,
+        max_entities_to_include: int = 15,
+    ) -> Dict[str, Any]:
+        """
+        Main RAG pipeline: search, build context, generate response
+
+        Args:
+            query: User's question
+            similarity_threshold: Minimum similarity for chunk inclusion
+            session: Optional chat session for building contextual search queries and conversation memory
+
+        Returns:
+            Dict with response, sources, tokens_used, etc.
+        """
+        try:
+            prepared = self.prepare_context(
+                query=query,
+                similarity_threshold=similarity_threshold,
+                session=session,
+                max_logs_to_include=max_logs_to_include,
+                max_entities_to_include=max_entities_to_include,
+            )
+
+            if prepared is None:
+                return {
+                    "response": "I couldn't find any relevant information for that question. Could you try rephrasing it or asking about something more specific?",
+                    "sources": create_sources([]),
+                    "tokens_used": 0,
+                    "similarity_threshold": similarity_threshold
+                    or self.default_similarity_threshold,
+                    "chunks_found": 0,
+                    "used_session_context": session is not None,
+                }
 
             response = openai_client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "assistant", "content": assembled_context},
+                    {"role": "system", "content": prepared.system_prompt},
+                    {"role": "assistant", "content": prepared.assembled_context},
                     {"role": "user", "content": query},
                 ],
                 temperature=0.3,
                 max_completion_tokens=2000,
             )
 
-            print("got response from openai")
-
             response_text = response.choices[0].message.content
             tokens_used = response.usage.total_tokens if response.usage else None
-            sources = create_sources(entities_to_include + logs_included)
-
-            print("assembling response data")
 
             response_data = {
                 "response": response_text,
-                "sources": sources,
+                "sources": prepared.sources,
                 "tokens_used": tokens_used,
-                "similarity_threshold": similarity_threshold
-                or self.default_similarity_threshold,
-                "used_session_context": session is not None,
+                "similarity_threshold": prepared.similarity_threshold,
+                "used_session_context": prepared.used_session_context,
             }
 
             logger.info(
                 f"Generated response for query: {query[:50]}... "
-                f"(query: {query[:50]}..., tokens: {tokens_used}"
+                f"(tokens: {tokens_used})"
             )
-            print("generated response")
             return response_data
 
         except Exception as e:

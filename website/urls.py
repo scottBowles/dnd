@@ -27,6 +27,7 @@ from website import settings
 
 # from strawberry.django.views import AsyncGraphQLView
 from .types import schema
+from rag_chat.views import chat_stream_view
 
 import logging
 
@@ -69,5 +70,6 @@ urlpatterns = [
         # csrf_exempt(GraphQLView.as_view(schema=schema)),
         csrf_exempt(GraphQLView.as_view(schema=schema)),
     ),
+    path("api/chat/stream/", chat_stream_view),
     # path("graphql/", AsyncGraphQLView.as_view(schema=schema)),
 ]
