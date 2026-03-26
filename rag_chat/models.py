@@ -96,6 +96,10 @@ class ChatSession(models.Model):
         default="",
         help_text="Running summary of all messages outside the sliding token window",
     )
+    is_archived = models.BooleanField(
+        default=False,
+        help_text="Archived sessions are hidden from the user",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

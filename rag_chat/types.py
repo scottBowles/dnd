@@ -129,6 +129,11 @@ class SendChatMessageInput:
 
 
 @strawberry.input
+class ArchiveChatSessionInput:
+    session_id: relay.GlobalID
+
+
+@strawberry.input
 class ProcessContentInput:
     content_type: str
     object_id: str
@@ -188,15 +193,21 @@ class RAGQuery:
         permission_classes=[IsSuperuser]
     )
 
-    @strawberry_django.connection(DjangoListConnection[ChatSessionType], permission_classes=[CanUseRAGChat])
+    @strawberry_django.connection(
+        DjangoListConnection[ChatSessionType], permission_classes=[CanUseRAGChat]
+    )
     def chat_sessions(self, info) -> list[models.ChatSession]:
         user = info.context.request.user
-        return models.ChatSession.objects.filter(user=user)
+        return models.ChatSession.objects.filter(user=user, is_archived=False)
 
-    @strawberry_django.connection(DjangoListConnection[ChatMessageType], permission_classes=[CanUseRAGChat])
+    @strawberry_django.connection(
+        DjangoListConnection[ChatMessageType], permission_classes=[CanUseRAGChat]
+    )
     def chat_messages(self, info) -> list[models.ChatMessage]:
         user = info.context.request.user
-        return models.ChatMessage.objects.filter(session__user=user)
+        return models.ChatMessage.objects.filter(
+            session__user=user, session__is_archived=False
+        )
 
     @strawberry.field(permission_classes=[IsSuperuser])
     def content_stats(self) -> List[ContentStatsType]:
@@ -308,6 +319,20 @@ class RAGQuery:
 
 @strawberry.type
 class RAGMutation:
+    @strawberry.mutation(permission_classes=[CanUseRAGChat])
+    def archive_chat_session(
+        self, info, input: ArchiveChatSessionInput
+    ) -> ChatSessionType:
+        user = info.context.request.user
+        session = input.session_id.resolve_node_sync(
+            info, ensure_type=models.ChatSession
+        )
+        if session.user != user:
+            raise PermissionError("You can only archive your own chat sessions.")
+        session.is_archived = True
+        session.save(update_fields=["is_archived"])
+        return session
+
     @strawberry.mutation(permission_classes=[CanStartChatSession])
     def start_chat_session(self, info, input: StartChatSessionInput) -> ChatSessionType:
         user = info.context.request.user

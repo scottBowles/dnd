@@ -179,7 +179,8 @@ class QueryCacheAdmin(admin.ModelAdmin):
 
 @admin.register(models.ChatSession)
 class ChatSessionAdmin(admin.ModelAdmin):
-    list_display = ("id", "user", "title", "created_at", "updated_at")
+    list_display = ("id", "user", "title", "is_archived", "created_at", "updated_at")
+    list_filter = ("is_archived",)
     search_fields = ("title", "user__username")
 
 
