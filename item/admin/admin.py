@@ -29,6 +29,7 @@ class ItemAdmin(admin.ModelAdmin):
     readonly_fields = (
         "lock_user",
         "lock_time",
+        "global_id",
         "updated",
         "created",
     )
@@ -79,6 +80,7 @@ class ArtifactAdmin(admin.ModelAdmin):
     readonly_fields = (
         "lock_user",
         "lock_time",
+        "global_id",
         "updated",
         "created",
     )

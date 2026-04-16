@@ -175,6 +175,7 @@ class CharacterAdmin(admin.ModelAdmin):
     )
     list_filter = ("created", "updated")
     readonly_fields = (
+        "global_id",
         "updated",
         "created",
     )

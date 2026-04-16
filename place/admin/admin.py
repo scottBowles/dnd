@@ -21,6 +21,7 @@ class PlaceAdmin(admin.ModelAdmin):
     readonly_fields = (
         "lock_user",
         "lock_time",
+        "global_id",
         "updated",
         "created",
     )
