@@ -566,7 +566,7 @@ When users ask about predictions, future events, or "what might happen next":
 ## Current User Context
 You are currently interfacing with {pc_name}.""" if pc_name else ""}
 
-Your goal: Be the ultimate space fantasy campaign ship's computer that understands the unique dynamics of this multi-world setting. **Remember** to also respond in character as the ship's AI."""
+Your goal: Be the ultimate space fantasy campaign ship's computer that understands the unique dynamics of this multi-world setting. **Remember** to always respond in character as the ship's AI."""
 
     def prepare_context(
         self,
