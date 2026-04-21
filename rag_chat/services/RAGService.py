@@ -1,11 +1,15 @@
 import concurrent.futures
 import logging
+import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Dict, Generator, List, Optional
 
 from django.conf import settings
+from django.contrib.contenttypes.models import ContentType
 from django.db.models import QuerySet
 from openai import OpenAI
+from pgvector.django import CosineDistance
 
 from association.models import Association
 from character.models import Character
@@ -24,13 +28,71 @@ from rag_chat.services.normalize_and_hybrid_rank_fuse import (
 from ..content_processors import get_processor
 from ..embeddings import get_embedding
 from ..models import ChatMessage, ChatSession, ContentChunk
-from ..source_models import create_sources, parse_sources
+from ..source_models import create_sources, parse_sources, bulk_resolve_sources
 from ..utils import count_tokens
 from .game_log_full_text_search import weighted_fts_search_logs
 from .trigram_entity_search import trigram_entity_search
 from .game_log_full_text_search import key_terms
 
 logger = logging.getLogger(__name__)
+
+
+class PipelineTimer:
+    """Lightweight timer for profiling pipeline steps."""
+
+    def __init__(self):
+        self.steps: list[tuple[str, float]] = []
+        self._start = time.perf_counter()
+
+    @contextmanager
+    def step(self, name: str):
+        t0 = time.perf_counter()
+        yield
+        self.steps.append((name, time.perf_counter() - t0))
+
+    def record(self, name: str, duration: float):
+        """Record a pre-measured duration (e.g. from a timed closure)."""
+        self.steps.append((name, duration))
+
+    def summary(self):
+        total = time.perf_counter() - self._start
+        w = max((len(n) for n, _ in self.steps), default=20)
+        lines = [
+            "",
+            f"{'─' * (w + 22)}",
+            f"{'Step':<{w}}  {'Time':>7}  {'%':>5}",
+            f"{'─' * (w + 22)}",
+        ]
+        for name, dur in self.steps:
+            pct = (dur / total * 100) if total else 0
+            lines.append(f"{name:<{w}}  {dur:>6.2f}s  {pct:>4.0f}%")
+        lines.append(f"{'─' * (w + 22)}")
+        lines.append(f"{'TOTAL':<{w}}  {total:>6.2f}s")
+        lines.append("")
+        msg = "\n".join(lines)
+        print(msg)
+        logger.info(msg)
+
+
+def _timed(fn):
+    """Call fn(), return (result, elapsed_seconds)."""
+    t0 = time.perf_counter()
+    result = fn()
+    return result, time.perf_counter() - t0
+
+
+# Map from content-type string keys (used throughout the pipeline) to model classes.
+# ContentType.objects.get_for_model() uses Django's internal cache, so after the
+# first call each model's ContentType is resolved without a DB query.
+_CONTENT_TYPE_MODEL_MAP: dict[str, type] = {
+    "gamelog": GameLog,
+    "character": Character,
+    "place": Place,
+    "item": Item,
+    "artifact": Artifact,
+    "race": Race,
+    "association": Association,
+}
 
 # Initialize OpenAI client
 openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
@@ -98,51 +160,17 @@ class RAGService:
             # Get query embedding
             query_embedding = get_embedding(query)
 
-            # Use Django ORM with pgvector
-            from django.contrib.contenttypes.models import ContentType
-            from pgvector.django import CosineDistance
-
             queryset = ContentChunk.objects.annotate(
                 similarity=1 - CosineDistance("embedding", query_embedding)
             ).filter(similarity__gte=similarity_threshold)
 
             # Filter by content types if specified
             if content_types:
-                # Convert string content types to ContentType instances
-                content_type_objects = []
-                for content_type_str in content_types:
-                    if content_type_str == "gamelog":
-                        content_type_obj = ContentType.objects.get(
-                            app_label="nucleus", model="gamelog"
-                        )
-                    elif content_type_str == "character":
-                        content_type_obj = ContentType.objects.get(
-                            app_label="character", model="character"
-                        )
-                    elif content_type_str == "place":
-                        content_type_obj = ContentType.objects.get(
-                            app_label="place", model="place"
-                        )
-                    elif content_type_str == "item":
-                        content_type_obj = ContentType.objects.get(
-                            app_label="item", model="item"
-                        )
-                    elif content_type_str == "artifact":
-                        content_type_obj = ContentType.objects.get(
-                            app_label="item", model="artifact"
-                        )
-                    elif content_type_str == "race":
-                        content_type_obj = ContentType.objects.get(
-                            app_label="race", model="race"
-                        )
-                    elif content_type_str == "association":
-                        content_type_obj = ContentType.objects.get(
-                            app_label="association", model="association"
-                        )
-                    else:
-                        continue
-                    content_type_objects.append(content_type_obj)
-
+                content_type_objects = [
+                    ContentType.objects.get_for_model(model_cls)
+                    for ct_str in content_types
+                    if (model_cls := _CONTENT_TYPE_MODEL_MAP.get(ct_str))
+                ]
                 if content_type_objects:
                     queryset = queryset.filter(content_type__in=content_type_objects)
 
@@ -240,41 +268,61 @@ class RAGService:
         conversation_messages: str,
         session: ChatSession | None,
         similarity_threshold: float | None,
+        timer: PipelineTimer | None = None,
     ) -> str:
         ######### GET ENTITIES FOR QUERY ENHANCEMENT #########
         query_with_history = conversation_messages + f"\n\nQuestion: {query}"
 
-        trigram_results_for_query_enhancement = trigram_entity_search(query)
+        def _trigram_search():
+            return trigram_entity_search(query)
+
+        def _semantic_search():
+            return self.semantic_search(
+                query_with_history,
+                limit=self.max_context_chunks,
+                similarity_threshold=similarity_threshold,
+                content_types=[
+                    "character",
+                    "place",
+                    "item",
+                    "artifact",
+                    "race",
+                    "association",
+                ],
+            )
+
+        def _past_message_sources():
+            if not session:
+                return []
+            messages_sources = list(session.messages.values_list("sources", flat=True))
+            all_sources = bulk_resolve_sources(messages_sources)
+            return [s for s in all_sources if not isinstance(s, GameLog)]
+
+        # Run all three entity-gathering operations concurrently
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            trigram_future = executor.submit(_timed, _trigram_search)
+            semantic_future = executor.submit(_timed, _semantic_search)
+            past_msg_future = executor.submit(_timed, _past_message_sources)
+
+            trigram_results_for_query_enhancement, t_tri = trigram_future.result()
+            semantic_search_results_for_query_enhancement, t_sem = (
+                semantic_future.result()
+            )
+            entities_from_past_messages, t_past = past_msg_future.result()
+
+        if timer:
+            timer.record("  enh: trigram_search", t_tri)
+            timer.record("  enh: semantic_search", t_sem)
+            timer.record("  enh: past_msg_sources", t_past)
+
         trigram_entities_for_query_enhancement = [
             res.entity for res in trigram_results_for_query_enhancement
         ]
-        print("got trigram entities for query enhancement")
-        semantic_search_results_for_query_enhancement = self.semantic_search(
-            query_with_history,
-            limit=self.max_context_chunks,
-            similarity_threshold=similarity_threshold,
-            content_types=[
-                "character",
-                "place",
-                "item",
-                "artifact",
-                "race",
-                "association",
-            ],
-        )
         entities_from_semantic_search = [
             result.content_object
             for result in semantic_search_results_for_query_enhancement
             if not isinstance(result.content_object, GameLog)
         ]
-        print("got entities from semantic search for query enhancement")
-        entities_from_past_messages = [
-            source
-            for message in session.messages.all()
-            for source in parse_sources(message.sources).sources
-            if not isinstance(source, GameLog)
-        ]
-        print("got entities from past messages for query enhancement")
 
         entities_for_query = dedupe_model_instances(
             [
@@ -319,19 +367,24 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
 """
         # Use a cheaper, faster model for query enhancement since it's a simpler rewriting task
         enhancement_model = settings.OPENAI_CHEAP_CHAT_MODEL
-        enhancement_response = openai_client.chat.completions.create(
-            model=enhancement_model,
-            messages=[
-                {"role": "system", "content": system_prompt_for_query_enhancement},
-                {"role": "user", "content": user_prompt_for_query_enhancement},
-            ],
-            temperature=0.0,
+        with_llm = (
+            timer.step("  enh: llm_rewrite")
+            if timer
+            else contextmanager(lambda: (yield))()
         )
+        with with_llm:
+            enhancement_response = openai_client.chat.completions.create(
+                model=enhancement_model,
+                messages=[
+                    {"role": "system", "content": system_prompt_for_query_enhancement},
+                    {"role": "user", "content": user_prompt_for_query_enhancement},
+                ],
+                temperature=0.0,
+            )
         enhanced_search_query = (
             enhancement_response.choices[0].message.content or query
         ).strip()
         logger.info(f"Enhanced search query: {enhanced_search_query[:100]}...")
-        print(f"Enhanced search query: {enhanced_search_query}")
 
         return enhanced_search_query
 
@@ -341,6 +394,7 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
         similarity_threshold: Optional[float] = None,
         max_logs_to_include: int = 10,
         max_entities_to_include: int = 15,
+        timer: PipelineTimer | None = None,
     ) -> tuple[
         List[GameLog], List[Association | Character | Place | Item | Artifact | Race]
     ]:
@@ -351,21 +405,26 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
         # Run the entity search operations in parallel
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
             # Submit both entity searches simultaneously
-            trigram_future = executor.submit(trigram_entity_search, query)
-
+            trigram_future = executor.submit(
+                _timed, lambda: trigram_entity_search(query)
+            )
             semantic_entity_future = executor.submit(
-                self.semantic_search,
-                query,
-                self.max_context_chunks,
-                similarity_threshold,
-                ["character", "place", "item", "artifact", "race", "association"],
+                _timed,
+                lambda: self.semantic_search(
+                    query,
+                    self.max_context_chunks,
+                    similarity_threshold,
+                    ["character", "place", "item", "artifact", "race", "association"],
+                ),
             )
 
             # Wait for results
-            trigram_results = trigram_future.result()
-            semantic_entity_chunks = semantic_entity_future.result()
+            trigram_results, t_tri = trigram_future.result()
+            semantic_entity_chunks, t_sem = semantic_entity_future.result()
 
-        print("got trigram and semantic entity results")
+        if timer:
+            timer.record("  ret: entity_trigram", t_tri)
+            timer.record("  ret: entity_semantic", t_sem)
 
         semantic_entity_scores = [
             ScoreSetElement(chunk.content_object, chunk.similarity)
@@ -375,16 +434,24 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
             ScoreSetElement(r.entity, r.similarity) for r in trigram_results
         ]
 
-        semantic_entity_scores_normalized = z_score_normalize(semantic_entity_scores)
-        trigram_scores_normalized = z_score_normalize(trigram_scores)
+        with_entity_fusion = (
+            timer.step("  ret: entity_fusion")
+            if timer
+            else contextmanager(lambda: (yield))()
+        )
+        with with_entity_fusion:
+            semantic_entity_scores_normalized = z_score_normalize(
+                semantic_entity_scores
+            )
+            trigram_scores_normalized = z_score_normalize(trigram_scores)
 
-        all_fused_entity_results = hybrid_rank_fuse(
-            (semantic_entity_scores_normalized, SEMANTIC_WEIGHT),
-            (trigram_scores_normalized, TRIGRAM_WEIGHT),
-        )
-        fused_entity_results = remove_results_more_than_stddev_below_mean(
-            all_fused_entity_results
-        )
+            all_fused_entity_results = hybrid_rank_fuse(
+                (semantic_entity_scores_normalized, SEMANTIC_WEIGHT),
+                (trigram_scores_normalized, TRIGRAM_WEIGHT),
+            )
+            fused_entity_results = remove_results_more_than_stddev_below_mean(
+                all_fused_entity_results
+            )
 
         # Now run log searches in parallel
         entities_for_log_search: list[Entity] = [
@@ -393,7 +460,7 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as log_executor:
             fts_future = log_executor.submit(
-                weighted_fts_search_logs, query, entities_for_log_search
+                _timed, lambda: weighted_fts_search_logs(query, entities_for_log_search)
             )
 
             enhanced_query_for_log_search = (
@@ -403,18 +470,22 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
                 )
             )
             semantic_log_future = log_executor.submit(
-                self.semantic_search,
-                enhanced_query_for_log_search,
-                self.max_context_chunks,
-                similarity_threshold,
-                ["gamelog"],
+                _timed,
+                lambda: self.semantic_search(
+                    enhanced_query_for_log_search,
+                    self.max_context_chunks,
+                    similarity_threshold,
+                    ["gamelog"],
+                ),
             )
 
             # Get log search results
-            fts_results = fts_future.result()
-            semantic_log_chunks = semantic_log_future.result()
+            fts_results, t_fts = fts_future.result()
+            semantic_log_chunks, t_sem_log = semantic_log_future.result()
 
-        print("got fts and semantic log results")
+        if timer:
+            timer.record("  ret: log_fts", t_fts)
+            timer.record("  ret: log_semantic", t_sem_log)
 
         if not semantic_log_chunks and not fused_entity_results and not fts_results:
             return [], []
@@ -432,17 +503,23 @@ use of relevant entities, aliases, or prior context. Output only the enriched qu
             else []
         )
 
-        semantic_log_scores_normalized = z_score_normalize(semantic_log_scores)
-        fts_scores_normalized = z_score_normalize(fts_scores)
-
-        all_fused_log_results = hybrid_rank_fuse(
-            (semantic_log_scores_normalized, SEMANTIC_WEIGHT),
-            (fts_scores_normalized, FTS_WEIGHT),
+        with_log_fusion = (
+            timer.step("  ret: log_fusion")
+            if timer
+            else contextmanager(lambda: (yield))()
         )
+        with with_log_fusion:
+            semantic_log_scores_normalized = z_score_normalize(semantic_log_scores)
+            fts_scores_normalized = z_score_normalize(fts_scores)
 
-        fused_log_results = remove_results_more_than_stddev_below_mean(
-            all_fused_log_results
-        )
+            all_fused_log_results = hybrid_rank_fuse(
+                (semantic_log_scores_normalized, SEMANTIC_WEIGHT),
+                (fts_scores_normalized, FTS_WEIGHT),
+            )
+
+            fused_log_results = remove_results_more_than_stddev_below_mean(
+                all_fused_log_results
+            )
 
         # Type assertions since we know the specific types from how we constructed the scores
         logs_to_include_candidates: list[GameLog] = [r.data for r in fused_log_results]  # type: ignore
@@ -583,45 +660,57 @@ Your goal: Be the ultimate space fantasy campaign ship's computer that understan
         """
         from .ConversationMemoryService import ConversationMemoryService
 
+        timer = PipelineTimer()
+
         ######### GET CONVERSATION HISTORY #########
-        conversation_messages = (
-            ConversationMemoryService(
-                session, model=self.model
-            ).get_prompt_messages_str(query)
-            if session
-            else ""
-        )
+        with timer.step("conversation_history"):
+            conversation_messages = (
+                ConversationMemoryService(
+                    session, model=self.model
+                ).get_prompt_messages_str(query)
+                if session
+                else ""
+            )
 
         ######### ENHANCE QUERY WITH CONTEXT #########
-        enhanced_search_query = self._get_enhanced_query(
-            query,
-            conversation_messages=conversation_messages,
-            session=session,
-            similarity_threshold=similarity_threshold,
-        )
+        with timer.step("query_enhancement"):
+            enhanced_search_query = self._get_enhanced_query(
+                query,
+                conversation_messages=conversation_messages,
+                session=session,
+                similarity_threshold=similarity_threshold,
+                timer=timer,
+            )
 
         ######### RETRIEVE LOGS AND ENTITIES USING ENHANCED QUERY #########
-        logs_to_include_candidates, entities_to_include = (
-            self._get_logs_and_entities_for_query(
-                enhanced_search_query,
-                similarity_threshold=similarity_threshold,
-                max_logs_to_include=max_logs_to_include,
-                max_entities_to_include=max_entities_to_include,
+        with timer.step("retrieval"):
+            logs_to_include_candidates, entities_to_include = (
+                self._get_logs_and_entities_for_query(
+                    enhanced_search_query,
+                    similarity_threshold=similarity_threshold,
+                    max_logs_to_include=max_logs_to_include,
+                    max_entities_to_include=max_entities_to_include,
+                    timer=timer,
+                )
             )
-        )
 
         if not logs_to_include_candidates and not entities_to_include:
+            timer.summary()
             return None
 
         ######### BUILD CONTEXT FROM THE RESULTS #########
-        assembled_context, logs_included = self._assemble_context(
-            conversation_messages=conversation_messages,
-            entities_to_include=entities_to_include,
-            logs_to_include_candidates=logs_to_include_candidates,
-        )
+        with timer.step("assemble_context"):
+            assembled_context, logs_included = self._assemble_context(
+                conversation_messages=conversation_messages,
+                entities_to_include=entities_to_include,
+                logs_to_include_candidates=logs_to_include_candidates,
+            )
 
-        system_prompt = self._build_system_prompt(session)
+        with timer.step("build_system_prompt"):
+            system_prompt = self._build_system_prompt(session)
         sources = create_sources(entities_to_include + logs_included)
+
+        timer.summary()
 
         return PreparedContext(
             system_prompt=system_prompt,
@@ -637,7 +726,7 @@ Your goal: Be the ultimate space fantasy campaign ship's computer that understan
     def generate_response_stream(
         self,
         query: str,
-        prepared: PreparedContext,
+        prepared_context: PreparedContext,
     ) -> Generator[Dict[str, Any], None, None]:
         """
         Stream the LLM response token-by-token. Yields dicts:
@@ -649,8 +738,11 @@ Your goal: Be the ultimate space fantasy campaign ship's computer that understan
             stream = openai_client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": prepared.system_prompt},
-                    {"role": "assistant", "content": prepared.assembled_context},
+                    {"role": "system", "content": prepared_context.system_prompt},
+                    {
+                        "role": "assistant",
+                        "content": prepared_context.assembled_context,
+                    },
                     {"role": "user", "content": query},
                 ],
                 temperature=0.3,
@@ -712,6 +804,7 @@ Your goal: Be the ultimate space fantasy campaign ship's computer that understan
                     "used_session_context": session is not None,
                 }
 
+            t0 = time.perf_counter()
             response = openai_client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -722,6 +815,10 @@ Your goal: Be the ultimate space fantasy campaign ship's computer that understan
                 temperature=0.3,
                 max_completion_tokens=2000,
             )
+
+            llm_elapsed = time.perf_counter() - t0
+            logger.info(f"LLM generation: {llm_elapsed:.2f}s")
+            print(f"\nLLM generation: {llm_elapsed:.2f}s")
 
             response_text = response.choices[0].message.content
             tokens_used = response.usage.total_tokens if response.usage else None

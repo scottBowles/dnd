@@ -1,3 +1,4 @@
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Dict, List, Literal, Sequence, Union
 
@@ -91,3 +92,44 @@ def create_sources(
     """Create a new sources object with the current version."""
 
     return CurrentSourcesModel(sources=sources, version=CURRENT_SOURCES_VERSION)
+
+
+def bulk_resolve_sources(
+    messages_sources: List[Dict[str, Any]],
+) -> List[Association | Character | Place | Item | Artifact | Race | GameLog]:
+    """Resolve source model instances from multiple messages' sources data in bulk.
+
+    Instead of calling parse_sources() per message (N×M individual DB queries),
+    this groups all source references by content type and fetches each group with
+    a single ``filter(pk__in=...)`` query.
+
+    Args:
+        messages_sources: list of raw ``message.sources`` dicts, each with
+            ``{"version": 1, "sources": [{"type": "app.model", "id": pk}, ...]}``
+
+    Returns:
+        Flat list of resolved model instances (order not guaranteed).
+    """
+    # Group PKs by "app_label.model" key
+    pks_by_type: dict[str, list[int]] = defaultdict(list)
+    for data in messages_sources:
+        if not isinstance(data, dict) or data.get("version") != 1:
+            continue
+        for src in data.get("sources", []):
+            type_key = src.get("type")
+            pk = src.get("id")
+            if type_key and pk is not None:
+                pks_by_type[type_key].append(pk)
+
+    # Bulk-fetch each content type
+    results: list[Association | Character | Place | Item | Artifact | Race | GameLog] = []
+    for type_key, pks in pks_by_type.items():
+        parts = type_key.split(".", 1)
+        if len(parts) != 2:
+            continue
+        ct = ContentType.objects.get(app_label=parts[0], model=parts[1])
+        model_class = ct.model_class()
+        if model_class is not None:
+            results.extend(model_class.objects.filter(pk__in=pks))
+
+    return results
