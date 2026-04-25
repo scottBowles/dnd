@@ -30,6 +30,7 @@ from ..embeddings import get_embedding
 from ..models import ChatMessage, ChatSession, ContentChunk
 from ..source_models import create_sources, parse_sources, bulk_resolve_sources
 from ..utils import count_tokens
+from .build_conversation_memory import build_conversation_memory
 from .game_log_full_text_search import weighted_fts_search_logs
 from .trigram_entity_search import trigram_entity_search
 from .game_log_full_text_search import key_terms
@@ -658,16 +659,12 @@ Your goal: Be the ultimate space fantasy campaign ship's computer that understan
         retrieval, context assembly, system prompt. Returns None if no relevant
         context is found.
         """
-        from .ConversationMemoryService import ConversationMemoryService
-
         timer = PipelineTimer()
 
         ######### GET CONVERSATION HISTORY #########
         with timer.step("conversation_history"):
             conversation_messages = (
-                ConversationMemoryService(
-                    session, model=self.model
-                ).get_prompt_messages_str(query)
+                build_conversation_memory(session, query, model=self.model)
                 if session
                 else ""
             )

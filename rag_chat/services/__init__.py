@@ -1,2 +1,2 @@
 from .RAGService import RAGService
-from .ConversationMemoryService import ConversationMemoryService
+from .build_conversation_memory import build_conversation_memory
